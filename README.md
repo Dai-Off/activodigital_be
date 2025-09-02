@@ -40,14 +40,45 @@ Dev (autoreload): `npm run dev`
 ## Estructura
 ```
 src/
-  app.ts
-  index.ts
-  lib/supabase.ts
-  routes/{index.ts, health.ts, auth.ts}
-  web/controllers/authController.ts
-  web/middlewares/authMiddleware.ts
-  domain/services/authService.ts
+  app.ts                      # App Express (middlewares globales y montaje de rutas)
+  index.ts                    # Bootstrap del servidor (lee .env y listen)
+  lib/
+    supabase.ts               # Clientes Supabase (admin/anon) como singletons
+  routes/
+    index.ts                  # Router raíz y agrupación de subrutas
+    health.ts                 # Healthchecks y debug de envs
+    auth.ts                   # Rutas de autenticación (signup, login, me, logout)
+  web/
+    controllers/
+      authController.ts       # Traduce HTTP <-> servicios (validación básica y códigos)
+    middlewares/
+      authMiddleware.ts       # Extrae userId desde Authorization: Bearer <token>
+  domain/
+    services/
+      authService.ts          # Lógica de negocio; orquesta Supabase (Auth y profiles)
 ```
+
+### Flujo para crear nuevos endpoints (mantener este patrón)
+1. Definir ruta en `src/routes/<modulo>.ts` y exportarla desde `src/routes/index.ts`.
+2. Implementar un controlador en `src/web/controllers/` que:
+   - Valide `req.body`/`req.params` mínimo (requeridos, tipos simples).
+   - Llame al servicio correspondiente y convierta resultados/errores en respuestas HTTP.
+3. Implementar la lógica en `src/domain/services/`:
+   - Reglas de negocio, transacciones simples, acceso a Supabase (Auth/DB).
+   - No usar objetos `Request`/`Response` aquí.
+4. Reutilizar utilidades/SDKs desde `src/lib/` (p.ej., clientes Supabase).
+5. Autenticación/Autorización:
+   - Usar `requireAuth` en rutas que necesiten usuario logueado.
+   - Si se requieren roles, consultar `profiles.role` en el servicio.
+6. Errores y respuestas:
+   - Controlador devuelve `4xx` en validaciones y `5xx` en errores internos.
+   - Servicios arrojan `Error` con mensaje claro.
+
+Ejemplo breve (nuevo módulo `items`):
+- `routes/items.ts`: define `GET /items` y `POST /items`.
+- `web/controllers/itemsController.ts`: valida input y llama `itemsService`.
+- `domain/services/itemsService.ts`: CRUD con Supabase.
+- `routes/index.ts`: `router.use('/items', itemsRouter);`
 
 ## Endpoints
 - GET `/` bienvenida
