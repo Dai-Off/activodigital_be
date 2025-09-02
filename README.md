@@ -6,6 +6,10 @@ Backend en Node.js + Express + TypeScript con Supabase para auth y perfiles.
 - Node 20+ (recomendado 22)
 - Cuenta de Supabase
 
+## URLs
+- Local: `http://localhost:3000`
+- Producción: `https://activodigital-be.onrender.com`
+
 ## Setup
 1. Instalar deps
 ```bash
@@ -55,6 +59,7 @@ src/
 - POST `/auth/logout` (frontend borra tokens)
 
 ## Pruebas rápidas (PowerShell)
+Local:
 ```powershell
 # signup
 Invoke-RestMethod -Method Post -Uri "http://localhost:3000/auth/signup" `
@@ -70,6 +75,37 @@ $token = $resp.access_token
 # me
 Invoke-RestMethod -Method Get -Uri "http://localhost:3000/auth/me" -Headers @{ Authorization = "Bearer $token" }
 ```
+Producción:
+```powershell
+# login
+Invoke-RestMethod -Method Post -Uri "https://activodigital-be.onrender.com/auth/login" `
+  -ContentType "application/json" `
+  -Body (@{ email="user@example.com"; password="Secret123!" } | ConvertTo-Json)
+
+# health
+Invoke-RestMethod -Method Get -Uri "https://activodigital-be.onrender.com/health/supabase"
+```
+
+cURL (prod):
+```bash
+curl -X POST https://activodigital-be.onrender.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Secret123!"}'
+```
+
+## Deploy en Render
+- Repo contiene `render.yaml` (blueprint) con servicio web Node.
+- Pasos:
+  1. En Render: New → Blueprint → seleccionar repo y rama `main`.
+  2. Render detecta `render.yaml`.
+  3. Variables de entorno:
+     - `NODE_ENV=production`
+     - `SUPABASE_URL`
+     - `SUPABASE_ANON_KEY`
+     - `SUPABASE_SERVICE_ROLE_KEY`
+  4. Build: `npm install && npm run build` | Start: `npm start` | Health: `/health/supabase`.
+  5. Deploy.
+- URL de producción: `https://activodigital-be.onrender.com` (ver bienvenida) ([link](https://activodigital-be.onrender.com)).
 
 ## Supabase
 - RPC `now` para health:
