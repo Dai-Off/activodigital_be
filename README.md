@@ -135,7 +135,6 @@ Authorization: Bearer <token>
 | Método | Endpoint | Descripción | Autenticación |
 |--------|----------|-------------|---------------|
 | POST | `/libros-digitales` | Crear libro digital | Sí |
-| GET | `/libros-digitales` | Obtener libros del usuario | Sí |
 | GET | `/libros-digitales/:id` | Obtener libro específico | Sí |
 | PUT | `/libros-digitales/:id` | Actualizar libro | Sí |
 | GET | `/libros-digitales/building/:buildingId` | Obtener libro por edificio | Sí |
