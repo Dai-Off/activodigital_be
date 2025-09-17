@@ -4,11 +4,26 @@ exports.logoutController = exports.meController = exports.loginController = expo
 const authService_1 = require("../../domain/services/authService");
 const signupController = async (req, res) => {
     try {
-        const { email, password, full_name } = req.body ?? {};
-        if (!email || !password) {
-            return res.status(400).json({ error: 'email and password are required' });
+        const { email, password, full_name, role } = req.body ?? {};
+        // Validar campos requeridos
+        if (!email || !password || !role) {
+            return res.status(400).json({
+                error: 'email, password and role are required'
+            });
         }
-        const result = await (0, authService_1.signUpUser)({ email, password, fullName: full_name });
+        // Validar rol permitido
+        const allowedRoles = ['tenedor', 'administrador', 'tecnico'];
+        if (!allowedRoles.includes(role)) {
+            return res.status(400).json({
+                error: `Invalid role. Allowed roles: ${allowedRoles.join(', ')}`
+            });
+        }
+        const result = await (0, authService_1.signUpUser)({
+            email,
+            password,
+            fullName: full_name,
+            role
+        });
         return res.status(201).json(result);
     }
     catch (err) {

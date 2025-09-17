@@ -5,7 +5,7 @@ exports.signInUser = signInUser;
 exports.getProfileByUserId = getProfileByUserId;
 const supabase_1 = require("../../lib/supabase");
 async function signUpUser(params) {
-    const { email, password, fullName } = params;
+    const { email, password, fullName, role } = params;
     const supabase = (0, supabase_1.getSupabaseClient)();
     // 1) Crear usuario en Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -17,20 +17,20 @@ async function signUpUser(params) {
         throw new Error(authError?.message || 'Failed to create user');
     }
     const userId = authData.user.id;
-    // 2) Insertar perfil con rol por defecto 'tenedor'
+    // 2) Insertar perfil con el rol especificado
     const { error: profileError } = await supabase
         .from('profiles')
         .insert({
         user_id: userId,
         email,
         full_name: fullName ?? null,
-        role: 'tenedor',
+        role,
     });
     if (profileError) {
         // TODO: opcional: revertir usuario en Auth si falla profiles
         throw new Error(profileError.message);
     }
-    return { user_id: userId, email, role: 'tenedor' };
+    return { user_id: userId, email, role };
 }
 async function signInUser(params) {
     const { email, password } = params;

@@ -4,10 +4,11 @@ type SignUpParams = {
   email: string;
   password: string;
   fullName?: string;
+  role: string;
 };
 
 export async function signUpUser(params: SignUpParams) {
-  const { email, password, fullName } = params;
+  const { email, password, fullName, role } = params;
   const supabase = getSupabaseClient();
 
   // 1) Crear usuario en Auth
@@ -22,21 +23,21 @@ export async function signUpUser(params: SignUpParams) {
 
   const userId = authData.user.id;
 
-  // 2) Insertar perfil con rol por defecto 'tenedor'
+  // 2) Insertar perfil con el rol especificado
   const { error: profileError } = await supabase
     .from('profiles')
     .insert({
       user_id: userId,
       email,
       full_name: fullName ?? null,
-      role: 'tenedor',
+      role,
     });
   if (profileError) {
     // TODO: opcional: revertir usuario en Auth si falla profiles
     throw new Error(profileError.message);
   }
 
-  return { user_id: userId, email, role: 'tenedor' };
+  return { user_id: userId, email, role };
 }
 
 type SignInParams = { email: string; password: string };
