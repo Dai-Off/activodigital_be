@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requireAuth = void 0;
+exports.requireAuth = exports.authenticateToken = void 0;
 const supabase_1 = require("../../lib/supabase");
-const requireAuth = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization || '';
         const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
@@ -12,7 +12,11 @@ const requireAuth = async (req, res, next) => {
         const { data, error } = await supabase.auth.getUser(token);
         if (error || !data?.user)
             return res.status(401).json({ error: 'invalid token' });
-        req.userId = data.user.id;
+        // Asignar el usuario al request
+        req.user = {
+            id: data.user.id,
+            email: data.user.email
+        };
         return next();
     }
     catch (err) {
@@ -20,5 +24,7 @@ const requireAuth = async (req, res, next) => {
         return res.status(401).json({ error: message });
     }
 };
-exports.requireAuth = requireAuth;
+exports.authenticateToken = authenticateToken;
+// Alias para compatibilidad
+exports.requireAuth = exports.authenticateToken;
 //# sourceMappingURL=authMiddleware.js.map
