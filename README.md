@@ -1,151 +1,304 @@
 # Activo Digital - Backend
 
-Backend en Node.js + Express + TypeScript con Supabase para auth y perfiles.
+Backend en Node.js + Express + TypeScript con Supabase para autenticación y gestión de perfiles de usuarios con roles.
+
+## Características
+
+- **Autenticación completa** con Supabase
+- **Sistema de roles** (tenedor, administrador, técnico)
+- **API REST** con validación de datos
+- **Deploy automático** con GitHub Actions
+- **Arquitectura limpia** con separación de responsabilidades
 
 ## Requisitos
-- Node 20+ (recomendado 22)
+
+- Node.js 18+
 - Cuenta de Supabase
+- Cuenta de Fly.io (para deploy)
 
 ## URLs
-- Local: `http://localhost:3000`
-- Producción: `https://activodigital-be.onrender.com`
 
-## Setup
-1. Instalar deps
+- **Local:** `http://localhost:3000`
+- **Producción:** `https://activodigital-be.fly.dev`
+
+## Setup Local
+
+### 1. Instalar dependencias
 ```bash
 npm install
 ```
-2. Crear `.env` en la raíz:
+
+### 2. Variables de entorno
+Crear archivo `.env` en la raíz del proyecto:
 ```dotenv
 PORT=3000
 NODE_ENV=development
 
-SUPABASE_URL=https://evgaypztiulrsjpkxsqx.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2Z2F5cHp0aXVscnNqcGt4c3F4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MTU0NDQsImV4cCI6MjA3MjM5MTQ0NH0.8F-ftFa4N6vASOUsT2hD9xDXKpZFLCXJ8IJlRR55pc8
-# Opcional para pruebas administrativas:
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2Z2F5cHp0aXVscnNqcGt4c3F4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjgxNTQ0NCwiZXhwIjoyMDcyMzkxNDQ0fQ.NJOPYrTDTrMDRorniFAlFktbRPSHxoKYUAAoQT5e8_w
+# Supabase (Empresa)
+SUPABASE_URL=https://eqyevtkljwvhfsohawrk.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeWV2dGtsand2aGZzb2hhd3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2NzU2MTEsImV4cCI6MjA3MzI1MTYxMX0.fPwIWpcH-jKJFxZ_gCZBV6c8hjoDKvN4v361eVtD0N8
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeWV2dGtsand2aGZzb2hhd3JrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzY3NTYxMSwiZXhwIjoyMDczMjUxNjExfQ.CPy0R9AprbYLtK52SbzNF69EImU4QqEUu0Y1L77mrp8
 ```
-3. Compilar y ejecutar
+
+### 3. Compilar y ejecutar
 ```bash
+# Desarrollo (con autoreload)
+npm run dev
+
+# Producción
 npm run build
 npm start
 ```
-Dev (autoreload): `npm run dev`
 
-## Scripts
-- npm run dev: desarrollo con ts-node-dev
-- npm run build: compila TypeScript a `dist/`
-- npm start: ejecuta `dist/index.js`
+## Estructura del Proyecto
 
-## Estructura
 ```
 src/
-  app.ts                      # App Express (middlewares globales y montaje de rutas)
-  index.ts                    # Bootstrap del servidor (lee .env y listen)
-  lib/
-    supabase.ts               # Clientes Supabase (admin/anon) como singletons
-  routes/
-    index.ts                  # Router raíz y agrupación de subrutas
-    health.ts                 # Healthchecks y debug de envs
-    auth.ts                   # Rutas de autenticación (signup, login, me, logout)
-  web/
-    controllers/
-      authController.ts       # Traduce HTTP <-> servicios (validación básica y códigos)
-    middlewares/
-      authMiddleware.ts       # Extrae userId desde Authorization: Bearer <token>
-  domain/
-    services/
-      authService.ts          # Lógica de negocio; orquesta Supabase (Auth y profiles)
+├── app.ts                      # Configuración Express (middlewares, CORS, rutas)
+├── index.ts                    # Bootstrap del servidor (variables de entorno, listen)
+├── lib/
+│   └── supabase.ts            # Clientes Supabase (admin/anon) como singletons
+├── routes/
+│   ├── index.ts               # Router principal y agrupación de rutas
+│   ├── health.ts              # Healthchecks y debug de variables de entorno
+│   └── auth.ts                # Rutas de autenticación
+├── web/
+│   ├── controllers/
+│   │   └── authController.ts  # Controladores HTTP (validación, códigos de respuesta)
+│   └── middlewares/
+│       └── authMiddleware.ts  # Middleware de autenticación (Bearer token)
+└── domain/
+    └── services/
+        └── authService.ts     # Lógica de negocio (orquestación con Supabase)
 ```
 
-### Flujo para crear nuevos endpoints (mantener este patrón)
-1. Definir ruta en `src/routes/<modulo>.ts` y exportarla desde `src/routes/index.ts`.
-2. Implementar un controlador en `src/web/controllers/` que:
-   - Valide `req.body`/`req.params` mínimo (requeridos, tipos simples).
-   - Llame al servicio correspondiente y convierta resultados/errores en respuestas HTTP.
-3. Implementar la lógica en `src/domain/services/`:
-   - Reglas de negocio, transacciones simples, acceso a Supabase (Auth/DB).
-   - No usar objetos `Request`/`Response` aquí.
-4. Reutilizar utilidades/SDKs desde `src/lib/` (p.ej., clientes Supabase).
-5. Autenticación/Autorización:
-   - Usar `requireAuth` en rutas que necesiten usuario logueado.
-   - Si se requieren roles, consultar `profiles.role` en el servicio.
-6. Errores y respuestas:
-   - Controlador devuelve `4xx` en validaciones y `5xx` en errores internos.
-   - Servicios arrojan `Error` con mensaje claro.
+## Sistema de Autenticación
 
-Ejemplo breve (nuevo módulo `items`):
-- `routes/items.ts`: define `GET /items` y `POST /items`.
-- `web/controllers/itemsController.ts`: valida input y llama `itemsService`.
-- `domain/services/itemsService.ts`: CRUD con Supabase.
-- `routes/index.ts`: `router.use('/items', itemsRouter);`
+### Registro de Usuarios
+```typescript
+POST /auth/signup
+{
+  "email": "usuario@ejemplo.com",
+  "password": "contraseña123",
+  "full_name": "Nombre Completo",
+  "role": "administrador"  // "tenedor", "administrador", "tecnico"
+}
+```
 
-## Endpoints
-- GET `/` bienvenida
-- GET `/health/supabase` ping DB
-- GET `/health/env` debug envs (enmascarados)
-- POST `/auth/signup` { email, password, full_name }
-- POST `/auth/login` { email, password }
-- GET `/auth/me` Authorization: Bearer <token>
-- POST `/auth/logout` (frontend borra tokens)
+### Inicio de Sesión
+```typescript
+POST /auth/login
+{
+  "email": "usuario@ejemplo.com",
+  "password": "contraseña123"
+}
+```
 
-## Pruebas rápidas (PowerShell)
-Local:
+### Perfil de Usuario
+```typescript
+GET /auth/me
+Authorization: Bearer <token>
+```
+
+## Endpoints Disponibles
+
+| Método | Endpoint | Descripción | Autenticación |
+|--------|----------|-------------|---------------|
+| GET | `/` | Mensaje de bienvenida | ❌ |
+| GET | `/health/supabase` | Healthcheck de base de datos | ❌ |
+| GET | `/health/env` | Debug de variables de entorno | ❌ |
+| POST | `/auth/signup` | Registro de usuario | ❌ |
+| POST | `/auth/login` | Inicio de sesión | ❌ |
+| GET | `/auth/me` | Obtener perfil del usuario | ✅ |
+| POST | `/auth/logout` | Cerrar sesión | ❌ |
+
+## Pruebas Rápidas
+
+### PowerShell (Local)
 ```powershell
-# signup
+# Registro con rol
 Invoke-RestMethod -Method Post -Uri "http://localhost:3000/auth/signup" `
   -ContentType "application/json" `
-  -Body (@{ email="user@example.com"; password="Secret123!"; full_name="User" } | ConvertTo-Json)
+  -Body '{"email":"admin@test.com","password":"123456","full_name":"Admin Test","role":"administrador"}'
 
-# login
+# Login
 $resp = Invoke-RestMethod -Method Post -Uri "http://localhost:3000/auth/login" `
   -ContentType "application/json" `
-  -Body (@{ email="user@example.com"; password="Secret123!" } | ConvertTo-Json)
+  -Body '{"email":"admin@test.com","password":"123456"}'
 $token = $resp.access_token
 
-# me
-Invoke-RestMethod -Method Get -Uri "http://localhost:3000/auth/me" -Headers @{ Authorization = "Bearer $token" }
+# Obtener perfil
+Invoke-RestMethod -Method Get -Uri "http://localhost:3000/auth/me" `
+  -Headers @{ Authorization = "Bearer $token" }
 ```
-Producción:
+
+### PowerShell (Producción)
 ```powershell
-# login
-Invoke-RestMethod -Method Post -Uri "https://activodigital-be.onrender.com/auth/login" `
+# Registro
+Invoke-RestMethod -Method Post -Uri "https://activodigital-be.fly.dev/auth/signup" `
   -ContentType "application/json" `
-  -Body (@{ email="user@example.com"; password="Secret123!" } | ConvertTo-Json)
+  -Body '{"email":"test@ejemplo.com","password":"123456","full_name":"Test User","role":"tecnico"}'
 
-# health
-Invoke-RestMethod -Method Get -Uri "https://activodigital-be.onrender.com/health/supabase"
+# Healthcheck
+Invoke-RestMethod -Method Get -Uri "https://activodigital-be.fly.dev/health/supabase"
 ```
 
-cURL (prod):
+### cURL (Producción)
 ```bash
-curl -X POST https://activodigital-be.onrender.com/auth/login \
+# Registro
+curl -X POST https://activodigital-be.fly.dev/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"Secret123!"}'
+  -d '{"email":"test@ejemplo.com","password":"123456","full_name":"Test User","role":"administrador"}'
+
+# Login
+curl -X POST https://activodigital-be.fly.dev/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@ejemplo.com","password":"123456"}'
 ```
 
-## Deploy en Render
-- Repo contiene `render.yaml` (blueprint) con servicio web Node.
-- Pasos:
-  1. En Render: New → Blueprint → seleccionar repo y rama `main`.
-  2. Render detecta `render.yaml`.
-  3. Variables de entorno:
-     - `NODE_ENV=production`
-     - `SUPABASE_URL`
-     - `SUPABASE_ANON_KEY`
-     - `SUPABASE_SERVICE_ROLE_KEY`
-  4. Build: `npm install && npm run build` | Start: `npm start` | Health: `/health/supabase`.
-  5. Deploy.
-- URL de producción: `https://activodigital-be.onrender.com` (ver bienvenida) ([link](https://activodigital-be.onrender.com)).
+## Deploy en Fly.io
 
-## Supabase
-- RPC `now` para health:
+### Configuración Automática
+El proyecto incluye configuración completa para deploy automático:
+
+- **`fly.toml`**: Configuración de la aplicación
+- **`Dockerfile`**: Imagen Docker optimizada
+- **`.github/workflows/fly-deploy.yml`**: GitHub Actions para deploy automático
+
+### Deploy Manual
+```bash
+# Instalar Fly CLI
+# https://fly.io/docs/hands-on/install-flyctl/
+
+# Login
+fly auth login
+
+# Crear app (solo primera vez)
+fly launch --no-deploy --org santiago-anangono
+
+# Configurar variables de entorno
+fly secrets set SUPABASE_URL="https://eqyevtkljwvhfsohawrk.supabase.co"
+fly secrets set SUPABASE_ANON_KEY="tu_anon_key"
+fly secrets set SUPABASE_SERVICE_ROLE_KEY="tu_service_role_key"
+
+# Deploy
+fly deploy
+```
+
+### Deploy Automático
+1. **Configurar token en GitHub:**
+   - Ve a Settings → Secrets and variables → Actions
+   - Agrega `FLY_API_TOKEN` con el token generado por `fly tokens create deploy`
+
+2. **Push a main:**
+   ```bash
+   git add .
+   git commit -m "feat: nueva funcionalidad"
+   git push origin main
+   ```
+
+3. **GitHub Actions ejecutará el deploy automáticamente**
+
+## Base de Datos (Supabase)
+
+### Estructura de la Tabla `profiles`
 ```sql
-create or replace function public.now()
-returns timestamptz language sql stable as $$ select now(); $$;
+CREATE TABLE profiles (
+  user_id UUID PRIMARY KEY,
+  email TEXT NOT NULL,
+  full_name TEXT,
+  role user_role NOT NULL DEFAULT 'tenedor',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
-- Tabla `public.profiles` con enum `public.user_role` ('tenedor') y RLS (ver SQL en historia del proyecto).
 
-## Notas
-- No exponer `SERVICE_ROLE` en frontend.
-- Backend stateless; JWT gestionado por Supabase.
+### Enum `user_role`
+```sql
+CREATE TYPE user_role AS ENUM ('tenedor', 'administrador', 'tecnico');
+```
+
+### Función de Healthcheck
+```sql
+CREATE OR REPLACE FUNCTION public.now()
+RETURNS timestamptz 
+LANGUAGE sql 
+STABLE AS $$ 
+  SELECT now(); 
+$$;
+```
+
+## Scripts Disponibles
+
+| Script | Descripción |
+|--------|-------------|
+| `npm run dev` | Desarrollo con ts-node-dev (autoreload) |
+| `npm run build` | Compila TypeScript a `dist/` |
+| `npm start` | Ejecuta la aplicación compilada |
+| `npm run lint` | Ejecuta ESLint |
+
+## Patrón de Desarrollo
+
+Para agregar nuevos endpoints, seguir este patrón:
+
+1. **Ruta** en `src/routes/<modulo>.ts`
+2. **Controlador** en `src/web/controllers/<modulo>Controller.ts`
+3. **Servicio** en `src/domain/services/<modulo>Service.ts`
+4. **Registrar ruta** en `src/routes/index.ts`
+
+### Ejemplo: Módulo de Items
+```typescript
+// routes/items.ts
+router.get('/items', itemsController.getAll);
+router.post('/items', requireAuth, itemsController.create);
+
+// web/controllers/itemsController.ts
+export const getAll = async (req: Request, res: Response) => {
+  // Validación básica + llamada al servicio
+};
+
+// domain/services/itemsService.ts
+export async function getAllItems() {
+  // Lógica de negocio + acceso a Supabase
+}
+```
+
+## Seguridad
+
+- **Autenticación JWT** con Supabase
+- **Validación de roles** en endpoints sensibles
+- **Variables de entorno** para credenciales
+- **Row Level Security** en Supabase
+- **HTTPS** en producción
+
+## Monitoreo
+
+- **Logs en tiempo real:** `fly logs`
+- **Estado de la app:** `fly status`
+- **Métricas:** Dashboard de Fly.io
+- **Healthcheck:** `/health/supabase`
+
+## Troubleshooting
+
+### Error: "fetch failed"
+- Verificar que las variables de entorno estén configuradas
+- Comprobar conectividad con Supabase
+
+### Error: "invalid role"
+- Verificar que el enum `user_role` tenga los valores correctos
+- Los roles válidos son: `tenedor`, `administrador`, `tecnico`
+
+### Error de deploy
+- Verificar que `FLY_API_TOKEN` esté configurado en GitHub
+- Comprobar que la región no esté deprecada
+
+## Soporte
+
+- **Organización:** santiago-anangono
+- **Repositorio:** https://github.com/Dai-Off/activodigital_be
+- **URL Producción:** https://activodigital-be.fly.dev
+
+---
+
+**Última actualización:** Septiembre 2025
+**Versión:** 2.0.0 (con sistema de roles)
