@@ -3,11 +3,8 @@ import { authenticateToken } from '../web/middlewares/authMiddleware';
 import {
   getUserProfile,
   updateUserProfile,
-  getRoles,
   getTechnicians,
-  assignTechnicianToBuilding,
-  getTechnicianAssignments,
-  getTechnicianBuildings
+  assignTechnicianToBuilding
 } from '../web/controllers/userController';
 
 const router = Router();
@@ -19,13 +16,8 @@ router.use(authenticateToken);
 router.get('/profile', getUserProfile);
 router.put('/profile', updateUserProfile);
 
-// Rutas de roles
-router.get('/roles', getRoles);
-
-// Rutas para técnicos
+// Rutas para gestión de técnicos (solo tenedores)
 router.get('/technicians', getTechnicians);
 router.post('/assign-technician', assignTechnicianToBuilding);
-router.get('/technician/assignments', getTechnicianAssignments);
-router.get('/technician/buildings', getTechnicianBuildings);
 
 export default router;

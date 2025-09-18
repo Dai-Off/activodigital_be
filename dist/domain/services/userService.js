@@ -172,7 +172,7 @@ class UserService {
         if (error) {
             throw new Error(`Error al obtener asignaciones: ${error.message}`);
         }
-        return data.map(this.mapToAssignment);
+        return data.map((item) => this.mapToAssignment(item));
     }
     // Obtener edificios asignados a un técnico
     async getTechnicianBuildings(technicianAuthId) {

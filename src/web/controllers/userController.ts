@@ -45,15 +45,6 @@ export const updateUserProfile = async (req: Request, res: Response) => {
   }
 };
 
-export const getRoles = async (req: Request, res: Response) => {
-  try {
-    const roles = await userService.getRoles();
-    res.json(roles);
-  } catch (error) {
-    console.error('Error al obtener roles:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-};
 
 export const getTechnicians = async (req: Request, res: Response) => {
   try {
@@ -116,44 +107,3 @@ export const assignTechnicianToBuilding = async (req: Request, res: Response) =>
   }
 };
 
-export const getTechnicianAssignments = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: 'Usuario no autenticado' });
-    }
-
-    // Verificar que el usuario sea técnico
-    const user = await userService.getUserByAuthId(userId);
-    if (!user || user.role.name !== UserRole.TECNICO) {
-      return res.status(403).json({ error: 'Solo los técnicos pueden ver sus asignaciones' });
-    }
-
-    const assignments = await userService.getTechnicianAssignments(userId);
-    res.json(assignments);
-  } catch (error) {
-    console.error('Error al obtener asignaciones:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-};
-
-export const getTechnicianBuildings = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: 'Usuario no autenticado' });
-    }
-
-    // Verificar que el usuario sea técnico
-    const user = await userService.getUserByAuthId(userId);
-    if (!user || user.role.name !== UserRole.TECNICO) {
-      return res.status(403).json({ error: 'Solo los técnicos pueden ver edificios asignados' });
-    }
-
-    const buildingIds = await userService.getTechnicianBuildings(userId);
-    res.json(buildingIds);
-  } catch (error) {
-    console.error('Error al obtener edificios asignados:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-};

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTechnicianBuildings = exports.getTechnicianAssignments = exports.assignTechnicianToBuilding = exports.getTechnicians = exports.getRoles = exports.updateUserProfile = exports.getUserProfile = void 0;
+exports.assignTechnicianToBuilding = exports.getTechnicians = exports.updateUserProfile = exports.getUserProfile = void 0;
 const userService_1 = require("../../domain/services/userService");
 const user_1 = require("../../types/user");
 const userService = new userService_1.UserService();
@@ -42,17 +42,6 @@ const updateUserProfile = async (req, res) => {
     }
 };
 exports.updateUserProfile = updateUserProfile;
-const getRoles = async (req, res) => {
-    try {
-        const roles = await userService.getRoles();
-        res.json(roles);
-    }
-    catch (error) {
-        console.error('Error al obtener roles:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
-    }
-};
-exports.getRoles = getRoles;
 const getTechnicians = async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -104,44 +93,4 @@ const assignTechnicianToBuilding = async (req, res) => {
     }
 };
 exports.assignTechnicianToBuilding = assignTechnicianToBuilding;
-const getTechnicianAssignments = async (req, res) => {
-    try {
-        const userId = req.user?.id;
-        if (!userId) {
-            return res.status(401).json({ error: 'Usuario no autenticado' });
-        }
-        // Verificar que el usuario sea técnico
-        const user = await userService.getUserByAuthId(userId);
-        if (!user || user.role.name !== user_1.UserRole.TECNICO) {
-            return res.status(403).json({ error: 'Solo los técnicos pueden ver sus asignaciones' });
-        }
-        const assignments = await userService.getTechnicianAssignments(userId);
-        res.json(assignments);
-    }
-    catch (error) {
-        console.error('Error al obtener asignaciones:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
-    }
-};
-exports.getTechnicianAssignments = getTechnicianAssignments;
-const getTechnicianBuildings = async (req, res) => {
-    try {
-        const userId = req.user?.id;
-        if (!userId) {
-            return res.status(401).json({ error: 'Usuario no autenticado' });
-        }
-        // Verificar que el usuario sea técnico
-        const user = await userService.getUserByAuthId(userId);
-        if (!user || user.role.name !== user_1.UserRole.TECNICO) {
-            return res.status(403).json({ error: 'Solo los técnicos pueden ver edificios asignados' });
-        }
-        const buildingIds = await userService.getTechnicianBuildings(userId);
-        res.json(buildingIds);
-    }
-    catch (error) {
-        console.error('Error al obtener edificios asignados:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
-    }
-};
-exports.getTechnicianBuildings = getTechnicianBuildings;
 //# sourceMappingURL=userController.js.map

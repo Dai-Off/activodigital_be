@@ -132,11 +132,8 @@ Authorization: Bearer <token>
 |--------|----------|-------------|---------------|-----|
 | GET | `/users/profile` | Obtener perfil del usuario | Sí | Todos |
 | PUT | `/users/profile` | Actualizar perfil del usuario | Sí | Todos |
-| GET | `/users/roles` | Obtener roles disponibles | Sí | Todos |
 | GET | `/users/technicians` | Obtener lista de técnicos | Sí | Tenedor |
 | POST | `/users/assign-technician` | Asignar técnico a edificio | Sí | Tenedor |
-| GET | `/users/technician/assignments` | Obtener asignaciones del técnico | Sí | Técnico |
-| GET | `/users/technician/buildings` | Obtener edificios asignados | Sí | Técnico |
 
 ### Edificios
 | Método | Endpoint | Descripción | Autenticación |
@@ -530,8 +527,8 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     full_name VARCHAR(255),
     role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,             -- Rol asignado
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
