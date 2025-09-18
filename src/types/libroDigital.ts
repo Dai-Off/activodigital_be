@@ -34,8 +34,10 @@ export interface DigitalBook {
   status: BookStatus;
   progress: number; // 0-8
   sections: BookSection[];
+  technicianId?: string; // ID del técnico que gestiona el libro
   createdAt?: string;
   updatedAt?: string;
+  userId?: string; // Mantener por compatibilidad temporal
 }
 
 // DTOs para requests

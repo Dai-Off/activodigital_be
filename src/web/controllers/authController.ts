@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { signUpUser, signInUser, getProfileByUserId } from '../../domain/services/authService';
+import { UserRole } from '../../types/user';
 
 export const signupController = async (req: Request, res: Response) => {
   try {
@@ -13,7 +14,7 @@ export const signupController = async (req: Request, res: Response) => {
     }
 
     // Validar rol permitido
-    const allowedRoles = ['tenedor', 'administrador', 'tecnico'];
+    const allowedRoles = Object.values(UserRole);
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ 
         error: `Invalid role. Allowed roles: ${allowedRoles.join(', ')}` 
@@ -49,7 +50,7 @@ export const loginController = async (req: Request, res: Response) => {
 
 export const meController = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId as string | undefined;
+    const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const profile = await getProfileByUserId(userId);
     return res.status(200).json(profile);

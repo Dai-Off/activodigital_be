@@ -5,9 +5,13 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 ## Características
 
 - **Autenticación JWT** con Supabase
-- **Sistema de roles** (tenedor, administrador, técnico)
-- **Gestión de edificios** con imágenes y geolocalización
+- **Sistema de usuarios y roles** con relaciones específicas
+  - **Tenedor**: Propietario de edificios, puede crear edificios y asignar técnicos
+  - **Técnico**: Gestiona libros digitales de edificios asignados
+- **Gestión de edificios** con imágenes, geolocalización y precios
 - **Libros digitales** con 8 secciones y progreso automático
+- **Asignación de técnicos** por email para gestión de libros digitales
+- **Control de permisos** basado en roles y relaciones
 - **Relación 1:1** edificio-libro digital
 - **API REST** con validación de datos
 - **Deploy automático** con GitHub Actions
@@ -123,6 +127,17 @@ Authorization: Bearer <token>
 | GET | `/auth/me` | Obtener perfil del usuario | Sí |
 | POST | `/auth/logout` | Cerrar sesión | No |
 
+### Usuarios
+| Método | Endpoint | Descripción | Autenticación | Rol |
+|--------|----------|-------------|---------------|-----|
+| GET | `/users/profile` | Obtener perfil del usuario | Sí | Todos |
+| PUT | `/users/profile` | Actualizar perfil del usuario | Sí | Todos |
+| GET | `/users/roles` | Obtener roles disponibles | Sí | Todos |
+| GET | `/users/technicians` | Obtener lista de técnicos | Sí | Tenedor |
+| POST | `/users/assign-technician` | Asignar técnico a edificio | Sí | Tenedor |
+| GET | `/users/technician/assignments` | Obtener asignaciones del técnico | Sí | Técnico |
+| GET | `/users/technician/buildings` | Obtener edificios asignados | Sí | Técnico |
+
 ### Edificios
 | Método | Endpoint | Descripción | Autenticación |
 |--------|----------|-------------|---------------|
@@ -150,6 +165,24 @@ Authorization: Bearer <token>
 
 ## Modelos de Datos
 
+### Usuario (User)
+```typescript
+{
+  "id": "uuid",
+  "userId": "uuid", // auth.users ID
+  "email": "string",
+  "fullName": "string | null",
+  "roleId": "uuid",
+  "role": {
+    "id": "uuid",
+    "name": "tenedor | tecnico",
+    "description": "string"
+  },
+  "createdAt": "string (ISO date)",
+  "updatedAt": "string (ISO date)"
+}
+```
+
 ### Edificio (Building)
 ```typescript
 {
@@ -172,9 +205,12 @@ Authorization: Bearer <token>
     }
   ],
   "status": "draft | ready_book | with_book",
+  "price": "number", // Nuevo campo
+  "technicianEmail": "string", // Nuevo campo
+  "ownerId": "uuid", // Nuevo campo
   "createdAt": "string (ISO date)",
   "updatedAt": "string (ISO date)",
-  "userId": "string (uuid)"
+  "userId": "string (uuid)" // Mantener por compatibilidad
 }
 ```
 
@@ -194,10 +230,74 @@ Authorization: Bearer <token>
       "content": "object (flexible)"
     }
   ],
+  "technicianId": "uuid", // Nuevo campo
   "createdAt": "string (ISO date)",
-  "updatedAt": "string (ISO date)"
+  "updatedAt": "string (ISO date)",
+  "userId": "string (uuid)" // Mantener por compatibilidad
 }
 ```
+
+### Asignación de Técnico (BuildingTechnicianAssignment)
+```typescript
+{
+  "id": "uuid",
+  "buildingId": "uuid",
+  "technicianId": "uuid",
+  "assignedBy": "uuid",
+  "assignedAt": "string (ISO date)",
+  "status": "active | inactive"
+}
+```
+
+## Sistema de Roles y Flujo de Trabajo
+
+### Roles de Usuario
+
+#### Tenedor (Propietario)
+- **Puede crear edificios** con información completa incluyendo precio
+- **Asigna técnicos** por email para gestionar libros digitales
+- **Ve sus propios edificios** y los libros digitales asociados
+- **Gestiona las asignaciones** de técnicos a edificios
+
+#### Técnico
+- **Gestiona libros digitales** de edificios asignados
+- **No puede crear edificios** (solo gestionar libros)
+- **Ve solo edificios asignados** por tenedores
+- **Crea y actualiza libros digitales** de edificios asignados
+
+### Flujo de Trabajo
+
+1. **Tenedor crea edificio**:
+   ```json
+   {
+     "name": "Edificio Central",
+     "address": "Calle Principal 123",
+     "price": 250000,
+     "technicianEmail": "tecnico@example.com",
+     // ... otros campos
+   }
+   ```
+
+2. **Sistema asigna técnico automáticamente** al edificio
+
+3. **Técnico puede crear libro digital** para el edificio asignado:
+   ```json
+   {
+     "buildingId": "edificio-uuid",
+     "source": "manual"
+   }
+   ```
+
+4. **Técnico gestiona las 8 secciones** del libro digital
+
+5. **Tenedor puede ver el progreso** del libro digital
+
+### Permisos y Restricciones
+
+- **Tenedores**: Solo ven/editan sus propios edificios
+- **Técnicos**: Solo ven/editan edificios asignados
+- **Libros digitales**: Solo el técnico asignado puede editarlos
+- **Asignaciones**: Solo el propietario puede asignar técnicos
 
 ## Ejemplos de Uso
 
@@ -384,22 +484,65 @@ fly deploy
 
 ### Esquema de Base de Datos
 
-#### Tabla `profiles`
+## 🏗️ **Arquitectura del Sistema**
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────────┐
+│   Supabase  │    │    Roles    │    │     Users       │
+│ Auth.users  │◄───┤             │◄───┤                 │
+└─────────────┘    │ • tenedor   │    │ • Perfil        │
+                   │ • tecnico   │    │ • Email         │
+                   └─────────────┘    │ • Rol           │
+                                      └─────┬───────────┘
+                                            │
+                    ┌───────────────────────┼───────────────────────┐
+                    │                       │                       │
+                    ▼                       ▼                       ▼
+            ┌─────────────┐        ┌─────────────┐        ┌─────────────┐
+            │  Buildings  │        │Digital Books│        │Assignments  │
+            │             │◄───────┤             │        │             │
+            │ • Propietario        │ • Técnico   │        │ • Técnico   │
+            │ • Precio    │        │ • Progreso  │        │ • Edificio  │
+            │ • Email Téc.│        │ • 8 Secciones       │ • Estado    │
+            └─────────────┘        └─────────────┘        └─────────────┘
+```
+
+## 📊 **Tablas del Sistema**
+
+### 1️⃣ **Gestión de Usuarios**
+
+#### `roles` - Roles del Sistema
 ```sql
-CREATE TABLE profiles (
-  user_id UUID PRIMARY KEY,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  role user_role NOT NULL DEFAULT 'tenedor',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE roles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(50) NOT NULL UNIQUE,           -- 'tenedor' | 'tecnico'
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-#### Tabla `buildings`
+#### `users` - Perfiles de Usuario
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,  -- Link a Supabase Auth
+    email VARCHAR(255) NOT NULL UNIQUE,
+    full_name VARCHAR(255),
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,             -- Rol asignado
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 2️⃣ **Gestión de Edificios**
+
+#### `buildings` - Edificios
 ```sql
 CREATE TABLE buildings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Información básica
     name VARCHAR(255) NOT NULL,
     address TEXT NOT NULL,
     cadastral_reference VARCHAR(100),
@@ -407,40 +550,144 @@ CREATE TABLE buildings (
     typology VARCHAR(20) NOT NULL CHECK (typology IN ('residential', 'mixed', 'commercial')),
     num_floors INTEGER,
     num_units INTEGER,
+    
+    -- Ubicación y multimedia
     lat DECIMAL(10, 8),
     lng DECIMAL(11, 8),
     images JSONB DEFAULT '[]'::jsonb,
+    
+    -- Estado y negocio
     status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'ready_book', 'with_book')),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    price DECIMAL(15,2),                                        -- NUEVO: Precio del edificio
+    technician_email VARCHAR(255),                              -- NUEVO: Email del técnico asignado
+    
+    -- Relaciones
+    owner_id UUID REFERENCES users(id) ON DELETE CASCADE,       -- NUEVO: Propietario (tenedor)
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,  -- Compatibilidad
+    
+    -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-#### Tabla `digital_books`
+### 3️⃣ **Gestión de Libros Digitales**
+
+#### `digital_books` - Libros Digitales
 ```sql
 CREATE TABLE digital_books (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Relación con edificio (1:1)
     building_id UUID NOT NULL REFERENCES buildings(id) ON DELETE CASCADE,
+    
+    -- Información del libro
     source VARCHAR(20) NOT NULL CHECK (source IN ('manual', 'pdf')),
     status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'in_progress', 'complete')),
     progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 8),
-    sections JSONB DEFAULT '[]'::jsonb,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    sections JSONB DEFAULT '[]'::jsonb,                         -- 8 secciones del libro
+    
+    -- Relaciones
+    technician_id UUID REFERENCES users(id) ON DELETE CASCADE,  -- NUEVO: Técnico que gestiona el libro
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,  -- Compatibilidad
+    
+    -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-### Restricciones y Relaciones
+### 4️⃣ **Asignaciones Técnico-Edificio**
 
-#### Relación 1:1 Edificio-Libro
+#### `building_technician_assignments` - Asignaciones
+```sql
+CREATE TABLE building_technician_assignments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Relaciones principales
+    building_id UUID NOT NULL REFERENCES buildings(id) ON DELETE CASCADE,      -- Edificio asignado
+    technician_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,        -- Técnico asignado
+    assigned_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,          -- Quien asignó (tenedor)
+    
+    -- Información de la asignación
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    
+    -- Restricciones
+    UNIQUE(building_id, technician_id)                                         -- Un técnico por edificio
+);
+```
+
+## 🔗 **Relaciones y Restricciones**
+
+### **Relaciones Principales:**
+
+```
+auth.users (Supabase Auth)
+    │
+    └── users.user_id (FK)
+            │
+            ├── users.role_id → roles.id
+            │
+            ├── buildings.owner_id → users.id (Tenedor propietario)
+            │
+            ├── digital_books.technician_id → users.id (Técnico asignado)
+            │
+            └── building_technician_assignments.technician_id → users.id
+                building_technician_assignments.assigned_by → users.id
+```
+
+### **Restricciones de Negocio:**
+
+#### 1️⃣ **Relación 1:1 Edificio-Libro**
 ```sql
 -- Garantiza que cada edificio solo tenga un libro digital
 ALTER TABLE digital_books 
 ADD CONSTRAINT unique_building_book 
 UNIQUE (building_id);
 ```
+
+#### 2️⃣ **Un Técnico por Edificio**
+```sql
+-- Evita asignaciones duplicadas del mismo técnico al mismo edificio
+ALTER TABLE building_technician_assignments 
+ADD CONSTRAINT unique_technician_building 
+UNIQUE (building_id, technician_id);
+```
+
+#### 3️⃣ **Roles Válidos**
+```sql
+-- Solo permite roles específicos del sistema
+INSERT INTO roles (name, description) VALUES 
+    ('tenedor', 'Usuario propietario que puede crear edificios y asignar técnicos'),
+    ('tecnico', 'Usuario técnico que gestiona libros digitales de edificios asignados');
+```
+
+#### 4️⃣ **Estados Válidos**
+```sql
+-- Edificios: draft → ready_book → with_book
+CHECK (status IN ('draft', 'ready_book', 'with_book'))
+
+-- Libros: draft → in_progress → complete  
+CHECK (status IN ('draft', 'in_progress', 'complete'))
+
+-- Progreso: 0-8 secciones completadas
+CHECK (progress >= 0 AND progress <= 8)
+```
+
+### **Políticas de Seguridad (RLS):**
+
+#### 🔒 **Acceso a Edificios**
+- **Tenedores**: Solo ven sus propios edificios (`buildings.owner_id = current_user`)
+- **Técnicos**: Solo ven edificios asignados (via `building_technician_assignments`)
+
+#### 🔒 **Acceso a Libros Digitales**  
+- **Técnicos**: Solo pueden editar libros que gestionan (`digital_books.technician_id = current_user`)
+- **Tenedores**: Solo pueden ver libros de sus edificios (lectura únicamente)
+
+#### 🔒 **Gestión de Asignaciones**
+- **Solo Tenedores** pueden asignar técnicos a sus edificios
+- **Solo Técnicos** pueden ver sus propias asignaciones
 
 #### Índices para Rendimiento
 ```sql
@@ -630,6 +877,24 @@ router.post('/items', authenticateToken, itemsController.create);
 
 ## Changelog
 
+### v4.0.0 - Septiembre 2025 (NUEVA VERSIÓN)
+- **BREAKING CHANGE**: Sistema de usuarios y roles completamente rediseñado
+- **Migración de `profiles` a `users`** con relaciones a roles
+- **Nuevos roles específicos**: Tenedor y Técnico con permisos diferenciados
+- **Asignación de técnicos** por email para gestión de libros digitales
+- **Control de permisos granular** basado en roles y relaciones
+- **Nuevos campos en edificios**: precio y email del técnico
+- **Relaciones mejoradas**: edificio ↔ propietario ↔ técnico asignado
+- **Nuevos endpoints de usuarios** para gestión de roles y asignaciones
+- **Migración automática** de datos existentes
+
+#### Migración Requerida
+Para actualizar desde v3.0.0 a v4.0.0, ejecutar:
+```sql
+-- Ejecutar migración en Supabase
+-- Archivo: database/migrations/003_create_users_and_roles_system.sql
+```
+
 ### v3.0.0 - Septiembre 2025
 - Gestión básica de edificios con CRUD y geolocalización
 - Sistema de libros digitales con 8 secciones y progreso automático
@@ -651,5 +916,5 @@ router.post('/items', authenticateToken, itemsController.create);
 ---
 
 **Última actualización:** Septiembre 2025  
-**Versión:** 3.0.0 (con edificios y libros digitales)  
+**Versión:** 4.0.0 (sistema de usuarios y roles rediseñado)  
 **Estado:** Producción Ready

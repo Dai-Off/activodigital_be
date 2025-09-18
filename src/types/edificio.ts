@@ -30,9 +30,12 @@ export interface Building {
   lng: number;
   images: BuildingImage[];
   status: BuildingStatus;
+  price?: number;
+  technicianEmail?: string;
+  ownerId?: string; // ID del usuario propietario (tenedor)
   createdAt?: string;
   updatedAt?: string;
-  userId?: string; // Para asociar con el usuario que lo creó
+  userId?: string; // Mantener por compatibilidad temporal
 }
 
 // DTOs para requests
@@ -46,6 +49,8 @@ export interface CreateBuildingRequest {
   numUnits: number;
   lat: number;
   lng: number;
+  price?: number;
+  technicianEmail?: string;
   images?: BuildingImage[];
 }
 

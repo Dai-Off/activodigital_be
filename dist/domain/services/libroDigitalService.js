@@ -3,25 +3,30 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DigitalBookService = void 0;
 const supabase_1 = require("../../lib/supabase");
 const libroDigital_1 = require("../../types/libroDigital");
+const userService_1 = require("./userService");
+const user_1 = require("../../types/user");
 class DigitalBookService {
+    constructor() {
+        this.userService = new userService_1.UserService();
+    }
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
     }
-    async createDigitalBook(data, userId) {
-        // Verificar que el edificio pertenece al usuario
-        const { data: building, error: buildingError } = await this.getSupabase()
-            .from('buildings')
-            .select('id')
-            .eq('id', data.buildingId)
-            .eq('user_id', userId)
-            .single();
-        if (buildingError || !building) {
-            throw new Error('Edificio no encontrado o no tienes permisos para acceder a él');
+    async createDigitalBook(data, userAuthId) {
+        // Verificar que el usuario tenga permisos para crear libro digital
+        const canCreate = await this.userCanCreateDigitalBook(userAuthId, data.buildingId);
+        if (!canCreate) {
+            throw new Error('No tienes permisos para crear un libro digital para este edificio');
         }
         // Verificar que el edificio no tenga ya un libro digital
-        const existingBook = await this.getBookByBuildingId(data.buildingId, userId);
+        const existingBook = await this.getBookByBuildingId(data.buildingId);
         if (existingBook) {
             throw new Error('Este edificio ya tiene un libro digital asociado');
+        }
+        // Obtener el usuario para asignar como técnico
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user) {
+            throw new Error('Usuario no encontrado');
         }
         // Crear secciones por defecto si no se proporcionan
         const defaultSections = data.sections || this.createDefaultSections();
@@ -31,7 +36,8 @@ class DigitalBookService {
             status: libroDigital_1.BookStatus.DRAFT,
             progress: 0,
             sections: defaultSections,
-            user_id: userId
+            technician_id: user.id,
+            user_id: userAuthId // Mantener por compatibilidad
         };
         const { data: book, error } = await this.getSupabase()
             .from('digital_books')
@@ -43,29 +49,18 @@ class DigitalBookService {
         }
         return this.mapToDigitalBook(book);
     }
-    async getBookById(id, userId) {
-        let query = this.getSupabase()
-            .from('digital_books')
-            .select('*')
-            .eq('id', id);
-        if (userId) {
-            query = query.eq('user_id', userId);
-        }
-        const { data, error } = await query.single();
-        if (error) {
-            if (error.code === 'PGRST116') {
-                return null; // No encontrado
+    async getBookById(id, userAuthId) {
+        // Si se proporciona userAuthId, verificar acceso
+        if (userAuthId) {
+            const hasAccess = await this.userCanAccessDigitalBook(userAuthId, id);
+            if (!hasAccess) {
+                return null; // Usuario no tiene acceso
             }
-            throw new Error(`Error al obtener libro digital: ${error.message}`);
         }
-        return this.mapToDigitalBook(data);
-    }
-    async getBookByBuildingId(buildingId, userId) {
         const { data, error } = await this.getSupabase()
             .from('digital_books')
             .select('*')
-            .eq('building_id', buildingId)
-            .eq('user_id', userId)
+            .eq('id', id)
             .single();
         if (error) {
             if (error.code === 'PGRST116') {
@@ -75,23 +70,69 @@ class DigitalBookService {
         }
         return this.mapToDigitalBook(data);
     }
-    async getBooksByUser(userId) {
+    async getBookByBuildingId(buildingId, userAuthId) {
+        // Si se proporciona userAuthId, verificar acceso al edificio
+        if (userAuthId) {
+            const hasAccess = await this.userCanAccessBuildingBook(userAuthId, buildingId);
+            if (!hasAccess) {
+                return null; // Usuario no tiene acceso
+            }
+        }
         const { data, error } = await this.getSupabase()
             .from('digital_books')
             .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+            .eq('building_id', buildingId)
+            .single();
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return null; // No encontrado
+            }
+            throw new Error(`Error al obtener libro digital: ${error.message}`);
+        }
+        return this.mapToDigitalBook(data);
+    }
+    async getBooksByUser(userAuthId) {
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user) {
+            throw new Error('Usuario no encontrado');
+        }
+        let query;
+        if (user.role.name === user_1.UserRole.TECNICO) {
+            // Los técnicos ven solo los libros que gestionan
+            query = this.getSupabase()
+                .from('digital_books')
+                .select('*')
+                .eq('technician_id', user.id);
+        }
+        else if (user.role.name === user_1.UserRole.TENEDOR) {
+            // Los tenedores ven libros de sus edificios
+            query = this.getSupabase()
+                .from('digital_books')
+                .select(`
+          *,
+          building:buildings!inner(owner_id)
+        `)
+                .eq('buildings.owner_id', user.id);
+        }
+        else {
+            throw new Error('Rol no autorizado');
+        }
+        const { data, error } = await query.order('created_at', { ascending: false });
         if (error) {
             throw new Error(`Error al obtener libros digitales: ${error.message}`);
         }
         return data.map(this.mapToDigitalBook);
     }
-    async updateBook(id, data, userId) {
+    async updateBook(id, data, userAuthId) {
+        // Verificar que el usuario pueda actualizar el libro
+        const canUpdate = await this.userCanUpdateDigitalBook(userAuthId, id);
+        if (!canUpdate) {
+            throw new Error('No tienes permisos para actualizar este libro digital');
+        }
         const { data: book, error } = await this.getSupabase()
             .from('digital_books')
             .update(data)
             .eq('id', id)
-            .eq('user_id', userId)
             .select()
             .single();
         if (error) {
@@ -99,9 +140,9 @@ class DigitalBookService {
         }
         return this.mapToDigitalBook(book);
     }
-    async updateSection(bookId, sectionType, data, userId) {
+    async updateSection(bookId, sectionType, data, userAuthId) {
         // Obtener el libro actual
-        const book = await this.getBookById(bookId, userId);
+        const book = await this.getBookById(bookId, userAuthId);
         if (!book) {
             throw new Error('Libro digital no encontrado');
         }
@@ -131,14 +172,18 @@ class DigitalBookService {
             sections: newSections,
             progress: newProgress,
             status: newStatus
-        }, userId);
+        }, userAuthId);
     }
-    async deleteBook(id, userId) {
+    async deleteBook(id, userAuthId) {
+        // Verificar permisos para eliminar
+        const canDelete = await this.userCanDeleteDigitalBook(userAuthId, id);
+        if (!canDelete) {
+            throw new Error('No tienes permisos para eliminar este libro digital');
+        }
         const { error } = await this.getSupabase()
             .from('digital_books')
             .delete()
-            .eq('id', id)
-            .eq('user_id', userId);
+            .eq('id', id);
         if (error) {
             throw new Error(`Error al eliminar libro digital: ${error.message}`);
         }
@@ -159,6 +204,93 @@ class DigitalBookService {
             return v.toString(16);
         });
     }
+    // Métodos auxiliares para verificar permisos
+    async userCanCreateDigitalBook(userAuthId, buildingId) {
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user)
+            return false;
+        if (user.role.name === user_1.UserRole.TECNICO) {
+            // Los técnicos pueden crear libros solo para edificios asignados
+            return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
+        }
+        else if (user.role.name === user_1.UserRole.TENEDOR) {
+            // Los tenedores pueden crear libros para sus propios edificios
+            return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
+        }
+        return false;
+    }
+    async userCanAccessDigitalBook(userAuthId, bookId) {
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user)
+            return false;
+        const { data: book } = await this.getSupabase()
+            .from('digital_books')
+            .select('building_id, technician_id')
+            .eq('id', bookId)
+            .single();
+        if (!book)
+            return false;
+        if (user.role.name === user_1.UserRole.TECNICO) {
+            // Los técnicos pueden acceder a libros que gestionan
+            return book.technician_id === user.id;
+        }
+        else if (user.role.name === user_1.UserRole.TENEDOR) {
+            // Los tenedores pueden acceder a libros de sus edificios
+            return await this.userService.isOwnerOfBuilding(userAuthId, book.building_id);
+        }
+        return false;
+    }
+    async userCanAccessBuildingBook(userAuthId, buildingId) {
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user)
+            return false;
+        if (user.role.name === user_1.UserRole.TECNICO) {
+            // Los técnicos pueden acceder a libros de edificios asignados
+            return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
+        }
+        else if (user.role.name === user_1.UserRole.TENEDOR) {
+            // Los tenedores pueden acceder a libros de sus edificios
+            return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
+        }
+        return false;
+    }
+    async userCanUpdateDigitalBook(userAuthId, bookId) {
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user)
+            return false;
+        if (user.role.name === user_1.UserRole.TECNICO) {
+            // Los técnicos pueden actualizar libros que gestionan
+            const { data: book } = await this.getSupabase()
+                .from('digital_books')
+                .select('technician_id')
+                .eq('id', bookId)
+                .single();
+            return book !== null && book.technician_id === user.id;
+        }
+        // Los tenedores no pueden actualizar libros digitales directamente
+        return false;
+    }
+    async userCanDeleteDigitalBook(userAuthId, bookId) {
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user)
+            return false;
+        const { data: book } = await this.getSupabase()
+            .from('digital_books')
+            .select('building_id, technician_id')
+            .eq('id', bookId)
+            .single();
+        if (!book)
+            return false;
+        if (user.role.name === user_1.UserRole.TENEDOR) {
+            // Los tenedores pueden eliminar libros de sus edificios
+            return await this.userService.isOwnerOfBuilding(userAuthId, book.building_id);
+        }
+        else if (user.role.name === user_1.UserRole.TECNICO) {
+            // Los técnicos pueden eliminar libros que gestionan
+            return book.technician_id === user.id;
+        }
+        return false;
+    }
     mapToDigitalBook(data) {
         return {
             id: data.id,
@@ -167,8 +299,10 @@ class DigitalBookService {
             status: data.status,
             progress: data.progress,
             sections: data.sections || [],
+            technicianId: data.technician_id,
             createdAt: data.created_at,
-            updatedAt: data.updated_at
+            updatedAt: data.updated_at,
+            userId: data.user_id // Mantener por compatibilidad
         };
     }
 }

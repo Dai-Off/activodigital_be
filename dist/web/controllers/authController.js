@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.logoutController = exports.meController = exports.loginController = exports.signupController = void 0;
 const authService_1 = require("../../domain/services/authService");
+const user_1 = require("../../types/user");
 const signupController = async (req, res) => {
     try {
         const { email, password, full_name, role } = req.body ?? {};
@@ -12,7 +13,7 @@ const signupController = async (req, res) => {
             });
         }
         // Validar rol permitido
-        const allowedRoles = ['tenedor', 'administrador', 'tecnico'];
+        const allowedRoles = Object.values(user_1.UserRole);
         if (!allowedRoles.includes(role)) {
             return res.status(400).json({
                 error: `Invalid role. Allowed roles: ${allowedRoles.join(', ')}`
@@ -49,7 +50,7 @@ const loginController = async (req, res) => {
 exports.loginController = loginController;
 const meController = async (req, res) => {
     try {
-        const userId = req.userId;
+        const userId = req.user?.id;
         if (!userId)
             return res.status(401).json({ error: 'unauthorized' });
         const profile = await (0, authService_1.getProfileByUserId)(userId);

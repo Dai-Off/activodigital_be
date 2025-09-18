@@ -17,4 +17,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // Exportar todos los tipos y enums
 __exportStar(require("./edificio"), exports);
 __exportStar(require("./libroDigital"), exports);
+__exportStar(require("./user"), exports);
 //# sourceMappingURL=index.js.map
