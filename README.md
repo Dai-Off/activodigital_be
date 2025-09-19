@@ -202,9 +202,14 @@ Authorization: Bearer <token>
     }
   ],
   "status": "draft | ready_book | with_book",
-  "price": "number", // Nuevo campo
-  "technicianEmail": "string", // Nuevo campo
-  "ownerId": "uuid", // Nuevo campo
+  "price": "number", // Precio del edificio
+  "technicianEmail": "string", // Email del técnico asignado
+  "ownerId": "uuid", // ID del usuario propietario (tenedor)
+  
+  // Campos financieros
+  "rehabilitationCost": "number", // Coste de rehabilitación (por defecto 0)
+  "potentialValue": "number", // Valor potencial del edificio (por defecto 0)
+  
   "createdAt": "string (ISO date)",
   "updatedAt": "string (ISO date)",
   "userId": "string (uuid)" // Mantener por compatibilidad
@@ -315,7 +320,7 @@ $headers = @{
 
 ### Gestión de Edificios
 ```powershell
-# Crear edificio
+# Crear edificio con campos financieros
 $buildingBody = @{
     name = "Edificio Residencial Centro"
     address = "Calle Mayor 123, Madrid"
@@ -326,6 +331,11 @@ $buildingBody = @{
     numUnits = 20
     lat = 40.4168
     lng = -3.7038
+    price = 750000
+    technicianEmail = "tecnico@example.com"
+    # Campos financieros
+    rehabilitationCost = 120000
+    potentialValue = 950000
     images = @(
         @{
             id = "img-001"
@@ -555,11 +565,15 @@ CREATE TABLE buildings (
     
     -- Estado y negocio
     status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'ready_book', 'with_book')),
-    price DECIMAL(15,2),                                        -- NUEVO: Precio del edificio
-    technician_email VARCHAR(255),                              -- NUEVO: Email del técnico asignado
+    price DECIMAL(15,2),                                        -- Precio del edificio
+    technician_email VARCHAR(255),                              -- Email del técnico asignado
+    
+    -- Campos financieros
+    rehabilitation_cost DECIMAL(15,2) DEFAULT 0.00,             -- Coste de rehabilitación (por defecto 0)
+    potential_value DECIMAL(15,2) DEFAULT 0.00,                 -- Valor potencial (por defecto 0)
     
     -- Relaciones
-    owner_id UUID REFERENCES users(id) ON DELETE CASCADE,       -- NUEVO: Propietario (tenedor)
+    owner_id UUID REFERENCES users(id) ON DELETE CASCADE,       -- Propietario (tenedor)
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,  -- Compatibilidad
     
     -- Timestamps
@@ -874,6 +888,14 @@ router.post('/items', authenticateToken, itemsController.create);
 
 ## Changelog
 
+### v4.1.0 - Enero 2025
+- **Nuevos campos financieros en edificios**: rehabilitationCost y potentialValue
+- **Valores por defecto**: ambos campos inician en 0 hasta que el cliente proporcione información
+- **Migración 005**: agregar campos financieros a tabla buildings
+- **Validaciones**: restricciones para valores no negativos
+- **Índices optimizados**: para consultas financieras mejoradas
+- **Documentación actualizada**: modelos y ejemplos con campos financieros
+
 ### v4.0.0 - Septiembre 2025 (NUEVA VERSIÓN)
 - **BREAKING CHANGE**: Sistema de usuarios y roles completamente rediseñado
 - **Migración de `profiles` a `users`** con relaciones a roles
@@ -912,6 +934,6 @@ Para actualizar desde v3.0.0 a v4.0.0, ejecutar:
 
 ---
 
-**Última actualización:** Septiembre 2025  
-**Versión:** 4.0.0 (sistema de usuarios y roles rediseñado)  
+**Última actualización:** Enero 2025  
+**Versión:** 4.1.0 (campos financieros agregados)  
 **Estado:** Producción Ready
