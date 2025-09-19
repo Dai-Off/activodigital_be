@@ -33,11 +33,6 @@ export interface Building {
   price?: number;
   technicianEmail?: string;
   ownerId?: string; // ID del usuario propietario (tenedor)
-  
-  // Nuevos campos financieros
-  rehabilitationCost?: number; // Coste de Rehabilitación (por defecto 0)
-  potentialValue?: number;     // Valor potencial (por defecto 0)
-  
   createdAt?: string;
   updatedAt?: string;
   userId?: string; // Mantener por compatibilidad temporal
@@ -57,10 +52,6 @@ export interface CreateBuildingRequest {
   price?: number;
   technicianEmail?: string;
   images?: BuildingImage[];
-  
-  // Nuevos campos financieros opcionales
-  rehabilitationCost?: number; // Coste de Rehabilitación
-  potentialValue?: number;     // Valor potencial
 }
 
 export interface UpdateBuildingRequest extends Partial<CreateBuildingRequest> {

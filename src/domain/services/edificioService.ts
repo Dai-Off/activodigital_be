@@ -42,7 +42,10 @@ export class BuildingService {
       price: data.price,
       technician_email: data.technicianEmail,
       owner_id: user.id,
-      user_id: userAuthId // Mantener por compatibilidad
+      user_id: userAuthId, // Mantener por compatibilidad
+      // Campos financieros con valores por defecto
+      rehabilitation_cost: data.rehabilitationCost || 0,
+      potential_value: data.potentialValue || 0
     };
 
     const { data: building, error } = await this.getSupabase()
@@ -161,6 +164,9 @@ export class BuildingService {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.price !== undefined) updateData.price = data.price;
     if (data.technicianEmail !== undefined) updateData.technician_email = data.technicianEmail;
+    // Campos financieros
+    if (data.rehabilitationCost !== undefined) updateData.rehabilitation_cost = data.rehabilitationCost;
+    if (data.potentialValue !== undefined) updateData.potential_value = data.potentialValue;
 
     const { data: building, error } = await this.getSupabase()
       .from('buildings')
@@ -324,6 +330,9 @@ export class BuildingService {
       price: data.price,
       technicianEmail: data.technician_email,
       ownerId: data.owner_id,
+      // Campos financieros
+      rehabilitationCost: data.rehabilitation_cost || 0,
+      potentialValue: data.potential_value || 0,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       userId: data.user_id // Mantener por compatibilidad
