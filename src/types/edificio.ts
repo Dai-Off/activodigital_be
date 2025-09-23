@@ -32,6 +32,7 @@ export interface Building {
   status: BuildingStatus;
   price?: number;
   technicianEmail?: string;
+  cfoEmail?: string;
   ownerId?: string; // ID del usuario propietario (tenedor)
   
   // Nuevos campos financieros
@@ -56,6 +57,7 @@ export interface CreateBuildingRequest {
   lng: number;
   price?: number;
   technicianEmail?: string;
+  cfoEmail?: string;
   images?: BuildingImage[];
   
   // Nuevos campos financieros opcionales

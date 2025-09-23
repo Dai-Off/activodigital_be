@@ -41,6 +41,7 @@ export class BuildingService {
       status: BuildingStatus.DRAFT,
       price: data.price,
       technician_email: data.technicianEmail,
+      cfo_email: data.cfoEmail,
       owner_id: user.id,
       user_id: userAuthId, // Mantener por compatibilidad
       // Campos financieros con valores por defecto
@@ -164,6 +165,7 @@ export class BuildingService {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.price !== undefined) updateData.price = data.price;
     if (data.technicianEmail !== undefined) updateData.technician_email = data.technicianEmail;
+    if (data.cfoEmail !== undefined) updateData.cfo_email = data.cfoEmail;
     // Campos financieros
     if (data.rehabilitationCost !== undefined) updateData.rehabilitation_cost = data.rehabilitationCost;
     if (data.potentialValue !== undefined) updateData.potential_value = data.potentialValue;
@@ -329,6 +331,7 @@ export class BuildingService {
       status: data.status,
       price: data.price,
       technicianEmail: data.technician_email,
+      cfoEmail: data.cfo_email,
       ownerId: data.owner_id,
       // Campos financieros
       rehabilitationCost: data.rehabilitation_cost || 0,

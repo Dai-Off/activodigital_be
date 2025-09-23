@@ -10,10 +10,12 @@ CREATE TABLE IF NOT EXISTS roles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Insertar roles predefinidos (usa ON CONFLICT para evitar duplicados)
-INSERT INTO roles (name, description) VALUES 
-    ('tenedor', 'Usuario propietario que puede crear edificios y asignar técnicos'),
-    ('tecnico', 'Usuario técnico que gestiona libros digitales de edificios asignados')
+-- 2. Insertar roles predefinidos (usa ON CONFLICT para evitar duplicados)      
+INSERT INTO roles (name, description) VALUES
+    ('tenedor', 'Usuario propietario que puede crear edificios y asignar técnicos'),                                                                           
+    ('tecnico', 'Usuario técnico que gestiona libros digitales de edificios asignados'),
+    ('administrador', 'Usuario administrador con acceso completo al sistema'),
+    ('cfo', 'Usuario CFO con acceso a información financiera y reportes')                                                                        
 ON CONFLICT (name) DO NOTHING;
 
 -- 3. Verificar que se crearon correctamente
