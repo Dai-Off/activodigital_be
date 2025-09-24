@@ -6,7 +6,7 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 
 - **Autenticación JWT** con Supabase
 - **Sistema de usuarios y roles** con relaciones específicas
-  - **Tenedor**: Propietario de edificios, puede crear edificios y asignar técnicos
+  - **Propietario**: Propietario de edificios, puede crear edificios y asignar técnicos
   - **Técnico**: Gestiona libros digitales de edificios asignados
 - **Gestión de edificios** con imágenes, geolocalización y precios
 - **Libros digitales** con 8 secciones y progreso automático
@@ -98,7 +98,7 @@ POST /auth/signup
   "email": "usuario@ejemplo.com",
   "password": "contraseña123",
   "full_name": "Nombre Completo",
-  "role": "administrador"  // "tenedor", "administrador", "tecnico"
+  // rol forzado a "propietario" en backend
 }
 ```
 
@@ -264,7 +264,7 @@ Authorization: Bearer <token>
 
 ### Roles de Usuario
 
-#### Tenedor (Propietario)
+#### Propietario
 - **Puede crear edificios** con información completa incluyendo precio
 - **Asigna técnicos** por email para gestionar libros digitales
 - **Ve sus propios edificios** y los libros digitales asociados
@@ -305,7 +305,7 @@ Authorization: Bearer <token>
 
 ### Permisos y Restricciones
 
-- **Tenedores**: Solo ven/editan sus propios edificios
+- **Propietarios**: Solo ven/editan sus propios edificios
 - **Técnicos**: Solo ven/editan edificios asignados
 - **Libros digitales**: Solo el técnico asignado puede editarlos
 - **Asignaciones**: Solo el propietario puede asignar técnicos
@@ -537,7 +537,7 @@ fly deploy
 
 ### Esquema de Base de Datos
 
-## 🏗️ **Arquitectura del Sistema**
+## Arquitectura del Sistema
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐
@@ -560,7 +560,7 @@ fly deploy
             └─────────────┘        └─────────────┘        └─────────────┘
 ```
 
-## 📊 **Tablas del Sistema**
+## Tablas del Sistema
 
 ### 1️⃣ **Gestión de Usuarios**
 
@@ -740,7 +740,7 @@ CHECK (progress >= 0 AND progress <= 8)
 
 #### 🔒 **Acceso a Libros Digitales**  
 - **Técnicos**: Solo pueden editar libros que gestionan (`digital_books.technician_id = current_user`)
-- **Tenedores**: Solo pueden ver libros de sus edificios (lectura únicamente)
+- **Propietarios**: Solo pueden ver libros de sus edificios (lectura únicamente)
 
 #### 🔒 **Gestión de Asignaciones**
 - **Solo Tenedores** pueden asignar técnicos a sus edificios

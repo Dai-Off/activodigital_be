@@ -4,28 +4,23 @@ import { UserRole } from '../../types/user';
 
 export const signupController = async (req: Request, res: Response) => {
   try {
-    const { email, password, full_name, role } = req.body ?? {};
+    const { email, password, full_name } = req.body ?? {};
     
     // Validar campos requeridos
-    if (!email || !password || !role) {
+    if (!email || !password) {
       return res.status(400).json({ 
-        error: 'email, password and role are required' 
+        error: 'email and password are required' 
       });
     }
 
-    // Validar rol permitido
-    const allowedRoles = Object.values(UserRole);
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({ 
-        error: `Invalid role. Allowed roles: ${allowedRoles.join(', ')}` 
-      });
-    }
+    // Forzar rol por defecto a propietario (con compatibilidad en servicio)
+    const forcedRole = UserRole.PROPIETARIO;
 
     const result = await signUpUser({ 
       email, 
       password, 
       fullName: full_name, 
-      role 
+      role: forcedRole 
     });
     return res.status(201).json(result);
   } catch (err) {

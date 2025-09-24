@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS roles (
 
 -- 2. Insertar roles predefinidos (usa ON CONFLICT para evitar duplicados)      
 INSERT INTO roles (name, description) VALUES
-    ('tenedor', 'Usuario propietario que puede crear edificios y asignar técnicos'),                                                                           
+    ('propietario', 'Usuario propietario que puede crear edificios y asignar técnicos'),                                                                            
     ('tecnico', 'Usuario técnico que gestiona libros digitales de edificios asignados'),
     ('administrador', 'Usuario administrador con acceso completo al sistema'),
     ('cfo', 'Usuario CFO con acceso a información financiera y reportes')                                                                        

@@ -1,4 +1,5 @@
 export enum UserRole {
+  PROPIETARIO = 'propietario',
   TENEDOR = 'tenedor',
   TECNICO = 'tecnico',
   ADMINISTRADOR = 'administrador',
