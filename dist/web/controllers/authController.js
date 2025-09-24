@@ -5,25 +5,20 @@ const authService_1 = require("../../domain/services/authService");
 const user_1 = require("../../types/user");
 const signupController = async (req, res) => {
     try {
-        const { email, password, full_name, role } = req.body ?? {};
+        const { email, password, full_name } = req.body ?? {};
         // Validar campos requeridos
-        if (!email || !password || !role) {
+        if (!email || !password) {
             return res.status(400).json({
-                error: 'email, password and role are required'
+                error: 'email and password are required'
             });
         }
-        // Validar rol permitido
-        const allowedRoles = Object.values(user_1.UserRole);
-        if (!allowedRoles.includes(role)) {
-            return res.status(400).json({
-                error: `Invalid role. Allowed roles: ${allowedRoles.join(', ')}`
-            });
-        }
+        // Forzar rol por defecto a propietario (con compatibilidad en servicio)
+        const forcedRole = user_1.UserRole.PROPIETARIO;
         const result = await (0, authService_1.signUpUser)({
             email,
             password,
             fullName: full_name,
-            role
+            role: forcedRole
         });
         return res.status(201).json(result);
     }

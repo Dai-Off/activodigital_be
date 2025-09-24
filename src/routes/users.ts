@@ -16,7 +16,7 @@ router.use(authenticateToken);
 router.get('/profile', getUserProfile);
 router.put('/profile', updateUserProfile);
 
-// Rutas para gestión de técnicos (solo tenedores)
+// Rutas para gestión de técnicos (solo propietarios)
 router.get('/technicians', getTechnicians);
 router.post('/assign-technician', assignTechnicianToBuilding);
 

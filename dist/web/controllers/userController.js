@@ -48,10 +48,10 @@ const getTechnicians = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: 'Usuario no autenticado' });
         }
-        // Verificar que el usuario sea tenedor
+        // Verificar que el usuario sea propietario
         const user = await userService.getUserByAuthId(userId);
-        if (!user || user.role.name !== user_1.UserRole.TENEDOR) {
-            return res.status(403).json({ error: 'Solo los tenedores pueden ver técnicos' });
+        if (!user || user.role.name !== user_1.UserRole.PROPIETARIO) {
+            return res.status(403).json({ error: 'Solo los propietarios pueden ver técnicos' });
         }
         const technicians = await userService.getTechnicians();
         res.json(technicians);
@@ -68,16 +68,16 @@ const assignTechnicianToBuilding = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: 'Usuario no autenticado' });
         }
-        // Verificar que el usuario sea tenedor
+        // Verificar que el usuario sea propietario
         const user = await userService.getUserByAuthId(userId);
-        if (!user || user.role.name !== user_1.UserRole.TENEDOR) {
-            return res.status(403).json({ error: 'Solo los tenedores pueden asignar técnicos' });
+        if (!user || user.role.name !== user_1.UserRole.PROPIETARIO) {
+            return res.status(403).json({ error: 'Solo los propietarios pueden asignar técnicos' });
         }
         const { buildingId, technicianEmail } = req.body;
         if (!buildingId || !technicianEmail) {
             return res.status(400).json({ error: 'buildingId y technicianEmail son requeridos' });
         }
-        // Verificar que el edificio pertenece al tenedor
+        // Verificar que el edificio pertenece al propietario
         const isOwner = await userService.isOwnerOfBuilding(userId, buildingId);
         if (!isOwner) {
             return res.status(403).json({ error: 'No eres propietario de este edificio' });

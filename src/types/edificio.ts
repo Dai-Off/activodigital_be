@@ -35,7 +35,7 @@ export interface Building {
   price?: number;
   technicianEmail?: string;
   cfoEmail?: string;
-  ownerId?: string; // ID del usuario propietario (tenedor)
+  ownerId?: string; // ID del usuario propietario
   
   // Nuevos campos financieros
   rehabilitationCost?: number; // Coste de Rehabilitación (por defecto 0)

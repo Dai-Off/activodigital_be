@@ -17,14 +17,14 @@ export class BuildingService {
   }
 
   async createBuilding(data: CreateBuildingRequest, userAuthId: string): Promise<Building> {
-    // Verificar que el usuario sea tenedor
+    // Verificar que el usuario sea propietario
     const user = await this.userService.getUserByAuthId(userAuthId);
     if (!user) {
       throw new Error('Usuario no encontrado');
     }
     
-    if (user.role.name !== UserRole.TENEDOR) {
-      throw new Error('Solo los tenedores pueden crear edificios');
+    if (user.role.name !== UserRole.PROPIETARIO) {
+      throw new Error('Solo los propietarios pueden crear edificios');
     }
 
     const buildingData = {
@@ -113,8 +113,8 @@ export class BuildingService {
     }
 
     let query;
-    if (user.role.name === UserRole.TENEDOR) {
-      // Los tenedores ven sus propios edificios
+    if (user.role.name === UserRole.PROPIETARIO) {
+      // Los propietarios ven sus propios edificios
       query = this.getSupabase()
         .from('buildings')
         .select('*')
@@ -185,7 +185,7 @@ export class BuildingService {
   }
 
   async deleteBuilding(id: string, userAuthId: string): Promise<void> {
-    // Solo los tenedores (propietarios) pueden eliminar edificios
+    // Solo los propietarios pueden eliminar edificios
     const isOwner = await this.userService.isOwnerOfBuilding(userAuthId, id);
     if (!isOwner) {
       throw new Error('Solo el propietario puede eliminar el edificio');
@@ -289,8 +289,8 @@ export class BuildingService {
     const user = await this.userService.getUserByAuthId(userAuthId);
     if (!user) return false;
 
-    if (user.role.name === UserRole.TENEDOR) {
-      // Los tenedores tienen acceso a sus propios edificios
+    if (user.role.name === UserRole.PROPIETARIO) {
+      // Los propietarios tienen acceso a sus propios edificios
       return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
     } else if (user.role.name === UserRole.TECNICO) {
       // Los técnicos tienen acceso a edificios asignados
@@ -304,8 +304,8 @@ export class BuildingService {
     const user = await this.userService.getUserByAuthId(userAuthId);
     if (!user) return false;
 
-    if (user.role.name === UserRole.TENEDOR) {
-      // Los tenedores pueden actualizar sus propios edificios
+    if (user.role.name === UserRole.PROPIETARIO) {
+      // Los propietarios pueden actualizar sus propios edificios
       return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
     } else if (user.role.name === UserRole.TECNICO) {
       // Los técnicos pueden actualizar solo algunos campos de edificios asignados

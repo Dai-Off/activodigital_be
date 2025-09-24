@@ -71,16 +71,24 @@ class UserService {
     }
     // Crear usuario en la tabla users (después de crear en auth)
     async createUserProfile(authUserId, userData) {
-        // Obtener el rol
-        const role = await this.getRoleByName(userData.role);
-        if (!role) {
-            throw new Error(`Rol '${userData.role}' no encontrado`);
+        // Buscar el rol preferentemente por el nombre actual ('propietario')
+        const roleNamesToTry = userData.role === user_1.UserRole.PROPIETARIO
+            ? [user_1.UserRole.PROPIETARIO]
+            : [userData.role];
+        let role = null;
+        for (const roleName of roleNamesToTry) {
+            // eslint-disable-next-line no-await-in-loop
+            role = await this.getRoleByName(roleName);
+            if (role)
+                break;
         }
+        // Si no se encuentra rol, confiar en el DEFAULT/trigger de la DB
+        const roleIdToUse = role ? role.id : null;
         const userProfileData = {
             user_id: authUserId,
             email: userData.email,
             full_name: userData.fullName || null,
-            role_id: role.id
+            role_id: roleIdToUse
         };
         const { data, error } = await this.getSupabase()
             .from('users')

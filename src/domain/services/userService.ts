@@ -92,10 +92,9 @@ export class UserService {
   // Crear usuario en la tabla users (después de crear en auth)
   async createUserProfile(authUserId: string, userData: Omit<CreateUserRequest, 'password'>): Promise<User> {
     // Buscar el rol preferentemente por el nombre actual ('propietario')
-    // y por compatibilidad intentar el antiguo ('tenedor') si no existe
     const roleNamesToTry: UserRole[] =
       userData.role === UserRole.PROPIETARIO
-        ? [UserRole.PROPIETARIO, UserRole.TENEDOR]
+        ? [UserRole.PROPIETARIO]
         : [userData.role];
 
     let role: Role | null = null;

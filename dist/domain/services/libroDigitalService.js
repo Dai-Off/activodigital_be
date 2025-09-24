@@ -104,8 +104,8 @@ class DigitalBookService {
                 .select('*')
                 .eq('technician_id', user.id);
         }
-        else if (user.role.name === user_1.UserRole.TENEDOR) {
-            // Los tenedores ven libros de sus edificios
+        else if (user.role.name === user_1.UserRole.PROPIETARIO) {
+            // Los propietarios ven libros de sus edificios
             query = this.getSupabase()
                 .from('digital_books')
                 .select(`
@@ -213,8 +213,8 @@ class DigitalBookService {
             // Los técnicos pueden crear libros solo para edificios asignados
             return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
         }
-        else if (user.role.name === user_1.UserRole.TENEDOR) {
-            // Los tenedores pueden crear libros para sus propios edificios
+        else if (user.role.name === user_1.UserRole.PROPIETARIO) {
+            // Los propietarios pueden crear libros para sus propios edificios
             return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
         }
         return false;
@@ -234,8 +234,8 @@ class DigitalBookService {
             // Los técnicos pueden acceder a libros que gestionan
             return book.technician_id === user.id;
         }
-        else if (user.role.name === user_1.UserRole.TENEDOR) {
-            // Los tenedores pueden acceder a libros de sus edificios
+        else if (user.role.name === user_1.UserRole.PROPIETARIO) {
+            // Los propietarios pueden acceder a libros de sus edificios
             return await this.userService.isOwnerOfBuilding(userAuthId, book.building_id);
         }
         return false;
@@ -248,8 +248,8 @@ class DigitalBookService {
             // Los técnicos pueden acceder a libros de edificios asignados
             return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
         }
-        else if (user.role.name === user_1.UserRole.TENEDOR) {
-            // Los tenedores pueden acceder a libros de sus edificios
+        else if (user.role.name === user_1.UserRole.PROPIETARIO) {
+            // Los propietarios pueden acceder a libros de sus edificios
             return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
         }
         return false;
@@ -267,7 +267,7 @@ class DigitalBookService {
                 .single();
             return book !== null && book.technician_id === user.id;
         }
-        // Los tenedores no pueden actualizar libros digitales directamente
+        // Los propietarios no pueden actualizar libros digitales directamente
         return false;
     }
     async userCanDeleteDigitalBook(userAuthId, bookId) {
@@ -281,8 +281,8 @@ class DigitalBookService {
             .single();
         if (!book)
             return false;
-        if (user.role.name === user_1.UserRole.TENEDOR) {
-            // Los tenedores pueden eliminar libros de sus edificios
+        if (user.role.name === user_1.UserRole.PROPIETARIO) {
+            // Los propietarios pueden eliminar libros de sus edificios
             return await this.userService.isOwnerOfBuilding(userAuthId, book.building_id);
         }
         else if (user.role.name === user_1.UserRole.TECNICO) {
