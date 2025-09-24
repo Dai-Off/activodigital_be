@@ -143,6 +143,13 @@ Authorization: Bearer <token>
 | GET | `/edificios/:id` | Obtener edificio específico | Sí |
 | PUT | `/edificios/:id` | Actualizar edificio | Sí |
 
+### Gestión de Imágenes de Edificios
+| Método | Endpoint | Descripción | Autenticación |
+|--------|----------|-------------|---------------|
+| POST | `/edificios/:id/images` | Subir imágenes al edificio | Sí |
+| DELETE | `/edificios/:id/images/:imageId` | Eliminar imagen específica | Sí |
+| PUT | `/edificios/:id/images/main` | Establecer imagen principal | Sí |
+
 ### Libros Digitales
 | Método | Endpoint | Descripción | Autenticación |
 |--------|----------|-------------|---------------|
@@ -198,7 +205,9 @@ Authorization: Bearer <token>
       "id": "string",
       "url": "string",
       "title": "string",
-      "isMain": "boolean"
+      "filename": "string",
+      "isMain": "boolean",
+      "uploadedAt": "string (ISO date)"
     }
   ],
   "status": "draft | ready_book | with_book",
@@ -355,6 +364,43 @@ $buildings = Invoke-RestMethod -Uri 'http://localhost:3000/edificios' -Method GE
 # Actualizar edificio
 $updateBody = @{ name = "Edificio Actualizado" } | ConvertTo-Json
 Invoke-RestMethod -Uri "http://localhost:3000/edificios/$buildingId" -Method PUT -Headers $headers -Body $updateBody
+```
+
+### Gestión de Imágenes de Edificios
+```powershell
+# Subir imágenes a un edificio
+$imagesBody = @{
+    images = @(
+        @{
+            id = "img-001"
+            url = "https://supabase-storage-url.com/building-images/edificio-123/1703123456789_abc123.jpg"
+            title = "Fachada principal"
+            filename = "fachada_principal.jpg"
+            isMain = $true
+            uploadedAt = "2025-01-15T10:30:00.000Z"
+        },
+        @{
+            id = "img-002"
+            url = "https://supabase-storage-url.com/building-images/edificio-123/1703123456790_def456.jpg"
+            title = "Vista lateral"
+            filename = "vista_lateral.jpg"
+            isMain = $false
+            uploadedAt = "2025-01-15T10:31:00.000Z"
+        }
+    )
+} | ConvertTo-Json -Depth 3
+
+$updatedBuilding = Invoke-RestMethod -Uri "http://localhost:3000/edificios/$buildingId/images" -Method POST -Headers $headers -Body $imagesBody
+
+# Establecer imagen principal
+$mainImageBody = @{
+    imageId = "img-002"
+} | ConvertTo-Json
+
+$buildingWithMainImage = Invoke-RestMethod -Uri "http://localhost:3000/edificios/$buildingId/images/main" -Method PUT -Headers $headers -Body $mainImageBody
+
+# Eliminar imagen
+Invoke-RestMethod -Uri "http://localhost:3000/edificios/$buildingId/images/img-001" -Method DELETE -Headers $headers
 ```
 
 ### Gestión de Libros Digitales
@@ -888,6 +934,15 @@ router.post('/items', authenticateToken, itemsController.create);
 
 ## Changelog
 
+### v4.2.0 - Enero 2025
+- **Sistema completo de gestión de imágenes**: subida, eliminación y gestión de imágenes principales
+- **Integración con Supabase Storage**: almacenamiento seguro de imágenes con políticas de acceso
+- **Nuevos endpoints de imágenes**: POST, DELETE y PUT para gestión completa
+- **Componente ImageManager**: interfaz reutilizable para gestión de imágenes
+- **Validación de archivos**: tipo, tamaño y formato de imágenes
+- **Gestión de imagen principal**: cambio dinámico de imagen destacada
+- **Documentación actualizada**: ejemplos completos de gestión de imágenes
+
 ### v4.1.0 - Enero 2025
 - **Nuevos campos financieros en edificios**: rehabilitationCost y potentialValue
 - **Valores por defecto**: ambos campos inician en 0 hasta que el cliente proporcione información
@@ -935,5 +990,5 @@ Para actualizar desde v3.0.0 a v4.0.0, ejecutar:
 ---
 
 **Última actualización:** Enero 2025  
-**Versión:** 4.1.0 (campos financieros agregados)  
+**Versión:** 4.2.0 (sistema de gestión de imágenes implementado)  
 **Estado:** Producción Ready

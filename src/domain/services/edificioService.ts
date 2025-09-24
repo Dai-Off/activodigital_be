@@ -327,7 +327,14 @@ export class BuildingService {
       numUnits: data.num_units || data.numUnits,
       lat: data.lat,
       lng: data.lng,
-      images: data.images || [],
+      images: (data.images || []).map((img: any) => ({
+        id: img.id,
+        url: img.url,
+        title: img.title,
+        filename: img.filename || img.title,
+        isMain: img.isMain,
+        uploadedAt: img.uploadedAt || new Date().toISOString()
+      })),
       status: data.status,
       price: data.price,
       technicianEmail: data.technician_email,

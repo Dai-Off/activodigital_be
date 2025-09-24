@@ -14,7 +14,9 @@ export interface BuildingImage {
   id: string;
   url: string;
   title: string;
+  filename: string;
   isMain: boolean;
+  uploadedAt: string;
 }
 
 export interface Building {
@@ -67,4 +69,13 @@ export interface CreateBuildingRequest {
 
 export interface UpdateBuildingRequest extends Partial<CreateBuildingRequest> {
   status?: BuildingStatus;
+}
+
+// DTOs para gestión de imágenes
+export interface UploadImagesRequest {
+  images: BuildingImage[];
+}
+
+export interface SetMainImageRequest {
+  imageId: string;
 }

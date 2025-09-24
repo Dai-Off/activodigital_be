@@ -35,6 +35,7 @@ class BuildingService {
             status: edificio_1.BuildingStatus.DRAFT,
             price: data.price,
             technician_email: data.technicianEmail,
+            cfo_email: data.cfoEmail,
             owner_id: user.id,
             user_id: userAuthId, // Mantener por compatibilidad
             // Campos financieros con valores por defecto
@@ -153,6 +154,8 @@ class BuildingService {
             updateData.price = data.price;
         if (data.technicianEmail !== undefined)
             updateData.technician_email = data.technicianEmail;
+        if (data.cfoEmail !== undefined)
+            updateData.cfo_email = data.cfoEmail;
         // Campos financieros
         if (data.rehabilitationCost !== undefined)
             updateData.rehabilitation_cost = data.rehabilitationCost;
@@ -291,10 +294,18 @@ class BuildingService {
             numUnits: data.num_units || data.numUnits,
             lat: data.lat,
             lng: data.lng,
-            images: data.images || [],
+            images: (data.images || []).map((img) => ({
+                id: img.id,
+                url: img.url,
+                title: img.title,
+                filename: img.filename || img.title,
+                isMain: img.isMain,
+                uploadedAt: img.uploadedAt || new Date().toISOString()
+            })),
             status: data.status,
             price: data.price,
             technicianEmail: data.technician_email,
+            cfoEmail: data.cfo_email,
             ownerId: data.owner_id,
             // Campos financieros
             rehabilitationCost: data.rehabilitation_cost || 0,

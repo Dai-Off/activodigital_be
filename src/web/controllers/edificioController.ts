@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { BuildingService } from '../../domain/services/edificioService';
-import { CreateBuildingRequest, UpdateBuildingRequest, BuildingStatus } from '../../types/edificio';
+import { CreateBuildingRequest, UpdateBuildingRequest, BuildingStatus, UploadImagesRequest, SetMainImageRequest } from '../../types/edificio';
 
 export class BuildingController {
   private getBuildingService() {
@@ -85,6 +85,91 @@ export class BuildingController {
       res.json({ data: building });
     } catch (error) {
       console.error('Error al actualizar edificio:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  };
+
+  // Endpoints para gestión de imágenes
+  uploadImages = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { id } = req.params;
+      const { images }: UploadImagesRequest = req.body;
+
+      if (!images || !Array.isArray(images)) {
+        res.status(400).json({ error: 'Se requiere un array de imágenes' });
+        return;
+      }
+
+      // Validar que todas las imágenes tengan los campos requeridos
+      for (const image of images) {
+        if (!image.id || !image.url || !image.title || !image.filename) {
+          res.status(400).json({ error: 'Cada imagen debe tener id, url, title y filename' });
+          return;
+        }
+      }
+
+      // Agregar cada imagen al edificio
+      let building = await this.getBuildingService().getBuildingById(id, userId);
+      if (!building) {
+        res.status(404).json({ error: 'Edificio no encontrado' });
+        return;
+      }
+
+      for (const image of images) {
+        building = await this.getBuildingService().addImage(id, image, userId);
+      }
+
+      res.json({ data: building });
+    } catch (error) {
+      console.error('Error al subir imágenes:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  };
+
+  deleteImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { id, imageId } = req.params;
+
+      const building = await this.getBuildingService().removeImage(id, imageId, userId);
+      res.json({ data: building });
+    } catch (error) {
+      console.error('Error al eliminar imagen:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  };
+
+  setMainImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { id } = req.params;
+      const { imageId }: SetMainImageRequest = req.body;
+
+      if (!imageId) {
+        res.status(400).json({ error: 'Se requiere imageId' });
+        return;
+      }
+
+      const building = await this.getBuildingService().setMainImage(id, imageId, userId);
+      res.json({ data: building });
+    } catch (error) {
+      console.error('Error al establecer imagen principal:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   };
