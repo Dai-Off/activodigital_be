@@ -35,44 +35,7 @@ export class DigitalBookController {
     }
   };
 
-  getBooks = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
-        return;
-      }
-
-      const books = await this.getDigitalBookService().getBooksByUser(userId);
-      res.json({ data: books });
-    } catch (error) {
-      console.error('Error al obtener libros digitales:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  };
-
-  getBook = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
-        return;
-      }
-
-      const { id } = req.params;
-      const book = await this.getDigitalBookService().getBookById(id, userId);
-      
-      if (!book) {
-        res.status(404).json({ error: 'Libro digital no encontrado' });
-        return;
-      }
-
-      res.json({ data: book });
-    } catch (error) {
-      console.error('Error al obtener libro digital:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  };
+  // Eliminado: listado por usuario y obtención por ID (libro ligado a edificio)
 
   getBookByBuilding = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -124,11 +87,12 @@ export class DigitalBookController {
         return;
       }
 
-      const { id, sectionType } = req.params;
+      const { id } = req.params;
+      const sectionTypeParam = req.params.sectionType;
       const data: UpdateSectionRequest = req.body;
 
-      // Validar tipo de sección
-      if (!Object.values(SectionType).includes(sectionType as SectionType)) {
+      // Validar tipo de sección (solo nombres en inglés)
+      if (!Object.values(SectionType).includes(sectionTypeParam as SectionType)) {
         res.status(400).json({ error: 'Tipo de sección inválido' });
         return;
       }
@@ -140,7 +104,7 @@ export class DigitalBookController {
 
       const book = await this.getDigitalBookService().updateSection(
         id, 
-        sectionType as SectionType, 
+        sectionTypeParam as SectionType, 
         data, 
         userId
       );

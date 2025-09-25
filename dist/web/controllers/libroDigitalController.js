@@ -31,41 +31,7 @@ class DigitalBookController {
                 }
             }
         };
-        this.getBooks = async (req, res) => {
-            try {
-                const userId = req.user?.id;
-                if (!userId) {
-                    res.status(401).json({ error: 'Usuario no autenticado' });
-                    return;
-                }
-                const books = await this.getDigitalBookService().getBooksByUser(userId);
-                res.json({ data: books });
-            }
-            catch (error) {
-                console.error('Error al obtener libros digitales:', error);
-                res.status(500).json({ error: 'Error interno del servidor' });
-            }
-        };
-        this.getBook = async (req, res) => {
-            try {
-                const userId = req.user?.id;
-                if (!userId) {
-                    res.status(401).json({ error: 'Usuario no autenticado' });
-                    return;
-                }
-                const { id } = req.params;
-                const book = await this.getDigitalBookService().getBookById(id, userId);
-                if (!book) {
-                    res.status(404).json({ error: 'Libro digital no encontrado' });
-                    return;
-                }
-                res.json({ data: book });
-            }
-            catch (error) {
-                console.error('Error al obtener libro digital:', error);
-                res.status(500).json({ error: 'Error interno del servidor' });
-            }
-        };
+        // Eliminado: listado por usuario y obtención por ID (libro ligado a edificio)
         this.getBookByBuilding = async (req, res) => {
             try {
                 const userId = req.user?.id;
@@ -110,10 +76,11 @@ class DigitalBookController {
                     res.status(401).json({ error: 'Usuario no autenticado' });
                     return;
                 }
-                const { id, sectionType } = req.params;
+                const { id } = req.params;
+                const sectionTypeParam = req.params.sectionType;
                 const data = req.body;
-                // Validar tipo de sección
-                if (!Object.values(libroDigital_1.SectionType).includes(sectionType)) {
+                // Validar tipo de sección (solo nombres en inglés)
+                if (!Object.values(libroDigital_1.SectionType).includes(sectionTypeParam)) {
                     res.status(400).json({ error: 'Tipo de sección inválido' });
                     return;
                 }
@@ -121,7 +88,7 @@ class DigitalBookController {
                     res.status(400).json({ error: 'Contenido es requerido' });
                     return;
                 }
-                const book = await this.getDigitalBookService().updateSection(id, sectionType, data, userId);
+                const book = await this.getDigitalBookService().updateSection(id, sectionTypeParam, data, userId);
                 res.json({ data: book });
             }
             catch (error) {

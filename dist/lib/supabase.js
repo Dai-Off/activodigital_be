@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSupabaseAnonClient = exports.getSupabaseAdminClient = exports.getSupabaseClient = void 0;
+exports.getSupabaseClientForToken = exports.getSupabaseAnonClient = exports.getSupabaseAdminClient = exports.getSupabaseClient = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 // Singleton client for server-side usage. Prefers SERVICE role if available,
 // falls back to ANON for read-only/basic access.
@@ -55,4 +55,25 @@ const getSupabaseAnonClient = () => {
     return anonClient;
 };
 exports.getSupabaseAnonClient = getSupabaseAnonClient;
+// Create a client that runs queries with a specific user's JWT (RLS context)
+const getSupabaseClientForToken = (token) => {
+    const url = (process.env.SUPABASE_URL || '').trim();
+    const anonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+    if (!url)
+        throw new Error('Missing env SUPABASE_URL');
+    if (!anonKey)
+        throw new Error('Missing env SUPABASE_ANON_KEY');
+    return (0, supabase_js_1.createClient)(url, anonKey, {
+        global: {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        },
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false
+        }
+    });
+};
+exports.getSupabaseClientForToken = getSupabaseClientForToken;
 //# sourceMappingURL=supabase.js.map

@@ -47,7 +47,6 @@ export class DigitalBookService {
       status: BookStatus.DRAFT,
       progress: 0,
       sections: defaultSections,
-      technician_id: user.id,
       user_id: userAuthId // Mantener por compatibilidad
     };
 
@@ -176,8 +175,14 @@ export class DigitalBookService {
     data: UpdateSectionRequest, 
     userAuthId: string
   ): Promise<DigitalBook> {
+    // Verificar permisos de actualización
+    const canUpdate = await this.userCanUpdateDigitalBook(userAuthId, bookId);
+    if (!canUpdate) {
+      throw new Error('No tienes permisos para actualizar este libro digital');
+    }
+
     // Obtener el libro actual
-    const book = await this.getBookById(bookId, userAuthId);
+    const book = await this.getBookById(bookId);
     if (!book) {
       throw new Error('Libro digital no encontrado');
     }
@@ -206,11 +211,23 @@ export class DigitalBookService {
       newStatus = BookStatus.COMPLETE;
     }
 
-    return this.updateBook(bookId, {
-      sections: newSections,
-      progress: newProgress,
-      status: newStatus
-    }, userAuthId);
+    // Actualizar (sin usar columna "estado" si no existe en la DB)
+    const { data: updated, error } = await this.getSupabase()
+      .from('digital_books')
+      .update({
+        sections: newSections,
+        progress: newProgress,
+        status: newStatus
+      })
+      .eq('id', bookId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error al actualizar libro digital: ${error.message}`);
+    }
+
+    return this.mapToDigitalBook(updated);
   }
 
   async deleteBook(id: string, userAuthId: string): Promise<void> {

@@ -120,18 +120,6 @@ Content-Type: application/json
 }
 ```
 
-### Obtener todos los libros del usuario
-
-```http
-GET /libros-digitales
-```
-
-### Obtener un libro específico
-
-```http
-GET /libros-digitales/{id}
-```
-
 ### Obtener el libro de un edificio
 
 ```http
@@ -146,34 +134,48 @@ Content-Type: application/json
 
 {
   "content": {
-    "descripcion": "Descripción de los datos generales",
-    "superficie": "150 m²",
-    "uso": "Residencial"
+    "nombreEdificio": "Residencial Las Flores",
+    "direccion": "Calle Mayor 123, Madrid",
+    "anioConstruccion": 1999,
+    "tipologia": "residencial",
+    "superficieTotal": 2500
   },
   "complete": true
 }
 ```
 
-Tipos de sección disponibles:
-- `general_data`
-- `construction_features`
-- `certificates_and_licenses`
-- `maintenance_and_conservation`
-- `facilities_and_consumption`
-- `renovations_and_rehabilitations`
-- `sustainability_and_esg`
-- `annex_documents`
+Tipos de sección disponibles (según documentación):
+- `datos_generales`
+- `agentes_intervinientes`
+- `proyecto_tecnico`
+- `documentacion_administrativa`
+- `manual_uso_mantenimiento`
+- `registro_incidencias_actuaciones`
+- `certificados_garantias`
+- `anexos_planos`
 
-### Obtener información de las secciones
+Notas:
+- El libro digital está ligado al edificio (no a listados por usuario ni acceso por id).
+- El estado del libro se calcula automáticamente al actualizar secciones: `en_borrador` por defecto y `validado` cuando las 8 secciones se marcan completas. `publicado` podrá aplicarse en una etapa posterior.
 
-```http
-GET /libros-digitales/sections/info
-```
+### Ejemplo de respuesta de libro digital (resumen)
 
-### Eliminar un libro digital
-
-```http
-DELETE /libros-digitales/{id}
+```json
+{
+  "data": {
+    "id": "uuid-1234",
+    "buildingId": "uuid-edificio-5678",
+    "status": "in_progress",
+    "progress": 3,
+    "estado": "en_borrador",
+    "version": 1,
+    "sections": [
+      { "id": "s1", "type": "datos_generales", "complete": true },
+      { "id": "s2", "type": "agentes_intervinientes", "complete": false },
+      { "id": "s3", "type": "proyecto_tecnico", "complete": true }
+    ]
+  }
+}
 ```
 
 ## Respuestas de la API

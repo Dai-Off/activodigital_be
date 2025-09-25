@@ -57,4 +57,24 @@ export const getSupabaseAnonClient = (): SupabaseClient => {
   return anonClient;
 };
 
+// Create a client that runs queries with a specific user's JWT (RLS context)
+export const getSupabaseClientForToken = (token: string): SupabaseClient => {
+  const url = (process.env.SUPABASE_URL || '').trim();
+  const anonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+  if (!url) throw new Error('Missing env SUPABASE_URL');
+  if (!anonKey) throw new Error('Missing env SUPABASE_ANON_KEY');
+
+  return createClient(url, anonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  });
+};
+
 

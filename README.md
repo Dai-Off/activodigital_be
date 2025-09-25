@@ -153,12 +153,9 @@ Authorization: Bearer <token>
 ### Libros Digitales
 | Método | Endpoint | Descripción | Autenticación |
 |--------|----------|-------------|---------------|
-| POST | `/libros-digitales` | Crear libro digital | Sí |
-| GET | `/libros-digitales` | Obtener libros del usuario | Sí |
-| GET | `/libros-digitales/:id` | Obtener libro específico | Sí |
-| PUT | `/libros-digitales/:id` | Actualizar libro | Sí |
+| POST | `/libros-digitales` | Crear libro digital (asociado a un edificio) | Sí |
 | GET | `/libros-digitales/building/:buildingId` | Obtener libro por edificio | Sí |
-| PUT | `/libros-digitales/:id/sections/:sectionType` | Actualizar sección | Sí |
+| PUT | `/libros-digitales/:id/sections/:sectionType` | Actualizar una sección del libro | Sí |
 
 ### Utilidades
 | Método | Endpoint | Descripción | Autenticación |
@@ -241,7 +238,7 @@ Authorization: Bearer <token>
       "content": "object (flexible)"
     }
   ],
-  "technicianId": "uuid", // Nuevo campo
+  // Nota: technicianId puede no estar presente en todas las instalaciones
   "createdAt": "string (ISO date)",
   "updatedAt": "string (ISO date)",
   "userId": "string (uuid)" // Mantener por compatibilidad
@@ -417,10 +414,11 @@ $bookId = $book.data.id
 # Actualizar sección del libro
 $sectionBody = @{
     content = @{
-        descripcion = "Edificio residencial moderno"
-        superficie_construida = "1500 m²"
-        arquitecto = "Juan Pérez Arquitectos"
-        promotor = "Inmobiliaria Centro SL"
+        nombreEdificio = "Residencial Las Flores"
+        direccion = "Calle Mayor 123, Madrid"
+        anioConstruccion = 1999
+        tipologia = "residencial"
+        superficieTotal = 2500
     }
     complete = $true
 } | ConvertTo-Json -Depth 3
