@@ -69,3 +69,59 @@ export interface AuthResponse {
 export interface UserWithRole extends User {
   role: Role;
 }
+
+// Tipos para el sistema de invitaciones
+export interface Invitation {
+  id: string;
+  email: string;
+  roleId: string;
+  buildingId: string;
+  invitedBy: string;
+  token: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  expiresAt: string;
+  acceptedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Relaciones populadas
+  role?: Role;
+  building?: {
+    id: string;
+    name: string;
+    address: string;
+  };
+  invitedByUser?: User;
+}
+
+export interface BuildingCfoAssignment {
+  id: string;
+  buildingId: string;
+  cfoId: string;
+  assignedBy: string;
+  assignedAt: string;
+  status: 'active' | 'inactive';
+  
+  // Relaciones populadas
+  cfo?: User;
+  assignedByUser?: User;
+}
+
+// DTOs para invitaciones
+export interface CreateInvitationRequest {
+  email: string;
+  role: UserRole;
+  buildingId: string;
+}
+
+export interface AcceptInvitationRequest {
+  token: string;
+  fullName?: string;
+}
+
+export interface AcceptInvitationResponse {
+  invitationId: string;
+  role: string;
+  buildingId: string;
+  email: string;
+}

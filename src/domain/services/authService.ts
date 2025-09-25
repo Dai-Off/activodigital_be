@@ -1,6 +1,7 @@
 import { getSupabaseClient, getSupabaseAnonClient } from '../../lib/supabase';
 import { UserService } from './userService';
-import { CreateUserRequest, AuthResponse, UserRole } from '../../types/user';
+import { InvitationService } from './invitationService';
+import { CreateUserRequest, AuthResponse, UserRole, AcceptInvitationRequest } from '../../types/user';
 
 export async function signUpUser(params: CreateUserRequest): Promise<AuthResponse> {
   const { email, password, fullName, role } = params;
@@ -82,6 +83,80 @@ export async function signInUser(params: SignInParams): Promise<AuthResponse> {
 export async function getProfileByUserId(userId: string) {
   const userService = new UserService();
   return await userService.getUserByAuthId(userId);
+}
+
+/**
+ * Registra un usuario con invitación
+ */
+export async function signUpUserWithInvitation(
+  params: CreateUserRequest & { invitationToken: string }
+): Promise<AuthResponse> {
+  const { email, password, fullName, role, invitationToken } = params;
+  const supabase = getSupabaseClient();
+  const userService = new UserService();
+  const invitationService = new InvitationService();
+
+  // 1) Crear usuario en Auth
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (authError || !authData?.user) {
+    throw new Error(authError?.message || 'Failed to create user');
+  }
+
+  const userId = authData.user.id;
+
+  try {
+    // 2) Crear perfil de usuario con el rol especificado
+    const userProfile = await userService.createUserProfile(userId, {
+      email,
+      fullName,
+      role
+    });
+
+    // 3) Aceptar la invitación
+    const invitationResult = await invitationService.acceptInvitation({
+      token: invitationToken,
+      fullName
+    }, userId);
+
+    // 4) Obtener el usuario completo con rol
+    const userWithRole = await userService.getUserByAuthId(userId);
+    if (!userWithRole) {
+      throw new Error('Error al obtener usuario creado');
+    }
+
+    // 5) Crear sesión para el usuario
+    const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (sessionError || !sessionData.session) {
+      throw new Error('Error al crear sesión');
+    }
+
+    return {
+      user: { id: userId, email },
+      userProfile: userWithRole,
+      access_token: sessionData.session.access_token,
+      refresh_token: sessionData.session.refresh_token
+    };
+  } catch (error) {
+    // Revertir usuario en Auth si falla la creación del perfil o aceptación de invitación
+    await supabase.auth.admin.deleteUser(userId);
+    throw error;
+  }
+}
+
+/**
+ * Valida una invitación sin crear usuario
+ */
+export async function validateInvitation(token: string) {
+  const invitationService = new InvitationService();
+  return await invitationService.getInvitationByToken(token);
 }
 
 

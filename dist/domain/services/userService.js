@@ -187,6 +187,22 @@ class UserService {
         const assignments = await this.getTechnicianAssignments(technicianAuthId);
         return assignments.map(assignment => assignment.buildingId);
     }
+    // Obtener edificios asignados a un CFO
+    async getCfoBuildings(cfoAuthId) {
+        const user = await this.getUserByAuthId(cfoAuthId);
+        if (!user) {
+            throw new Error('Usuario no encontrado');
+        }
+        const { data, error } = await this.getSupabase()
+            .from('building_cfo_assignments')
+            .select('building_id')
+            .eq('cfo_id', user.id)
+            .eq('status', 'active');
+        if (error) {
+            throw new Error(`Error al obtener edificios CFO: ${error.message}`);
+        }
+        return data.map((item) => item.building_id);
+    }
     // Verificar si un usuario es propietario de un edificio
     async isOwnerOfBuilding(userAuthId, buildingId) {
         const user = await this.getUserByAuthId(userAuthId);

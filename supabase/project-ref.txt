@@ -1,0 +1,4 @@
+# ID del proyecto de Supabase
+# Extraído de la URL: https://supabase.com/dashboard/project/[PROJECT_ID]
+
+PROJECT_REF=eqyevtkljwvhfsohawrk

@@ -1,13 +1,48 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuildingService = void 0;
 const supabase_1 = require("../../lib/supabase");
 const edificio_1 = require("../../types/edificio");
 const userService_1 = require("./userService");
+const invitationService_1 = require("./invitationService");
 const user_1 = require("../../types/user");
 class BuildingService {
     constructor() {
         this.userService = new userService_1.UserService();
+        this.invitationService = new invitationService_1.InvitationService();
     }
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
@@ -50,18 +85,36 @@ class BuildingService {
         if (error) {
             throw new Error(`Error al crear edificio: ${error.message}`);
         }
-        // Si se especificó un email de técnico, asignarlo al edificio
+        // Si se especificó un email de técnico, intentar asignarlo o enviar invitación
         if (data.technicianEmail) {
             try {
-                await this.userService.assignTechnicianToBuilding(building.id, data.technicianEmail, userAuthId);
+                console.log(`\n🎯 PROCESANDO TÉCNICO: ${data.technicianEmail}`);
+                await this.handleTechnicianAssignment(building.id, data.technicianEmail, userAuthId);
+                console.log(`✅ TÉCNICO PROCESADO EXITOSAMENTE\n`);
             }
             catch (error) {
-                // Si falla la asignación, eliminar el edificio creado
+                console.error(`❌ Error al asignar técnico: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+                console.error('Stack trace:', error);
+                // Si falla la asignación/invitación, eliminar el edificio creado
                 await this.getSupabase()
                     .from('buildings')
                     .delete()
                     .eq('id', building.id);
                 throw new Error(`Error al asignar técnico: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+            }
+        }
+        // Si se especificó un email de CFO, enviar invitación
+        if (data.cfoEmail) {
+            try {
+                console.log(`🔍 Intentando enviar invitación CFO a: ${data.cfoEmail}`);
+                await this.handleCfoInvitation(building.id, data.cfoEmail, userAuthId);
+                console.log(`✅ Email enviado exitosamente a CFO: ${data.cfoEmail}`);
+            }
+            catch (error) {
+                console.error(`❌ Error al invitar CFO: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+                console.error('Stack trace:', error);
+                // Si falla la invitación CFO, no eliminar el edificio (es menos crítico)
+                throw new Error(`Error al invitar CFO: ${error instanceof Error ? error.message : 'Error desconocido'}`);
             }
         }
         return this.mapToBuilding(building);
@@ -103,6 +156,17 @@ class BuildingService {
         else if (user.role.name === user_1.UserRole.TECNICO) {
             // Los técnicos ven edificios asignados
             const assignedBuildingIds = await this.userService.getTechnicianBuildings(userAuthId);
+            if (assignedBuildingIds.length === 0) {
+                return []; // No tiene edificios asignados
+            }
+            query = this.getSupabase()
+                .from('buildings')
+                .select('*')
+                .in('id', assignedBuildingIds);
+        }
+        else if (user.role.name === user_1.UserRole.CFO) {
+            // Los CFOs ven edificios asignados
+            const assignedBuildingIds = await this.userService.getCfoBuildings(userAuthId);
             if (assignedBuildingIds.length === 0) {
                 return []; // No tiene edificios asignados
             }
@@ -266,6 +330,10 @@ class BuildingService {
             // Los técnicos tienen acceso a edificios asignados
             return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
         }
+        else if (user.role.name === user_1.UserRole.CFO) {
+            // Los CFOs tienen acceso a edificios asignados
+            return await this.cfoHasAccessToBuilding(userAuthId, buildingId);
+        }
         return false;
     }
     async userCanUpdateBuilding(userAuthId, buildingId) {
@@ -280,7 +348,203 @@ class BuildingService {
             // Los técnicos pueden actualizar solo algunos campos de edificios asignados
             return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
         }
+        else if (user.role.name === user_1.UserRole.CFO) {
+            // Los CFOs pueden actualizar campos financieros de edificios asignados
+            return await this.cfoHasAccessToBuilding(userAuthId, buildingId);
+        }
         return false;
+    }
+    /**
+     * Maneja la asignación de técnico: si existe, lo asigna; si no, envía invitación
+     */
+    async handleTechnicianAssignment(buildingId, technicianEmail, userAuthId) {
+        console.log(`\n🔍 ASIGNACIÓN TÉCNICO - Email: ${technicianEmail} | Building: ${buildingId}`);
+        // Primero verificar si el usuario ya existe
+        const existingTechnician = await this.userService.getUserByEmail(technicianEmail);
+        if (existingTechnician) {
+            console.log(`✅ Usuario existe - Rol: ${existingTechnician.role.name} | ID: ${existingTechnician.id}`);
+        }
+        else {
+            console.log(`❌ Usuario NO existe - Creando invitación de registro`);
+        }
+        if (existingTechnician) {
+            // Si existe y es técnico, asignarlo directamente
+            if (existingTechnician.role.name === user_1.UserRole.TECNICO) {
+                console.log(`📧 Enviando EMAIL DE ASIGNACIÓN para técnico existente`);
+                // Enviar email de notificación de asignación directamente
+                const assignedByUser = await this.userService.getUserByAuthId(userAuthId);
+                const building = await this.getBuildingById(buildingId);
+                if (assignedByUser && building) {
+                    try {
+                        // PRIMERO: Crear la asignación en la base de datos
+                        console.log(`🏢 CREANDO ASIGNACIÓN en BD para técnico existente`);
+                        await this.assignTechnicianToBuilding(buildingId, existingTechnician.userId, userAuthId);
+                        console.log(`✅ ASIGNACIÓN CREADA en BD exitosamente`);
+                        // SEGUNDO: Enviar email de notificación
+                        console.log(`📧 Enviando EMAIL DE ASIGNACIÓN para técnico existente`);
+                        await this.sendAssignmentNotificationEmail(existingTechnician, building, assignedByUser);
+                        console.log(`✅ EMAIL DE ASIGNACIÓN enviado exitosamente`);
+                    }
+                    catch (error) {
+                        console.error(`❌ Error en asignación:`, error);
+                        throw error; // Re-lanzar el error para que se maneje apropiadamente
+                    }
+                }
+            }
+            else {
+                console.log('❌ User exists but is not a technician');
+                throw new Error('El usuario existe pero no es un técnico');
+            }
+        }
+        else {
+            // Si no existe, enviar invitación
+            console.log(`📧 Creando INVITACIÓN DE REGISTRO para usuario nuevo`);
+            await this.invitationService.createInvitation({
+                email: technicianEmail,
+                role: user_1.UserRole.TECNICO,
+                buildingId: buildingId
+            }, userAuthId);
+            console.log(`✅ INVITACIÓN DE REGISTRO creada exitosamente`);
+        }
+    }
+    /**
+     * Maneja la invitación de CFO
+     */
+    async handleCfoInvitation(buildingId, cfoEmail, userAuthId) {
+        // Verificar si el usuario ya existe
+        const existingCfo = await this.userService.getUserByEmail(cfoEmail);
+        if (existingCfo) {
+            // Si existe y es CFO, asignarlo directamente
+            if (existingCfo.role.name === user_1.UserRole.CFO) {
+                await this.assignCfoToBuilding(buildingId, existingCfo.id, userAuthId);
+            }
+            else {
+                throw new Error('El usuario existe pero no es un CFO');
+            }
+        }
+        else {
+            // Si no existe, enviar invitación
+            await this.invitationService.createInvitation({
+                email: cfoEmail,
+                role: user_1.UserRole.CFO,
+                buildingId: buildingId
+            }, userAuthId);
+        }
+    }
+    /**
+     * Obtiene el propietario de un edificio
+     */
+    async getBuildingOwner(buildingId) {
+        const { data, error } = await this.getSupabase()
+            .from('buildings')
+            .select(`
+        id,
+        owner:users!owner_id(
+          id,
+          user_id,
+          email,
+          full_name,
+          role_id
+        )
+      `)
+            .eq('id', buildingId)
+            .single();
+        if (error || !data) {
+            throw new Error('Edificio no encontrado');
+        }
+        return data.owner;
+    }
+    /**
+     * Verifica si un CFO tiene acceso a un edificio
+     */
+    async cfoHasAccessToBuilding(cfoAuthId, buildingId) {
+        const user = await this.userService.getUserByAuthId(cfoAuthId);
+        if (!user)
+            return false;
+        const { data, error } = await this.getSupabase()
+            .from('building_cfo_assignments')
+            .select('id')
+            .eq('building_id', buildingId)
+            .eq('cfo_id', user.id)
+            .eq('status', 'active')
+            .single();
+        return !error && !!data;
+    }
+    /**
+     * Asigna un técnico a un edificio
+     */
+    async assignTechnicianToBuilding(buildingId, technicianAuthId, assignedByUserId) {
+        const technician = await this.userService.getUserByAuthId(technicianAuthId);
+        if (!technician) {
+            throw new Error('Técnico no encontrado');
+        }
+        if (technician.role.name !== user_1.UserRole.TECNICO) {
+            throw new Error('El usuario no es un técnico');
+        }
+        // Verificar que el técnico no esté ya asignado a este edificio
+        const existingAssignment = await this.getSupabase()
+            .from('building_technician_assignments')
+            .select('id')
+            .eq('building_id', buildingId)
+            .eq('technician_id', technician.id)
+            .eq('status', 'active')
+            .single();
+        if (existingAssignment.data) {
+            throw new Error('El técnico ya está asignado a este edificio');
+        }
+        const assignedByUser = await this.userService.getUserByAuthId(assignedByUserId);
+        if (!assignedByUser) {
+            throw new Error('Usuario asignador no encontrado');
+        }
+        const assignmentData = {
+            building_id: buildingId,
+            technician_id: technician.id,
+            assigned_by: assignedByUser.id,
+            status: 'active'
+        };
+        const { error } = await this.getSupabase()
+            .from('building_technician_assignments')
+            .insert(assignmentData);
+        if (error) {
+            throw new Error(`Error al asignar técnico: ${error.message}`);
+        }
+    }
+    /**
+     * Asigna un CFO a un edificio
+     */
+    async assignCfoToBuilding(buildingId, cfoId, assignedByUserId) {
+        const assignedByUser = await this.userService.getUserByAuthId(assignedByUserId);
+        if (!assignedByUser) {
+            throw new Error('Usuario asignador no encontrado');
+        }
+        const assignmentData = {
+            building_id: buildingId,
+            cfo_id: cfoId,
+            assigned_by: assignedByUser.id,
+            status: 'active'
+        };
+        const { error } = await this.getSupabase()
+            .from('building_cfo_assignments')
+            .insert(assignmentData);
+        if (error) {
+            throw new Error(`Error al asignar CFO: ${error.message}`);
+        }
+    }
+    /**
+     * Envía un email de notificación cuando se asigna un técnico existente a un nuevo edificio
+     */
+    async sendAssignmentNotificationEmail(technician, building, assignedByUser) {
+        const emailService = new (await Promise.resolve().then(() => __importStar(require('./emailService')))).EmailService();
+        // Crear un objeto invitation falso para usar el método existente
+        const fakeInvitation = {
+            id: 'assignment-notification',
+            email: technician.email,
+            token: 'assignment-notification',
+            role: { name: 'tecnico' },
+            expiresAt: new Date().toISOString()
+        };
+        // Usar el método de notificación de asignación en lugar de invitación
+        await emailService.sendAssignmentNotificationEmail(technician, building, assignedByUser);
     }
     mapToBuilding(data) {
         return {

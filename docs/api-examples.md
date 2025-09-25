@@ -1,6 +1,6 @@
-# API Examples - Activo Digital Backend
+# API Reference - Activo Digital Backend
 
-Este documento muestra ejemplos de cómo usar la API para gestionar edificios y libros digitales.
+Este documento contiene la referencia completa de la API para gestión de edificios, libros digitales e invitaciones.
 
 ## Autenticación
 
@@ -198,6 +198,68 @@ Notas:
 {
   "error": "Descripción del error"
 }
+```
+
+## Sistema de Invitaciones
+
+### Crear Invitación Manual
+```http
+POST /api/invitations
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "email": "tecnico@ejemplo.com",
+  "role": "tecnico",
+  "buildingId": "uuid-del-edificio"
+}
+```
+
+### Validar Invitación
+```http
+GET /api/auth/validate-invitation/{token}
+```
+
+### Registro con Invitación
+```http
+POST /api/auth/register-with-invitation
+Content-Type: application/json
+
+{
+  "email": "tecnico@ejemplo.com",
+  "password": "password123",
+  "full_name": "Técnico Nombre",
+  "invitation_token": "token-de-invitacion"
+}
+```
+
+### Auto-Accept (Usuarios Existentes)
+```http
+GET /api/auth/auto-accept?email=xxx&building=xxx
+```
+
+### Procesar Asignaciones Pendientes
+```http
+POST /api/auth/process-pending-assignments
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "email": "tecnico@ejemplo.com",
+  "buildingId": "uuid-edificio"
+}
+```
+
+### Obtener Invitaciones Enviadas
+```http
+GET /api/invitations
+Authorization: Bearer <token>
+```
+
+### Cancelar Invitación
+```http
+DELETE /api/invitations/{invitationId}
+Authorization: Bearer <token>
 ```
 
 ## Códigos de estado HTTP

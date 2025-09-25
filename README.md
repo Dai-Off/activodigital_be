@@ -8,9 +8,11 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - **Sistema de usuarios y roles** con relaciones específicas
   - **Propietario**: Propietario de edificios, puede crear edificios y asignar técnicos
   - **Técnico**: Gestiona libros digitales de edificios asignados
+  - **CFO**: Acceso a información financiera de edificios asignados
+- **Sistema de invitaciones por email** para técnicos y CFOs
 - **Gestión de edificios** con imágenes, geolocalización y precios
 - **Libros digitales** con 8 secciones y progreso automático
-- **Asignación de técnicos** por email para gestión de libros digitales
+- **Asignación automática** de técnicos y CFOs por email
 - **Control de permisos** basado en roles y relaciones
 - **Relación 1:1** edificio-libro digital
 - **API REST** con validación de datos
@@ -22,11 +24,19 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - Node.js 18+
 - Cuenta de Supabase
 - Cuenta de Fly.io (para deploy)
+- Cuenta de Resend (para envío de emails)
 
 ## URLs
 
 - **Local:** `http://localhost:3000`
 - **Producción:** `https://activodigital-be.fly.dev`
+
+## 📚 Documentación
+
+- **⚡ [Quick Start Guide](docs/quick-start.md)** - Setup rápido en 5 minutos
+- **🚀 [Guía del Desarrollador](docs/developer-guide.md)** - Guía completa para desarrolladores
+- **🔧 [Guía Técnica de Invitaciones](docs/invitations-technical-guide.md)** - Documentación técnica detallada del sistema de invitaciones
+- **📖 [API Reference](docs/api-examples.md)** - Referencia completa de la API
 
 ## Setup Local
 
@@ -47,7 +57,32 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeWV2dGtsand2aGZzb2hhd3JrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzY3NTYxMSwiZXhwIjoyMDczMjUxNjExfQ.CPy0R9AprbYLtK52SbzNF69EImU4QqEUu0Y1L77mrp8
 ```
 
-### 3. Compilar y ejecutar
+### 3. Configurar Supabase Edge Functions para emails
+
+#### Opción A: Configuración Automática
+```powershell
+# Ejecutar script de configuración
+.\scripts\setup-env.ps1
+
+# Desplegar funciones
+.\scripts\deploy-functions.ps1
+```
+
+#### Opción B: Configuración Manual
+
+1. **Configurar variables de entorno en Supabase:**
+   ```bash
+   npx supabase secrets set RESEND_API_KEY=tu_api_key_de_resend --project-ref tu_project_id
+   npx supabase secrets set FRONTEND_URL=http://localhost:3000 --project-ref tu_project_id
+   ```
+
+2. **Desplegar Edge Functions:**
+   ```bash
+   npx supabase functions deploy send-invitation-email --project-ref tu_project_id
+   npx supabase functions deploy send-welcome-email --project-ref tu_project_id
+   ```
+
+### 4. Compilar y ejecutar
 ```bash
 # Desarrollo (con autoreload)
 npm run dev
@@ -126,6 +161,19 @@ Authorization: Bearer <token>
 | POST | `/auth/login` | Inicio de sesión | No |
 | GET | `/auth/me` | Obtener perfil del usuario | Sí |
 | POST | `/auth/logout` | Cerrar sesión | No |
+| POST | `/auth/register-with-invitation` | Registro con invitación | No |
+| GET | `/auth/validate-invitation/:token` | Validar invitación | No |
+
+### Sistema de Invitaciones
+| Método | Endpoint | Descripción | Autenticación | Rol |
+|--------|----------|-------------|---------------|-----|
+| POST | `/invitations` | Crear invitación | Sí | Propietario |
+| GET | `/invitations` | Obtener invitaciones enviadas | Sí | Propietario |
+| DELETE | `/invitations/:id` | Cancelar invitación | Sí | Propietario |
+| GET | `/invitations/validate/:token` | Validar invitación por token | No | - |
+| GET | `/invitations/building/:id/cfos` | Asignaciones CFO por edificio | Sí | Propietario |
+| GET | `/invitations/my-cfo-assignments` | Mis asignaciones CFO | Sí | CFO |
+| POST | `/invitations/cleanup` | Limpiar invitaciones expiradas | Sí | Administrador |
 
 ### Usuarios
 | Método | Endpoint | Descripción | Autenticación | Rol |
@@ -541,7 +589,7 @@ fly deploy
 ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐
 │   Supabase  │    │    Roles    │    │     Users       │
 │ Auth.users  │◄───┤             │◄───┤                 │
-└─────────────┘    │ • tenedor   │    │ • Perfil        │
+└─────────────┘    │ • propietario   │    │ • Perfil        │
                    │ • tecnico   │    │ • Email         │
                    └─────────────┘    │ • Rol           │
                                       └─────┬───────────┘
@@ -932,6 +980,17 @@ router.post('/items', authenticateToken, itemsController.create);
 
 ## Changelog
 
+### v4.3.0 - Enero 2025 (NUEVA VERSIÓN)
+- **Sistema completo de invitaciones por email**: invitación automática de técnicos y CFOs
+- **Edge Functions de Supabase**: envío de emails profesionales con templates HTML
+- **Integración con Resend**: proveedor de email confiable para envío de invitaciones
+- **Flujo de registro con invitación**: registro automático y asignación al edificio
+- **Nuevos roles y permisos**: soporte completo para CFOs con acceso financiero
+- **Sistema de tokens seguros**: invitaciones con expiración de 7 días
+- **Gestión de asignaciones**: seguimiento completo de técnicos y CFOs por edificio
+- **Scripts de configuración**: automatización de despliegue de Edge Functions
+- **Documentación completa**: guías de configuración y ejemplos de uso
+
 ### v4.2.0 - Enero 2025
 - **Sistema completo de gestión de imágenes**: subida, eliminación y gestión de imágenes principales
 - **Integración con Supabase Storage**: almacenamiento seguro de imágenes con políticas de acceso
@@ -988,5 +1047,5 @@ Para actualizar desde v3.0.0 a v4.0.0, ejecutar:
 ---
 
 **Última actualización:** Enero 2025  
-**Versión:** 4.2.0 (sistema de gestión de imágenes implementado)  
+**Versión:** 4.3.0 (sistema de invitaciones por email implementado)  
 **Estado:** Producción Ready
