@@ -11,6 +11,7 @@ router.post('/logout', authController_1.logoutController);
 // Nuevos endpoints para invitaciones
 router.post('/register-with-invitation', authController_1.signupWithInvitationController);
 router.get('/validate-invitation', authController_1.validateInvitationController);
+router.get('/invitation/:token', authController_1.smartInvitationController); // Endpoint inteligente para manejar invitaciones
 router.get('/accept-assignment', authController_1.acceptAssignmentController); // Endpoint para aceptar asignaciones
 router.get('/auto-accept', authController_1.autoAcceptController); // Endpoint para auto-aceptar invitaciones
 router.post('/process-pending-assignments', authMiddleware_1.requireAuth, authController_1.processPendingAssignmentsController); // Procesar asignaciones pendientes

@@ -6,6 +6,14 @@ class EmailService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
     }
+    getFrontendUrl() {
+        // En desarrollo, usar localhost
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev') {
+            return 'http://localhost:5173';
+        }
+        // En producción, usar la URL de producción
+        return 'https://edificio-digital.fly.dev';
+    }
     /**
      * Envía una invitación por email usando Supabase Edge Functions
      */
@@ -17,7 +25,7 @@ class EmailService {
             console.log(`🔗 Link generado: ${isAssignmentNotification ? 'AUTO-ACCEPT' : 'REGISTER'}`);
             console.log(`🔍 Token recibido: "${invitation.token}"`);
             console.log(`🔍 ¿Es assignment-notification?: ${isAssignmentNotification}`);
-            // Usar Supabase Edge Function para enviar email
+            // Usar Supabase Edge Function existente para enviar email
             const { data, error } = await this.getSupabase().functions.invoke('send-invitation-email', {
                 body: {
                     to: invitation.email,
@@ -27,7 +35,7 @@ class EmailService {
                     invitation: {
                         id: invitation.id,
                         token: invitation.token,
-                        role: invitation.role?.name,
+                        role: invitation.role?.name || '',
                         expiresAt: invitation.expiresAt
                     },
                     building: {
@@ -60,9 +68,10 @@ class EmailService {
         const roleName = invitation.role?.name === 'tecnico' ? 'Técnico' : 'CFO';
         // Determinar si es una invitación de registro o de asignación
         const isAssignmentNotification = invitation.token === 'assignment-notification';
+        const frontendUrl = this.getFrontendUrl();
         const actionUrl = isAssignmentNotification
-            ? `https://edificio-digital.fly.dev/auth/auto-accept?email=${encodeURIComponent(invitation.email)}&building=${building.id}`
-            : `https://edificio-digital.fly.dev/auth/register?token=${invitation.token}`;
+            ? `${frontendUrl}/auth/auto-accept?email=${encodeURIComponent(invitation.email)}&building=${building.id}`
+            : `${frontendUrl}/auth/invitation/${invitation.token}`;
         const subject = `Invitación para ser ${roleName} en ${building.name}`;
         const html = `
       <!DOCTYPE html>
@@ -217,7 +226,8 @@ class EmailService {
      */
     async sendAssignmentNotificationEmail(user, building, assignedByUser) {
         const roleName = user.role?.name === 'tecnico' ? 'Técnico' : 'CFO';
-        const acceptUrl = `https://edificio-digital.fly.dev/auth/accept-assignment?email=${encodeURIComponent(user.email)}&building=${building.id}`;
+        const frontendUrl = this.getFrontendUrl();
+        const acceptUrl = `${frontendUrl}/auth/auto-accept?email=${encodeURIComponent(user.email)}&building=${building.id}`;
         const subject = `Nueva asignación como ${roleName} en ${building.name}`;
         const html = `
       <!DOCTYPE html>
@@ -362,8 +372,8 @@ class EmailService {
                     invitation: {
                         id: 'assignment-notification',
                         token: 'assignment-notification',
-                        role: user.role?.name,
-                        expiresAt: new Date().toISOString()
+                        role: user.role?.name || '',
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
                     },
                     building: {
                         id: building.id,

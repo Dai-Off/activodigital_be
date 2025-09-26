@@ -552,16 +552,7 @@ export class BuildingService {
   private async sendAssignmentNotificationEmail(technician: any, building: Building, assignedByUser: any): Promise<void> {
     const emailService = new (await import('./emailService')).EmailService();
     
-    // Crear un objeto invitation falso para usar el método existente
-    const fakeInvitation = {
-      id: 'assignment-notification',
-      email: technician.email,
-      token: 'assignment-notification',
-      role: { name: 'tecnico' },
-      expiresAt: new Date().toISOString()
-    };
-    
-    // Usar el método de notificación de asignación en lugar de invitación
+    // Usar el método de notificación de asignación
     await emailService.sendAssignmentNotificationEmail(technician, building, assignedByUser);
   }
 

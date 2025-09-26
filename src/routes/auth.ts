@@ -8,7 +8,8 @@ import {
   validateInvitationController,
   acceptAssignmentController,
   autoAcceptController,
-  processPendingAssignmentsController
+  processPendingAssignmentsController,
+  smartInvitationController
 } from '../web/controllers/authController';
 import { requireAuth } from '../web/middlewares/authMiddleware';
 
@@ -22,6 +23,7 @@ router.post('/logout', logoutController);
 // Nuevos endpoints para invitaciones
 router.post('/register-with-invitation', signupWithInvitationController);
 router.get('/validate-invitation', validateInvitationController);
+router.get('/invitation/:token', smartInvitationController); // Endpoint inteligente para manejar invitaciones
 router.get('/accept-assignment', acceptAssignmentController); // Endpoint para aceptar asignaciones
 router.get('/auto-accept', autoAcceptController); // Endpoint para auto-aceptar invitaciones
 router.post('/process-pending-assignments', requireAuth, processPendingAssignmentsController); // Procesar asignaciones pendientes

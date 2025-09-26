@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processPendingAssignmentsController = exports.validateInvitationController = exports.acceptAssignmentController = exports.autoAcceptController = exports.signupWithInvitationController = exports.logoutController = exports.meController = exports.loginController = exports.signupController = void 0;
+exports.processPendingAssignmentsController = exports.smartInvitationController = exports.validateInvitationController = exports.acceptAssignmentController = exports.autoAcceptController = exports.signupWithInvitationController = exports.logoutController = exports.meController = exports.loginController = exports.signupController = void 0;
 const authService_1 = require("../../domain/services/authService");
 const userService_1 = require("../../domain/services/userService");
 const edificioService_1 = require("../../domain/services/edificioService");
@@ -335,6 +335,85 @@ const validateInvitationController = async (req, res) => {
     }
 };
 exports.validateInvitationController = validateInvitationController;
+/**
+ * Endpoint inteligente para manejar invitaciones - determina si redirigir a login o register
+ * GET /api/auth/invitation/:token
+ */
+const smartInvitationController = async (req, res) => {
+    try {
+        const { token } = req.params;
+        if (!token) {
+            return res.status(400).json({ error: 'Token de invitación requerido' });
+        }
+        // Decodificar el token que viene URL-encoded
+        const decodedToken = decodeURIComponent(token);
+        console.log('Token de invitación recibido:', decodedToken);
+        // Validar la invitación
+        const invitation = await (0, authService_1.validateInvitation)(decodedToken);
+        if (!invitation) {
+            return res.status(404).json({
+                error: 'Invitación no encontrada o expirada'
+            });
+        }
+        if (invitation.status !== 'pending') {
+            return res.status(400).json({
+                error: 'Invitación ya fue utilizada o cancelada'
+            });
+        }
+        // Verificar que no haya expirado
+        const now = new Date();
+        const expiresAt = new Date(invitation.expiresAt);
+        if (now > expiresAt) {
+            return res.status(400).json({
+                error: 'Invitación expirada'
+            });
+        }
+        // Verificar si el usuario ya existe
+        const userService = new userService_1.UserService();
+        const existingUser = await userService.getUserByEmail(invitation.email);
+        if (existingUser) {
+            // Usuario existe - redirigir a login con información de la invitación
+            return res.status(200).json({
+                success: true,
+                userExists: true,
+                redirect: '/login',
+                message: 'Usuario encontrado. Por favor, inicia sesión para completar la invitación.',
+                invitation: {
+                    id: invitation.id,
+                    email: invitation.email,
+                    role: invitation.role?.name,
+                    buildingId: invitation.building?.id,
+                    buildingName: invitation.building?.name,
+                    invitedBy: invitation.invitedByUser?.fullName,
+                    expiresAt: invitation.expiresAt
+                }
+            });
+        }
+        else {
+            // Usuario no existe - redirigir a registro con información de la invitación
+            return res.status(200).json({
+                success: true,
+                userExists: false,
+                redirect: '/register',
+                message: 'Por favor, regístrate para completar la invitación.',
+                invitation: {
+                    id: invitation.id,
+                    email: invitation.email,
+                    role: invitation.role?.name,
+                    buildingId: invitation.building?.id,
+                    buildingName: invitation.building?.name,
+                    invitedBy: invitation.invitedByUser?.fullName,
+                    expiresAt: invitation.expiresAt
+                }
+            });
+        }
+    }
+    catch (error) {
+        console.error('Error en smartInvitationController:', error);
+        return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+};
+exports.smartInvitationController = smartInvitationController;
 /**
  * Procesar asignaciones pendientes después del login
  * POST /api/auth/process-pending-assignments

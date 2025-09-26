@@ -337,6 +337,92 @@ export const validateInvitationController = async (req: Request, res: Response) 
 };
 
 /**
+ * Endpoint inteligente para manejar invitaciones - determina si redirigir a login o register
+ * GET /api/auth/invitation/:token
+ */
+export const smartInvitationController = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Token de invitación requerido' });
+    }
+
+    // Decodificar el token que viene URL-encoded
+    const decodedToken = decodeURIComponent(token);
+    console.log('Token de invitación recibido:', decodedToken);
+
+    // Validar la invitación
+    const invitation = await validateInvitation(decodedToken);
+    
+    if (!invitation) {
+      return res.status(404).json({ 
+        error: 'Invitación no encontrada o expirada' 
+      });
+    }
+
+    if (invitation.status !== 'pending') {
+      return res.status(400).json({ 
+        error: 'Invitación ya fue utilizada o cancelada' 
+      });
+    }
+
+    // Verificar que no haya expirado
+    const now = new Date();
+    const expiresAt = new Date(invitation.expiresAt);
+    if (now > expiresAt) {
+      return res.status(400).json({ 
+        error: 'Invitación expirada' 
+      });
+    }
+
+    // Verificar si el usuario ya existe
+    const userService = new UserService();
+    const existingUser = await userService.getUserByEmail(invitation.email);
+    
+    if (existingUser) {
+      // Usuario existe - redirigir a login con información de la invitación
+      return res.status(200).json({
+        success: true,
+        userExists: true,
+        redirect: '/login',
+        message: 'Usuario encontrado. Por favor, inicia sesión para completar la invitación.',
+        invitation: {
+          id: invitation.id,
+          email: invitation.email,
+          role: invitation.role?.name,
+          buildingId: invitation.building?.id,
+          buildingName: invitation.building?.name,
+          invitedBy: invitation.invitedByUser?.fullName,
+          expiresAt: invitation.expiresAt
+        }
+      });
+    } else {
+      // Usuario no existe - redirigir a registro con información de la invitación
+      return res.status(200).json({
+        success: true,
+        userExists: false,
+        redirect: '/register',
+        message: 'Por favor, regístrate para completar la invitación.',
+        invitation: {
+          id: invitation.id,
+          email: invitation.email,
+          role: invitation.role?.name,
+          buildingId: invitation.building?.id,
+          buildingName: invitation.building?.name,
+          invitedBy: invitation.invitedByUser?.fullName,
+          expiresAt: invitation.expiresAt
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error en smartInvitationController:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+/**
  * Procesar asignaciones pendientes después del login
  * POST /api/auth/process-pending-assignments
  */

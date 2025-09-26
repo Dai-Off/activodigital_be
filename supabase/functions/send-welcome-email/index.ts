@@ -45,7 +45,7 @@ serve(async (req) => {
 
     // Prepare email data for Resend
     const emailData = {
-      from: 'ActivoDigital <noreply@actividigital.com>', // You can customize this
+      from: 'ActivoDigital <noreply@daioff.com>',
       to: [to],
       subject,
       html,

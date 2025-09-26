@@ -59,7 +59,7 @@ serve(async (req) => {
 
     // Prepare email data for Resend
     const emailData = {
-      from: 'ActivoDigital <onboarding@resend.dev>',
+      from: 'ActivoDigital <noreply@daioff.com>',
       to: [to],
       subject,
       html,
