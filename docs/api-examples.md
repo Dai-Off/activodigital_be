@@ -144,19 +144,45 @@ Content-Type: application/json
 }
 ```
 
-Tipos de sección disponibles (según documentación):
-- `datos_generales`
-- `agentes_intervinientes`
-- `proyecto_tecnico`
-- `documentacion_administrativa`
-- `manual_uso_mantenimiento`
-- `registro_incidencias_actuaciones`
-- `certificados_garantias`
-- `anexos_planos`
+Requisitos y notas:
+- Autenticación: Bearer token del **técnico asignado** al edificio/libro.
+- Obtener `bookId` primero:
+  - `GET /libros-digitales/building/{buildingId}` → `data.id`.
+  - Si 404: crear con `POST /libros-digitales` `{ "buildingId": "<buildingId>", "source": "manual" }` y repetir el GET.
+- `sectionType` debe estar en inglés: `general_data`, `construction_features`, `certificates_and_licenses`, `maintenance_and_conservation`, `facilities_and_consumption`, `renovations_and_rehabilitations`, `sustainability_and_esg`, `annex_documents`.
+
+Ejemplo cURL (local):
+```bash
+TOKEN="<ACCESS_TOKEN_TECNICO>"
+BUILDING_ID="<UUID>"
+
+# Obtener/crear libro
+BOOK_ID=$(curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3000/libros-digitales/building/$BUILDING_ID | jq -r '.data.id')
+if [ "$BOOK_ID" = "null" ]; then
+  BOOK_ID=$(curl -s -X POST http://localhost:3000/libros-digitales \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"buildingId":"'"$BUILDING_ID"'","source":"manual"}' | jq -r '.data.id')
+fi
+
+# Actualizar sección
+curl -X PUT http://localhost:3000/libros-digitales/$BOOK_ID/sections/general_data \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"content":{"nombreEdificio":"Residencial Las Flores"},"complete":true}'
+```
+
+Tipos de sección válidos (usar SIEMPRE en inglés):
+- `general_data`
+- `construction_features`
+- `certificates_and_licenses`
+- `maintenance_and_conservation`
+- `facilities_and_consumption`
+- `renovations_and_rehabilitations`
+- `sustainability_and_esg`
+- `annex_documents`
 
 Notas:
 - El libro digital está ligado al edificio (no a listados por usuario ni acceso por id).
-- El estado del libro se calcula automáticamente al actualizar secciones: `en_borrador` por defecto y `validado` cuando las 8 secciones se marcan completas. `publicado` podrá aplicarse en una etapa posterior.
+- El estado del libro se calcula automáticamente al actualizar secciones: pasa de `draft` a `in_progress` cuando hay progreso y a `complete` cuando las 8 secciones están completas.
 
 ### Ejemplo de respuesta de libro digital (resumen)
 

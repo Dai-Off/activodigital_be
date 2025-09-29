@@ -47,7 +47,9 @@ export class DigitalBookService {
       status: BookStatus.DRAFT,
       progress: 0,
       sections: defaultSections,
-      user_id: userAuthId // Mantener por compatibilidad
+      user_id: userAuthId, // Mantener por compatibilidad
+      // Si el creador es técnico, establecerlo como técnico del libro
+      technician_id: user.role.name === UserRole.TECNICO ? user.id : null
     };
 
     const { data: book, error } = await this.getSupabase()
@@ -325,13 +327,19 @@ export class DigitalBookService {
 
     if (user.role.name === UserRole.TECNICO) {
       // Los técnicos pueden actualizar libros que gestionan
+      // Caso 1: technician_id coincide
       const { data: book } = await this.getSupabase()
         .from('digital_books')
-        .select('technician_id')
+        .select('technician_id, building_id')
         .eq('id', bookId)
         .single();
 
-      return book !== null && book.technician_id === user.id;
+      if (!book) return false;
+
+      if (book.technician_id === user.id) return true;
+
+      // Caso 2: technician_id nulo o distinto, pero el técnico tiene asignación activa al edificio
+      return await this.userService.technicianHasAccessToBuilding(userAuthId, book.building_id);
     }
 
     // Los propietarios no pueden actualizar libros digitales directamente

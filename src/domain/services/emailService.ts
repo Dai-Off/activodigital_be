@@ -14,12 +14,17 @@ export class EmailService {
   }
 
   private getFrontendUrl(): string {
-    // En desarrollo, usar localhost
+    // 1. Si hay FRONTEND_URL configurado, usarlo (tanto en desarrollo como en producción)
+    if (process.env.FRONTEND_URL) {
+      return process.env.FRONTEND_URL;
+    }
+
+    // 2. En desarrollo, usar localhost por defecto
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev') {
       return 'http://localhost:5173';
     }
     
-    // En producción, usar la URL de producción
+    // 3. En producción, usar la URL de producción por defecto
     return 'https://edificio-digital.fly.dev';
   }
 

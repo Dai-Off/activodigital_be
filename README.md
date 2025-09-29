@@ -205,6 +205,46 @@ Authorization: Bearer <token>
 | GET | `/libros-digitales/building/:buildingId` | Obtener libro por edificio | Sí |
 | PUT | `/libros-digitales/:id/sections/:sectionType` | Actualizar una sección del libro | Sí |
 
+#### Editar secciones - requisitos y flujo
+- **Quién puede editar**: únicamente el **técnico asignado** al edificio/libro (Propietario solo lectura).
+- **Token requerido**: `Authorization: Bearer <access_token JWT de Supabase>` del técnico.
+- **Obtener `bookId`**:
+  - `GET /libros-digitales/building/{buildingId}` → tomar `data.id`.
+  - Si responde 404, primero crear el libro: `POST /libros-digitales` con body `{ "buildingId": "<buildingId>", "source": "manual" }` y repetir el GET.
+- **Actualizar sección**:
+  - `PUT /libros-digitales/{bookId}/sections/{sectionType}`
+  - `sectionType` en inglés: `general_data | construction_features | certificates_and_licenses | maintenance_and_conservation | facilities_and_consumption | renovations_and_rehabilitations | sustainability_and_esg | annex_documents`
+  - Body:
+    ```json
+    {
+      "content": { /* campos libres por sección */ },
+      "complete": true
+    }
+    ```
+  - Efecto: recalcula `progress` (0–8) y `status` (`draft` → `in_progress` → `complete`).
+
+Ejemplo rápido (Postman/cURL)
+```http
+# 1) Obtener/crear bookId
+GET /libros-digitales/building/{buildingId}
+Authorization: Bearer <token-tecnico>
+
+# si 404 → crear
+POST /libros-digitales
+Content-Type: application/json
+Authorization: Bearer <token-tecnico>
+{ "buildingId": "{buildingId}", "source": "manual" }
+
+# 2) Actualizar sección
+PUT /libros-digitales/{bookId}/sections/general_data
+Content-Type: application/json
+Authorization: Bearer <token-tecnico>
+{
+  "content": { "nombreEdificio": "Residencial Las Flores" },
+  "complete": true
+}
+```
+
 ### Utilidades
 | Método | Endpoint | Descripción | Autenticación |
 |--------|----------|-------------|---------------|
