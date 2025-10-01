@@ -5,6 +5,18 @@ export enum LibroDigitalEstado {
   PUBLICADO = 'publicado'
 }
 
+// Archivo de documento cargado en Supabase Storage
+export interface DocumentFile {
+  id: string;
+  url: string; // Signed URL de Supabase Storage
+  fileName: string;
+  fileSize: number; // en bytes
+  mimeType: string;
+  title?: string;
+  uploadedAt: string; // ISO date
+  uploadedBy: string; // userId que subió el archivo
+}
+
 // Tipos de secciones principales
 export enum LibroDigitalSectionType {
   DATOS_GENERALES = 'datos_generales',
@@ -52,27 +64,27 @@ export interface AgentesIntervinientes {
 
 // Sección: Proyecto Técnico
 export interface ProyectoTecnico {
-  proyectoEjecucion?: string; // archivo (URL o nombre) opcional
-  modificacionesProyecto?: string[]; // archivos
-  memoriaObra?: string; // archivo
-  planos?: string[]; // archivos
+  proyectoEjecucion?: DocumentFile[]; // Proyecto de ejecución (PDFs, DWGs, etc.)
+  modificacionesProyecto?: DocumentFile[]; // Modificaciones al proyecto
+  memoriaObra?: DocumentFile[]; // Memoria descriptiva de la obra
+  planos?: DocumentFile[]; // Planos técnicos
 }
 
 // Sección: Documentación Administrativa y Legal
 export interface DocumentacionAdministrativa {
-  licenciasObra?: string[];
-  licenciaPrimeraOcupacion?: string;
-  autorizacionesAdministrativas?: string[];
-  garantiasAgentes?: string[];
-  seguroDecenal?: string | null;
+  licenciasObra?: DocumentFile[]; // Licencias de obra
+  licenciaPrimeraOcupacion?: DocumentFile[]; // Licencia de primera ocupación
+  autorizacionesAdministrativas?: DocumentFile[]; // Autorizaciones administrativas
+  garantiasAgentes?: DocumentFile[]; // Garantías de agentes
+  seguroDecenal?: DocumentFile[]; // Seguro decenal
 }
 
 // Sección: Manual de Uso y Mantenimiento
 export interface ManualUsoMantenimiento {
-  instruccionesUso?: string;
-  planMantenimientoPreventivo?: string;
-  recomendacionesConservacion?: string;
-  documentacionInstalaciones?: string[]; // ascensores, calderas, etc.
+  instruccionesUso?: DocumentFile[]; // Instrucciones de uso
+  planMantenimientoPreventivo?: DocumentFile[]; // Plan de mantenimiento preventivo
+  recomendacionesConservacion?: DocumentFile[]; // Recomendaciones de conservación
+  documentacionInstalaciones?: DocumentFile[]; // Documentación de instalaciones (ascensores, calderas, etc.)
 }
 
 // Sección: Registro de Incidencias y Actuaciones
@@ -86,7 +98,7 @@ export interface RegistroObraRehabilitacionItem {
   fecha: string; // ISO date
   tipo: string;
   coste?: number;
-  evidencia?: string; // archivo
+  evidencia?: DocumentFile[]; // Evidencias documentales
 }
 
 export interface RegistroMantenimientoItem {
@@ -108,19 +120,19 @@ export interface CertificadoEnergeticoItem {
   emisionesCO2: number; // kgCO₂eq/m²·año
   fechaEmision: string; // ISO
   fechaCaducidad?: string; // ISO
-  archivo?: string;
+  archivo?: DocumentFile[]; // Archivos del certificado
 }
 
 export interface CertificadosGarantias {
   certificadosEnergeticos?: CertificadoEnergeticoItem[];
-  certificadosInstalaciones?: string[];
-  garantiasMaterialesEquipos?: string[];
+  certificadosInstalaciones?: DocumentFile[]; // Certificados de instalaciones
+  garantiasMaterialesEquipos?: DocumentFile[]; // Garantías de materiales y equipos
 }
 
 // Sección: Anexos y Planos
 export interface AnexosPlanos {
-  planosAdjuntos?: string[]; // PDF/DWG
-  otrosAnexos?: string[]; // DOC/XLS/etc.
+  planosAdjuntos?: DocumentFile[]; // Planos (PDF/DWG/etc.)
+  otrosAnexos?: DocumentFile[]; // Otros anexos (DOC/XLS/etc.)
 }
 
 // Campos ambientales y rating

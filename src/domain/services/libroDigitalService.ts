@@ -7,7 +7,8 @@ import {
   BookSection,
   SectionType,
   BookStatus,
-  BookSource
+  BookSource,
+  DocumentFile
 } from '../../types/libroDigital';
 import { UserService } from './userService';
 import { UserRole } from '../../types/user';
@@ -17,6 +18,50 @@ export class DigitalBookService {
 
   private getSupabase() {
     return getSupabaseClient();
+  }
+
+  /**
+   * Valida que un array contenga objetos DocumentFile válidos
+   */
+  private validateDocumentFiles(files: any[]): boolean {
+    if (!Array.isArray(files)) return false;
+    
+    return files.every(file => {
+      return (
+        typeof file === 'object' &&
+        file !== null &&
+        typeof file.id === 'string' &&
+        typeof file.url === 'string' &&
+        typeof file.fileName === 'string' &&
+        typeof file.fileSize === 'number' &&
+        typeof file.mimeType === 'string' &&
+        typeof file.uploadedAt === 'string' &&
+        typeof file.uploadedBy === 'string' &&
+        (file.title === undefined || typeof file.title === 'string')
+      );
+    });
+  }
+
+  /**
+   * Valida el contenido de una sección antes de guardarlo
+   */
+  private validateSectionContent(sectionType: SectionType, content: any): void {
+    if (!content || typeof content !== 'object') {
+      throw new Error('El contenido de la sección debe ser un objeto');
+    }
+
+    // Validar arrays de DocumentFile en el contenido
+    for (const [key, value] of Object.entries(content)) {
+      if (Array.isArray(value) && value.length > 0) {
+        // Si es un array, verificar si contiene DocumentFiles
+        const firstItem = value[0];
+        if (firstItem && typeof firstItem === 'object' && 'fileName' in firstItem) {
+          if (!this.validateDocumentFiles(value)) {
+            throw new Error(`El campo '${key}' contiene archivos con formato inválido`);
+          }
+        }
+      }
+    }
   }
 
   async createDigitalBook(data: CreateDigitalBookRequest, userAuthId: string): Promise<DigitalBook> {
@@ -187,6 +232,13 @@ export class DigitalBookService {
     const book = await this.getBookById(bookId);
     if (!book) {
       throw new Error('Libro digital no encontrado');
+    }
+
+    // Validar el contenido de la sección
+    try {
+      this.validateSectionContent(sectionType, data.content);
+    } catch (error) {
+      throw new Error(`Validación falló: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
 
     // Actualizar la sección específica
