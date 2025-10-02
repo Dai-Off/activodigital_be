@@ -5,6 +5,7 @@ import edificiosRouter from './edificios';
 import librosDigitalesRouter from './librosDigitales';
 import usersRouter from './users';
 import invitationsRouter from './invitations';
+import certificatesEnergeticosRouter from './certificadosEnergeticos';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.use('/users', usersRouter);
 router.use('/edificios', edificiosRouter);
 router.use('/libros-digitales', librosDigitalesRouter);
 router.use('/invitations', invitationsRouter);
+router.use('/certificados-energeticos', certificatesEnergeticosRouter);
 
 export default router;
 

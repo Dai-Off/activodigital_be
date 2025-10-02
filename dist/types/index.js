@@ -18,4 +18,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./edificio"), exports);
 __exportStar(require("./libroDigital"), exports);
 __exportStar(require("./user"), exports);
+__exportStar(require("./certificateEnergetico"), exports);
 //# sourceMappingURL=index.js.map

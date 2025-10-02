@@ -11,7 +11,7 @@ app.use(morgan('dev'));
 app.use(express.json());
 
 // Routes
-app.use('/', routes);
+app.use('/api', routes);
 
 export default app;
 
