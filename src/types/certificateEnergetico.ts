@@ -114,6 +114,10 @@ export interface EnergyCertificateReviewData {
   expiryDate?: string; // ISO date
   propertyReference?: string;
   notes?: string;
+  // Campos de imagen
+  imageUrl?: string;
+  imageFilename?: string;
+  imageUploadedAt?: string;
 }
 
 // Sesión de subida de certificado energético
@@ -149,6 +153,10 @@ export interface EnergyCertificate {
   notes?: string;
   sourceDocumentUrl?: string; // URL del documento original del certificado
   sourceSessionId?: string;
+  // Campos de imagen
+  imageUrl?: string; // URL de la imagen almacenada en Supabase Storage
+  imageFilename?: string; // Nombre del archivo de imagen
+  imageUploadedAt?: string; // Fecha de subida de la imagen
   userId: string;
   createdAt: string;
   updatedAt: string;

@@ -6,6 +6,38 @@ const certificateEnergetico_1 = require("../../types/certificateEnergetico");
 class CertificateEnergeticoController {
     constructor() {
         /**
+         * Crear sesión de certificado energético simple (solo buildingId)
+         * POST /api/certificados-energeticos/sessions/simple
+         */
+        this.createSimpleSession = async (req, res) => {
+            try {
+                const userId = req.user?.id;
+                if (!userId) {
+                    res.status(401).json({ error: 'Usuario no autenticado' });
+                    return;
+                }
+                const { buildingId } = req.body;
+                if (!buildingId) {
+                    res.status(400).json({ error: 'Falta el campo requerido: buildingId' });
+                    return;
+                }
+                // Crear sesión simple usando el método existente pero con datos mínimos
+                const simpleRequest = {
+                    buildingId,
+                    kind: 'building', // Default kind
+                    documents: [] // Sin documentos inicialmente
+                };
+                const session = await this.getCertificateService().createEnergyCertificateSession(simpleRequest, userId);
+                res.json({ data: session });
+            }
+            catch (error) {
+                console.error('Error al crear sesión simple de certificado energético:', error);
+                res.status(500).json({
+                    error: error instanceof Error ? error.message : 'Error interno del servidor'
+                });
+            }
+        };
+        /**
          * Crear sesión de certificado energético con documentos
          * POST /api/certificados-energeticos/sessions
          */
@@ -61,6 +93,7 @@ class CertificateEnergeticoController {
          */
         this.confirmCertificate = async (req, res) => {
             try {
+                console.log('🎯 CONTROLADOR confirmCertificate - Petición recibida');
                 const userId = req.user?.id;
                 if (!userId) {
                     res.status(401).json({ error: 'Usuario no autenticado' });
@@ -68,6 +101,7 @@ class CertificateEnergeticoController {
                 }
                 const sessionId = req.params.sessionId;
                 const finalData = req.body;
+                console.log('🎯 CONTROLADOR - sessionId:', sessionId, 'finalData:', JSON.stringify(finalData, null, 2));
                 const certificateRequest = {
                     sessionId,
                     finalData

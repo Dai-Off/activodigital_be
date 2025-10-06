@@ -21,6 +21,12 @@ router.get('/', certificateController.getAll);
  */
 router.get('/building/:buildingId', certificateController.getByBuilding);
 /**
+ * @route POST /api/certificados-energeticos/sessions/simple
+ * @desc Crear nueva sesión simple de certificado energético (solo buildingId)
+ * @access Private
+ */
+router.post('/sessions/simple', certificateController.createSimpleSession);
+/**
  * @route POST /api/certificados-energeticos/sessions
  * @desc Crear nueva sessión de certificado energético con documentos
  * @access Private

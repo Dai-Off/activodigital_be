@@ -4,13 +4,53 @@ import {
   CreateEnergyCertificateSessionRequest,
   UpdateEnergyCertificateSessionRequest,
   ConfirmEnergyCertificateRequest,
-  AIExtractionStatus
+  AIExtractionStatus,
+  EnergyCertificateKind
 } from '../../types/certificateEnergetico';
 
 export class CertificateEnergeticoController {
   private getCertificateService() {
     return new CertificateEnergeticoService();
   }
+
+  /**
+   * Crear sesión de certificado energético simple (solo buildingId)
+   * POST /api/certificados-energeticos/sessions/simple
+   */
+  createSimpleSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { buildingId } = req.body;
+      if (!buildingId) {
+        res.status(400).json({ error: 'Falta el campo requerido: buildingId' });
+        return;
+      }
+
+      // Crear sesión simple usando el método existente pero con datos mínimos
+      const simpleRequest = {
+        buildingId,
+        kind: 'building' as EnergyCertificateKind, // Default kind
+        documents: [] // Sin documentos inicialmente
+      };
+
+      const session = await this.getCertificateService().createEnergyCertificateSession(
+        simpleRequest, 
+        userId
+      );
+      
+      res.json({ data: session });
+    } catch (error) {
+      console.error('Error al crear sesión simple de certificado energético:', error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : 'Error interno del servidor' 
+      });
+    }
+  };
 
   /**
    * Crear sesión de certificado energético con documentos

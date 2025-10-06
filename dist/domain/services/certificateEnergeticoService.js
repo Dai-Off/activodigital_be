@@ -26,6 +26,8 @@ class CertificateEnergeticoService {
     }
     // Mapear datos de BD a tipo EnergyCertificate
     mapDbToEnergyCertificate(dbCert) {
+        // DEBUG: Ver qué está recibiendo el mapeo
+        console.log('🔍 Mapeando certificado desde BD:', JSON.stringify(dbCert, null, 2));
         return {
             id: dbCert.id,
             buildingId: dbCert.building_id,
@@ -40,8 +42,12 @@ class CertificateEnergeticoService {
             expiryDate: dbCert.expiry_date,
             propertyReference: dbCert.property_reference,
             notes: dbCert.notes,
-            sourceDocumentUrl: dbCert.source_document_url,
+            sourceDocumentUrl: dbCert.source_document_url || null,
             sourceSessionId: dbCert.source_session_id,
+            // Campos de imagen
+            imageUrl: dbCert.image_url || null,
+            imageFilename: dbCert.image_filename || null,
+            imageUploadedAt: dbCert.image_uploaded_at || null,
             userId: dbCert.user_id,
             createdAt: dbCert.created_at,
             updatedAt: dbCert.updated_at
@@ -179,6 +185,7 @@ class CertificateEnergeticoService {
      * Confirmar certificado energético y guardarlo definitivamente
      */
     async confirmEnergyCertificate(data, userAuthId) {
+        console.log('🚀 INICIO confirmEnergyCertificate - Datos recibidos:', JSON.stringify(data, null, 2));
         const supabase = this.getSupabase();
         // Obtener la sesión
         const { data: session, error: sessionError } = await supabase
@@ -196,8 +203,6 @@ class CertificateEnergeticoService {
         if (missingFields.length > 0) {
             throw new Error(`Faltan campos requeridos: ${missingFields.join(', ')}`);
         }
-        // Obtener URL del documento original
-        const sourceDocumentUrl = await this.getPrimaryDocumentUrl(data.sessionId);
         // Crear certificado energético
         const { data: certificate, error: certError } = await supabase
             .from('energy_certificates')
@@ -214,8 +219,11 @@ class CertificateEnergeticoService {
             expiry_date: data.finalData.expiryDate,
             property_reference: data.finalData.propertyReference,
             notes: data.finalData.notes,
-            source_document_url: sourceDocumentUrl,
             source_session_id: data.sessionId,
+            // Campos de imagen
+            image_url: data.finalData.imageUrl,
+            image_filename: data.finalData.imageFilename,
+            image_uploaded_at: data.finalData.imageUploadedAt ? new Date(data.finalData.imageUploadedAt) : null,
             user_id: userAuthId
         })
             .select(`
@@ -232,8 +240,10 @@ class CertificateEnergeticoService {
         expiry_date,
         property_reference,
         notes,
-        source_document_url,
         source_session_id,
+        image_url,
+        image_filename,
+        image_uploaded_at,
         user_id,
         created_at,
         updated_at
@@ -242,6 +252,8 @@ class CertificateEnergeticoService {
         if (certError) {
             throw new Error(`Error creando certificado: ${certError.message}`);
         }
+        // DEBUG: Ver qué está devolviendo la BD
+        console.log('🔍 Certificado creado en BD:', JSON.stringify(certificate, null, 2));
         // Actualizar estado de la sesión a confirmado
         await supabase
             .from('energy_certificate_sessions')
@@ -298,8 +310,10 @@ class CertificateEnergeticoService {
         expiry_date,
         property_reference,
         notes,
-        source_document_url,
         source_session_id,
+        image_url,
+        image_filename,
+        image_uploaded_at,
         user_id,
         created_at,
         updated_at
@@ -337,6 +351,9 @@ class CertificateEnergeticoService {
         property_reference,
         notes,
         source_session_id,
+        image_url,
+        image_filename,
+        image_uploaded_at,
         user_id,
         created_at,
         updated_at,
