@@ -93,7 +93,6 @@ class CertificateEnergeticoController {
          */
         this.confirmCertificate = async (req, res) => {
             try {
-                console.log('🎯 CONTROLADOR confirmCertificate - Petición recibida');
                 const userId = req.user?.id;
                 if (!userId) {
                     res.status(401).json({ error: 'Usuario no autenticado' });
@@ -101,7 +100,6 @@ class CertificateEnergeticoController {
                 }
                 const sessionId = req.params.sessionId;
                 const finalData = req.body;
-                console.log('🎯 CONTROLADOR - sessionId:', sessionId, 'finalData:', JSON.stringify(finalData, null, 2));
                 const certificateRequest = {
                     sessionId,
                     finalData

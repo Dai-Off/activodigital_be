@@ -10,6 +10,8 @@ Todas las rutas requieren autenticación. Incluye el token JWT en el header:
 Authorization: Bearer <tu_jwt_token>
 ```
 
+> Cálculo ESG: ver documento dedicado en [docs/esg-api.md](./esg-api.md)
+
 ## Edificios (Buildings)
 
 ### Crear un edificio

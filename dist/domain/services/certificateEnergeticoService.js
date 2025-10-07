@@ -26,8 +26,6 @@ class CertificateEnergeticoService {
     }
     // Mapear datos de BD a tipo EnergyCertificate
     mapDbToEnergyCertificate(dbCert) {
-        // DEBUG: Ver qué está recibiendo el mapeo
-        console.log('🔍 Mapeando certificado desde BD:', JSON.stringify(dbCert, null, 2));
         return {
             id: dbCert.id,
             buildingId: dbCert.building_id,
@@ -185,7 +183,6 @@ class CertificateEnergeticoService {
      * Confirmar certificado energético y guardarlo definitivamente
      */
     async confirmEnergyCertificate(data, userAuthId) {
-        console.log('🚀 INICIO confirmEnergyCertificate - Datos recibidos:', JSON.stringify(data, null, 2));
         const supabase = this.getSupabase();
         // Obtener la sesión
         const { data: session, error: sessionError } = await supabase
@@ -252,8 +249,6 @@ class CertificateEnergeticoService {
         if (certError) {
             throw new Error(`Error creando certificado: ${certError.message}`);
         }
-        // DEBUG: Ver qué está devolviendo la BD
-        console.log('🔍 Certificado creado en BD:', JSON.stringify(certificate, null, 2));
         // Actualizar estado de la sesión a confirmado
         await supabase
             .from('energy_certificate_sessions')

@@ -37,6 +37,7 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - **🚀 [Guía del Desarrollador](docs/developer-guide.md)** - Guía completa para desarrolladores
 - **🔧 [Guía Técnica de Invitaciones](docs/invitations-technical-guide.md)** - Documentación técnica detallada del sistema de invitaciones
 - **📖 [API Reference](docs/api-examples.md)** - Referencia completa de la API
+- **🌱 [ESG API](docs/esg-api.md)** - Cálculo ESG (endpoint, payload, reglas y ejemplos)
 
 ## Setup Local
 
