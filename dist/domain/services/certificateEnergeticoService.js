@@ -265,7 +265,33 @@ class CertificateEnergeticoService {
      */
     async getEnergyCertificatesByBuilding(buildingId, userAuthId) {
         const supabase = this.getSupabase();
-        // Obtener sesiones
+        // Verificar que el usuario tiene permisos sobre el edificio
+        // (es propietario o técnico asignado)
+        const { data: building, error: buildingError } = await supabase
+            .from('buildings')
+            .select('owner_id, technician_email, cfo_email')
+            .eq('id', buildingId)
+            .single();
+        if (buildingError || !building) {
+            throw new Error('Edificio no encontrado');
+        }
+        // Obtener email del usuario actual
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('auth_id', userAuthId)
+            .single();
+        if (userError || !userData) {
+            throw new Error('Usuario no encontrado');
+        }
+        // Verificar permisos: debe ser propietario, técnico o CFO del edificio
+        const isOwner = building.owner_id === userAuthId;
+        const isTechnician = building.technician_email === userData.email;
+        const isCFO = building.cfo_email === userData.email;
+        if (!isOwner && !isTechnician && !isCFO) {
+            throw new Error('No tienes permisos para ver los certificados de este edificio');
+        }
+        // Obtener sesiones (sin filtrar por user_id, solo por building_id)
         const { data: sessions, error: sessionsError } = await supabase
             .from('energy_certificate_sessions')
             .select(`
@@ -283,12 +309,11 @@ class CertificateEnergeticoService {
         updated_at
       `)
             .eq('building_id', buildingId)
-            .eq('user_id', userAuthId)
             .order('created_at', { ascending: false });
         if (sessionsError) {
             throw new Error(`Error obteniendo sesiones: ${sessionsError.message}`);
         }
-        // Obtener certificados confirmados
+        // Obtener certificados confirmados (sin filtrar por user_id, solo por building_id)
         const { data: certificates, error: certificatesError } = await supabase
             .from('energy_certificates')
             .select(`
@@ -314,7 +339,6 @@ class CertificateEnergeticoService {
         updated_at
       `)
             .eq('building_id', buildingId)
-            .eq('user_id', userAuthId)
             .order('created_at', { ascending: false });
         if (certificatesError) {
             throw new Error(`Error obteniendo certificados: ${certificatesError.message}`);
