@@ -19,4 +19,5 @@ __exportStar(require("./edificio"), exports);
 __exportStar(require("./libroDigital"), exports);
 __exportStar(require("./user"), exports);
 __exportStar(require("./certificateEnergetico"), exports);
+__exportStar(require("./dashboard"), exports);
 //# sourceMappingURL=index.js.map

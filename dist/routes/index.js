@@ -12,6 +12,7 @@ const users_1 = __importDefault(require("./users"));
 const invitations_1 = __importDefault(require("./invitations"));
 const certificadosEnergeticos_1 = __importDefault(require("./certificadosEnergeticos"));
 const esg_1 = __importDefault(require("./esg"));
+const dashboard_1 = __importDefault(require("./dashboard"));
 const router = (0, express_1.Router)();
 router.get('/', (_req, res) => {
     res.json({ message: '¡Bienvenido a la API de Activo Digital Backend!' });
@@ -24,5 +25,6 @@ router.use('/libros-digitales', librosDigitales_1.default);
 router.use('/invitations', invitations_1.default);
 router.use('/certificados-energeticos', certificadosEnergeticos_1.default);
 router.use('/esg', esg_1.default);
+router.use('/dashboard', dashboard_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

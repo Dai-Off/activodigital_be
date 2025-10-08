@@ -1,0 +1,293 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DashboardService = void 0;
+const supabase_1 = require("../../lib/supabase");
+const userService_1 = require("./userService");
+const user_1 = require("../../types/user");
+class DashboardService {
+    constructor() {
+        this.userService = new userService_1.UserService();
+    }
+    getSupabase() {
+        return (0, supabase_1.getSupabaseClient)();
+    }
+    /**
+     * Obtiene las estadísticas del dashboard para un usuario
+     * Las métricas varían según el rol (propietario vs técnico)
+     */
+    async getDashboardStats(userAuthId) {
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user) {
+            throw new Error('Usuario no encontrado');
+        }
+        const isPropietario = user.role.name === user_1.UserRole.PROPIETARIO;
+        if (isPropietario) {
+            return this.getOwnerStats(user.id, userAuthId);
+        }
+        else {
+            return this.getTechnicianStats(user.id, userAuthId);
+        }
+    }
+    /**
+     * Estadísticas para propietarios
+     */
+    async getOwnerStats(userId, userAuthId) {
+        const supabase = this.getSupabase();
+        // Obtener todos los edificios del propietario
+        const { data: buildings, error: buildingsError } = await supabase
+            .from('buildings')
+            .select('*')
+            .eq('owner_id', userId);
+        if (buildingsError) {
+            console.error('Error fetching buildings:', buildingsError);
+            throw new Error('Error al obtener edificios');
+        }
+        const buildingIds = buildings?.map(b => b.id) || [];
+        // Obtener libros digitales de estos edificios
+        const { data: books, error: booksError } = await supabase
+            .from('digital_books')
+            .select('status, building_id')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : ['00000000-0000-0000-0000-000000000000']);
+        if (booksError) {
+            console.error('Error fetching books:', booksError);
+        }
+        // Obtener certificados energéticos
+        const { data: certificates, error: certsError } = await supabase
+            .from('energy_certificates')
+            .select('rating, building_id, emissions_kg_co2_per_m2_year')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : ['00000000-0000-0000-0000-000000000000']);
+        if (certsError) {
+            console.error('Error fetching certificates:', certsError);
+        }
+        return this.calculateOwnerMetrics(buildings || [], books || [], certificates || []);
+    }
+    /**
+     * Estadísticas para técnicos
+     */
+    async getTechnicianStats(userId, userAuthId) {
+        const supabase = this.getSupabase();
+        // Obtener edificios asignados al técnico
+        const { data: assignments, error: assignmentsError } = await supabase
+            .from('building_technician_assignments')
+            .select('building_id')
+            .eq('technician_id', userId)
+            .eq('status', 'active');
+        if (assignmentsError) {
+            console.error('Error fetching assignments:', assignmentsError);
+            throw new Error('Error al obtener asignaciones');
+        }
+        const buildingIds = assignments?.map(a => a.building_id) || [];
+        // Obtener edificios asignados
+        const { data: buildings, error: buildingsError } = await supabase
+            .from('buildings')
+            .select('*')
+            .in('id', buildingIds.length > 0 ? buildingIds : ['00000000-0000-0000-0000-000000000000']);
+        if (buildingsError) {
+            console.error('Error fetching buildings:', buildingsError);
+            throw new Error('Error al obtener edificios');
+        }
+        // Obtener libros digitales
+        const { data: books, error: booksError } = await supabase
+            .from('digital_books')
+            .select('status, building_id')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : ['00000000-0000-0000-0000-000000000000']);
+        if (booksError) {
+            console.error('Error fetching books:', booksError);
+        }
+        return this.calculateTechnicianMetrics(buildings || [], books || []);
+    }
+    /**
+     * Calcula métricas para propietarios
+     */
+    calculateOwnerMetrics(buildings, books, certificates) {
+        const totalAssets = buildings.length;
+        // Métricas financieras
+        const totalValue = buildings.reduce((sum, b) => sum + (b.price || 0), 0);
+        const totalRehabilitationCost = buildings.reduce((sum, b) => sum + (b.rehabilitation_cost || 0), 0);
+        const totalPotentialValue = buildings.reduce((sum, b) => sum + (b.potential_value || 0), 0);
+        // Superficie total (estimación: num_units * 65 m² por unidad)
+        const totalSurfaceArea = buildings.reduce((sum, b) => sum + ((b.num_units || 0) * 65), 0);
+        // Emisiones (estimación: 0.12 tCO₂ eq por m² si no hay certificados)
+        let totalEmissions = 0;
+        if (certificates.length > 0) {
+            // Usar datos reales de certificados
+            totalEmissions = certificates.reduce((sum, c) => {
+                const building = buildings.find(b => b.id === c.building_id);
+                const surfaceArea = building ? (building.num_units || 0) * 65 : 0;
+                return sum + ((c.emissions_kg_co2_per_m2_year || 0) * surfaceArea / 1000); // kg a toneladas
+            }, 0);
+        }
+        else {
+            // Estimación
+            totalEmissions = Math.round(totalSurfaceArea * 0.12);
+        }
+        // Clase energética promedio
+        const { averageEnergyClass, averageEnergyRating } = this.calculateAverageEnergyClass(certificates);
+        // Libros digitales
+        const completedBooks = books.filter(b => b.status === 'complete').length;
+        const inProgressBooks = books.filter(b => b.status === 'in_progress').length;
+        const draftBooks = books.filter(b => b.status === 'draft').length;
+        const pendingBooks = inProgressBooks + draftBooks;
+        const completionPercentage = totalAssets > 0 ? Math.round((completedBooks / totalAssets) * 100) : 0;
+        // Financiación verde (edificios con clase energética A, B o C)
+        const greenEligibleCount = this.calculateGreenFinancingEligible(buildings, certificates);
+        const greenFinancingEligiblePercentage = totalAssets > 0
+            ? Math.round((greenEligibleCount / totalAssets) * 100)
+            : 0;
+        // Promedios
+        const averageUnitsPerBuilding = totalAssets > 0
+            ? Math.round(buildings.reduce((sum, b) => sum + (b.num_units || 0), 0) / totalAssets)
+            : 0;
+        const currentYear = new Date().getFullYear();
+        const averageBuildingAge = totalAssets > 0
+            ? Math.round(buildings.reduce((sum, b) => sum + (currentYear - (b.construction_year || currentYear)), 0) / totalAssets)
+            : 0;
+        const averageFloorsPerBuilding = totalAssets > 0
+            ? Math.round(buildings.reduce((sum, b) => sum + (b.num_floors || 0), 0) / totalAssets)
+            : 0;
+        // Tipología
+        const { mostCommonTypology, typologyDistribution } = this.calculateTypologyStats(buildings);
+        return {
+            totalValue,
+            totalAssets,
+            totalRehabilitationCost,
+            totalPotentialValue,
+            totalSurfaceArea,
+            totalEmissions,
+            averageEnergyClass,
+            averageEnergyRating,
+            completedBooks,
+            pendingBooks,
+            draftBooks,
+            completionPercentage,
+            greenFinancingEligiblePercentage,
+            greenFinancingEligibleCount: greenEligibleCount,
+            averageUnitsPerBuilding,
+            averageBuildingAge,
+            averageFloorsPerBuilding,
+            mostCommonTypology,
+            typologyDistribution,
+            averageESGScore: null, // Placeholder para futuro
+        };
+    }
+    /**
+     * Calcula métricas para técnicos
+     */
+    calculateTechnicianMetrics(buildings, books) {
+        const totalAssets = buildings.length;
+        // Superficie total
+        const totalSurfaceArea = buildings.reduce((sum, b) => sum + ((b.num_units || 0) * 65), 0);
+        // Libros digitales
+        const completedBooks = books.filter(b => b.status === 'complete').length;
+        const inProgressBooks = books.filter(b => b.status === 'in_progress').length;
+        const draftBooks = books.filter(b => b.status === 'draft').length;
+        const pendingBooks = inProgressBooks + draftBooks;
+        const completionPercentage = totalAssets > 0 ? Math.round((completedBooks / totalAssets) * 100) : 0;
+        // Promedios
+        const averageUnitsPerBuilding = totalAssets > 0
+            ? Math.round(buildings.reduce((sum, b) => sum + (b.num_units || 0), 0) / totalAssets)
+            : 0;
+        const currentYear = new Date().getFullYear();
+        const averageBuildingAge = totalAssets > 0
+            ? Math.round(buildings.reduce((sum, b) => sum + (currentYear - (b.construction_year || currentYear)), 0) / totalAssets)
+            : 0;
+        const averageFloorsPerBuilding = totalAssets > 0
+            ? Math.round(buildings.reduce((sum, b) => sum + (b.num_floors || 0), 0) / totalAssets)
+            : 0;
+        // Tipología
+        const { mostCommonTypology, typologyDistribution } = this.calculateTypologyStats(buildings);
+        return {
+            totalValue: 0, // Técnicos no ven valores financieros
+            totalAssets,
+            totalRehabilitationCost: 0,
+            totalPotentialValue: 0,
+            totalSurfaceArea,
+            totalEmissions: 0,
+            averageEnergyClass: null,
+            averageEnergyRating: null,
+            completedBooks,
+            pendingBooks,
+            draftBooks,
+            completionPercentage,
+            greenFinancingEligiblePercentage: 0,
+            greenFinancingEligibleCount: 0,
+            averageUnitsPerBuilding,
+            averageBuildingAge,
+            averageFloorsPerBuilding,
+            mostCommonTypology,
+            typologyDistribution,
+            averageESGScore: null,
+        };
+    }
+    /**
+     * Calcula la clase energética promedio
+     */
+    calculateAverageEnergyClass(certificates) {
+        if (certificates.length === 0) {
+            return { averageEnergyClass: null, averageEnergyRating: null };
+        }
+        // Mapeo de letras a números (A=7, B=6, C=5, D=4, E=3, F=2, G=1, ND=0)
+        const ratingToNumber = {
+            'A': 7, 'B': 6, 'C': 5, 'D': 4, 'E': 3, 'F': 2, 'G': 1, 'ND': 0
+        };
+        const numberToRating = {
+            7: 'A', 6: 'B', 5: 'C', 4: 'D', 3: 'E', 2: 'F', 1: 'G', 0: 'ND'
+        };
+        const validCertificates = certificates.filter(c => c.rating && ratingToNumber[c.rating] !== undefined);
+        if (validCertificates.length === 0) {
+            return { averageEnergyClass: null, averageEnergyRating: null };
+        }
+        const totalRating = validCertificates.reduce((sum, c) => sum + ratingToNumber[c.rating], 0);
+        const averageRating = Math.round(totalRating / validCertificates.length);
+        return {
+            averageEnergyClass: numberToRating[averageRating] || null,
+            averageEnergyRating: averageRating
+        };
+    }
+    /**
+     * Calcula edificios elegibles para financiación verde
+     * Criterio: Clase energética A, B o C
+     */
+    calculateGreenFinancingEligible(buildings, certificates) {
+        const greenClasses = ['A', 'B', 'C'];
+        // Crear un mapa de building_id -> rating
+        const buildingRatings = new Map();
+        certificates.forEach(cert => {
+            if (cert.rating && greenClasses.includes(cert.rating)) {
+                buildingRatings.set(cert.building_id, cert.rating);
+            }
+        });
+        // Contar edificios con certificados verdes
+        return buildings.filter(b => buildingRatings.has(b.id)).length;
+    }
+    /**
+     * Calcula estadísticas de tipología
+     */
+    calculateTypologyStats(buildings) {
+        const distribution = {
+            residential: 0,
+            mixed: 0,
+            commercial: 0
+        };
+        buildings.forEach(b => {
+            if (b.typology === 'residential')
+                distribution.residential++;
+            else if (b.typology === 'mixed')
+                distribution.mixed++;
+            else if (b.typology === 'commercial')
+                distribution.commercial++;
+        });
+        // Encontrar la más común
+        let mostCommonTypology = null;
+        let maxCount = 0;
+        Object.entries(distribution).forEach(([type, count]) => {
+            if (count > maxCount) {
+                maxCount = count;
+                mostCommonTypology = type;
+            }
+        });
+        return { mostCommonTypology, typologyDistribution: distribution };
+    }
+}
+exports.DashboardService = DashboardService;
+//# sourceMappingURL=dashboardService.js.map

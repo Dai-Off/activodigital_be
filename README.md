@@ -38,6 +38,7 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - **🔧 [Guía Técnica de Invitaciones](docs/invitations-technical-guide.md)** - Documentación técnica detallada del sistema de invitaciones
 - **📖 [API Reference](docs/api-examples.md)** - Referencia completa de la API
 - **🌱 [ESG API](docs/esg-api.md)** - Cálculo ESG (endpoint, payload, reglas y ejemplos)
+- **📊 [Dashboard API](docs/dashboard-api.md)** - Métricas y estadísticas del dashboard
 
 ## Setup Local
 
@@ -245,6 +246,11 @@ Authorization: Bearer <token-tecnico>
   "complete": true
 }
 ```
+
+### Dashboard y Métricas
+| Método | Endpoint | Descripción | Autenticación |
+|--------|----------|-------------|---------------|
+| GET | `/dashboard/stats` | Obtener estadísticas y métricas del dashboard | Sí |
 
 ### Utilidades
 | Método | Endpoint | Descripción | Autenticación |
