@@ -2,6 +2,56 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EsgService = void 0;
 class EsgService {
+    /**
+     * Calcula ESG dinámicamente desde la base de datos
+     * @param buildingId ID del edificio
+     * @param supabase Cliente de Supabase
+     * @returns Resultado del cálculo ESG con los datos disponibles
+     */
+    async calculateFromDatabase(buildingId, supabase) {
+        // Obtener el certificado energético más reciente
+        const { data: certificates } = await supabase
+            .from('energy_certificates')
+            .select('rating, primary_energy_kwh_per_m2_year, emissions_kg_co2_per_m2_year')
+            .eq('building_id', buildingId)
+            .order('issue_date', { ascending: false })
+            .limit(1);
+        // Obtener el libro digital
+        const { data: digitalBooks } = await supabase
+            .from('digital_books')
+            .select('estado, campos_ambientales')
+            .eq('building_id', buildingId)
+            .limit(1);
+        const certificate = certificates?.[0];
+        const digitalBook = digitalBooks?.[0];
+        const camposAmbientales = digitalBook?.campos_ambientales || {};
+        // Mapear estado del libro digital a nivel de completitud
+        let digitalBuildingLog = 'none';
+        if (digitalBook?.estado === 'publicado') {
+            digitalBuildingLog = 'full';
+        }
+        else if (digitalBook?.estado === 'validado') {
+            digitalBuildingLog = 'partial';
+        }
+        // Construir input con datos disponibles y valores por defecto
+        const input = {
+            // Datos del certificado energético
+            ceeClass: (certificate?.rating || 'G'),
+            energyConsumptionKwhPerM2Year: certificate?.primary_energy_kwh_per_m2_year || 200,
+            co2EmissionsKgPerM2Year: certificate?.emissions_kg_co2_per_m2_year || 50,
+            // Datos ambientales (con valores por defecto neutros)
+            renewableSharePercent: camposAmbientales.renewableSharePercent || 0,
+            waterFootprintM3PerM2Year: camposAmbientales.waterFootprintM3PerM2Year || 2.0,
+            // Datos sociales (con valores por defecto neutros)
+            accessibility: camposAmbientales.accessibility || 'none',
+            indoorAirQualityCo2Ppm: camposAmbientales.indoorAirQualityCo2Ppm || 1500,
+            safetyCompliance: camposAmbientales.safetyCompliance || 'none',
+            // Datos de governance
+            digitalBuildingLog,
+            regulatoryCompliancePercent: camposAmbientales.regulatoryCompliancePercent || 50,
+        };
+        return this.calculate(input);
+    }
     calculate(input) {
         const ceePoints = this.pointsForCee(input.ceeClass);
         const consumptionPoints = this.pointsForConsumption(input.energyConsumptionKwhPerM2Year);

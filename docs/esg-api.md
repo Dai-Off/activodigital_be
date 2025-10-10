@@ -16,6 +16,13 @@ Authorization: Bearer <token>
 - Ruta: `/esg/calculate`
 - Content-Type: `application/json`
 
+### Descripción
+
+El sistema calcula automáticamente el score ESG de un edificio a partir de los datos almacenados en la base de datos. El cálculo es **100% dinámico** y obtiene la información de:
+
+- `energy_certificates`: Certificado energético más reciente del edificio
+- `digital_books`: Estado del libro digital y campos ambientales adicionales
+
 ### Body esperado
 
 Se aceptan dos formatos equivalentes: payload plano o envuelto en `data`.
@@ -23,16 +30,7 @@ Se aceptan dos formatos equivalentes: payload plano o envuelto en `data`.
 1) Plano:
 ```json
 {
-  "ceeClass": "A|B|C|D|E|F|G",
-  "energyConsumptionKwhPerM2Year": 0,
-  "co2EmissionsKgPerM2Year": 0,
-  "renewableSharePercent": 0,
-  "waterFootprintM3PerM2Year": 0,
-  "accessibility": "full|partial|none",
-  "indoorAirQualityCo2Ppm": 0,
-  "safetyCompliance": "full|pending|none",
-  "digitalBuildingLog": "full|partial|none",
-  "regulatoryCompliancePercent": 0
+  "building_id": "uuid-del-edificio"
 }
 ```
 
@@ -40,19 +38,54 @@ Se aceptan dos formatos equivalentes: payload plano o envuelto en `data`.
 ```json
 {
   "data": {
-    "ceeClass": "A|B|C|D|E|F|G",
-    "energyConsumptionKwhPerM2Year": 0,
-    "co2EmissionsKgPerM2Year": 0,
-    "renewableSharePercent": 0,
-    "waterFootprintM3PerM2Year": 0,
-    "accessibility": "full|partial|none",
-    "indoorAirQualityCo2Ppm": 0,
-    "safetyCompliance": "full|pending|none",
-    "digitalBuildingLog": "full|partial|none",
-    "regulatoryCompliancePercent": 0
+    "building_id": "uuid-del-edificio"
   }
 }
 ```
+
+### Fuentes de datos
+
+El sistema obtiene los datos de las siguientes tablas:
+
+#### De `energy_certificates` (certificado más reciente por `issue_date`)
+- `rating` → `ceeClass` (A, B, C, D, E, F, G)
+- `primary_energy_kwh_per_m2_year` → `energyConsumptionKwhPerM2Year`
+- `emissions_kg_co2_per_m2_year` → `co2EmissionsKgPerM2Year`
+
+#### De `digital_books.campos_ambientales` (JSONB)
+- `renewableSharePercent`: Porcentaje de energía renovable (0-100)
+- `waterFootprintM3PerM2Year`: Huella hídrica en m³/m²·año
+- `accessibility`: Nivel de accesibilidad (`full`, `partial`, `none`)
+- `indoorAirQualityCo2Ppm`: Calidad del aire interior en ppm de CO₂
+- `safetyCompliance`: Cumplimiento de seguridad (`full`, `pending`, `none`)
+- `regulatoryCompliancePercent`: Porcentaje de cumplimiento normativo (0-100)
+
+#### De `digital_books.estado`
+- Se mapea al campo `digitalBuildingLog`:
+  - `publicado` → `full`
+  - `validado` → `partial`
+  - `en_borrador` → `none`
+
+### Valores por defecto
+
+Cuando los datos no están disponibles en la base de datos, el sistema aplica valores por defecto conservadores:
+
+```typescript
+{
+  ceeClass: 'G',                          // Sin certificado → peor rating
+  energyConsumptionKwhPerM2Year: 200,     // Consumo alto por defecto
+  co2EmissionsKgPerM2Year: 50,            // Emisiones altas por defecto
+  renewableSharePercent: 0,                // Sin energías renovables
+  waterFootprintM3PerM2Year: 2.0,         // Consumo de agua medio-alto
+  accessibility: 'none',                   // Sin accesibilidad
+  indoorAirQualityCo2Ppm: 1500,           // Calidad del aire baja
+  safetyCompliance: 'none',                // Sin certificación de seguridad
+  digitalBuildingLog: 'none',              // Sin libro digital
+  regulatoryCompliancePercent: 50          // Cumplimiento normativo básico
+}
+```
+
+> **Nota**: Los valores por defecto están diseñados para penalizar la falta de datos y motivar la recopilación de información completa.
 
 ### Reglas de cálculo
 
@@ -85,16 +118,11 @@ Se aceptan dos formatos equivalentes: payload plano o envuelto en `data`.
 
 ### Validaciones del payload
 
-- `ceeClass`: enum `A|B|C|D|E|F|G`
-- `energyConsumptionKwhPerM2Year`: número `>= 0`
-- `co2EmissionsKgPerM2Year`: número `>= 0`
-- `renewableSharePercent`: número `0–100`
-- `waterFootprintM3PerM2Year`: número `>= 0`
-- `accessibility`: enum `full|partial|none`
-- `indoorAirQualityCo2Ppm`: número `>= 0`
-- `safetyCompliance`: enum `full|pending|none`
-- `digitalBuildingLog`: enum `full|partial|none`
-- `regulatoryCompliancePercent`: número `0–100`
+- `building_id`: **Requerido**. UUID del edificio a calcular
+
+El sistema validará automáticamente que:
+- El usuario tenga acceso al edificio (RLS de Supabase)
+- El `building_id` exista en la base de datos
 
 ### Ejemplo de request
 
@@ -104,16 +132,7 @@ Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "ceeClass": "C",
-  "energyConsumptionKwhPerM2Year": 140,
-  "co2EmissionsKgPerM2Year": 22,
-  "renewableSharePercent": 25,
-  "waterFootprintM3PerM2Year": 0.8,
-  "accessibility": "partial",
-  "indoorAirQualityCo2Ppm": 900,
-  "safetyCompliance": "full",
-  "digitalBuildingLog": "partial",
-  "regulatoryCompliancePercent": 75
+  "building_id": "123e4567-e89b-12d3-a456-426614174000"
 }
 ```
 
@@ -157,17 +176,58 @@ curl -X POST http://localhost:3000/esg/calculate \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
-    "ceeClass":"C",
-    "energyConsumptionKwhPerM2Year":140,
-    "co2EmissionsKgPerM2Year":22,
-    "renewableSharePercent":25,
-    "waterFootprintM3PerM2Year":0.8,
-    "accessibility":"partial",
-    "indoorAirQualityCo2Ppm":900,
-    "safetyCompliance":"full",
-    "digitalBuildingLog":"partial",
-    "regulatoryCompliancePercent":75
+    "building_id": "123e4567-e89b-12d3-a456-426614174000"
   }'
 ```
+
+### Errores comunes
+
+**400 Bad Request - Campo building_id requerido**
+```json
+{
+  "error": "El campo building_id es requerido"
+}
+```
+
+**401 Unauthorized - Token no encontrado**
+```json
+{
+  "error": "Token no encontrado"
+}
+```
+
+**401 Unauthorized - Usuario no autenticado**
+```json
+{
+  "error": "Usuario no autenticado"
+}
+```
+
+**403 Forbidden - El usuario no tiene acceso al edificio**
+El sistema respeta las políticas RLS de Supabase. Si el edificio no pertenece al usuario autenticado, la consulta no devolverá resultados.
+
+### Notas importantes
+
+1. **Cálculo dinámico**: Los datos se obtienen siempre de la base de datos en tiempo real
+2. **Valores por defecto**: Si faltan datos, se usan valores conservadores que penalizan el score
+3. **Certificado más reciente**: Se selecciona automáticamente el certificado con `issue_date` más reciente
+4. **Seguridad**: Row Level Security (RLS) garantiza que solo se calculen edificios del usuario autenticado
+5. **Campos ambientales**: Para mejorar el score ESG, se deben completar los campos en `digital_books.campos_ambientales`
+
+### Cómo mejorar el score ESG
+
+Para obtener un mejor score ESG, asegúrate de:
+
+1. ✅ Subir certificados energéticos con buena calificación (A, B, C)
+2. ✅ Completar el libro digital y publicarlo (`estado = 'publicado'`)
+3. ✅ Agregar datos ambientales en `campos_ambientales`:
+   - `renewableSharePercent`: Porcentaje de energías renovables
+   - `waterFootprintM3PerM2Year`: Huella hídrica
+4. ✅ Agregar datos sociales:
+   - `accessibility`: Nivel de accesibilidad
+   - `indoorAirQualityCo2Ppm`: Calidad del aire interior
+   - `safetyCompliance`: Certificaciones de seguridad
+5. ✅ Agregar datos de gobernanza:
+   - `regulatoryCompliancePercent`: Porcentaje de cumplimiento normativo
 
 
