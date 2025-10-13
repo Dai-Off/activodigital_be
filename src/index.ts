@@ -21,6 +21,8 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`Servidor corriendo en http://localhost:${port}`);
+  console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`🎯 FRONTEND_URL: ${process.env.FRONTEND_URL || 'NO CONFIGURADO'}`);
 });
 
 export default app;

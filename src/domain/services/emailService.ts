@@ -14,17 +14,24 @@ export class EmailService {
   }
 
   private getFrontendUrl(): string {
+    console.log('🔍 EmailService.getFrontendUrl() - Variables de entorno:');
+    console.log('  - FRONTEND_URL:', process.env.FRONTEND_URL);
+    console.log('  - NODE_ENV:', process.env.NODE_ENV);
+    
     // 1. Si hay FRONTEND_URL configurado, usarlo (tanto en desarrollo como en producción)
     if (process.env.FRONTEND_URL) {
+      console.log('✅ Usando FRONTEND_URL configurado:', process.env.FRONTEND_URL);
       return process.env.FRONTEND_URL;
     }
 
     // 2. En desarrollo, usar localhost por defecto
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev') {
+      console.log('✅ Usando localhost por defecto (development)');
       return 'http://localhost:5173';
     }
     
     // 3. En producción, usar la URL de producción por defecto
+    console.log('❌ Usando URL de producción por defecto');
     return 'https://edificio-digital.fly.dev';
   }
 
