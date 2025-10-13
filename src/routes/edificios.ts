@@ -19,4 +19,7 @@ router.post('/:id/images', buildingController.uploadImages);
 router.delete('/:id/images/:imageId', buildingController.deleteImage);
 router.put('/:id/images/main', buildingController.setMainImage);
 
+// Endpoint para validar asignaciones de usuarios
+router.post('/validate-assignments', buildingController.validateUserAssignments);
+
 export default router;

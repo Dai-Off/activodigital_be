@@ -79,3 +79,23 @@ export interface UploadImagesRequest {
 export interface SetMainImageRequest {
   imageId: string;
 }
+
+// DTOs para validación de asignaciones
+export interface ValidateAssignmentsRequest {
+  technicianEmail?: string;
+  cfoEmail?: string;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: {
+    technician?: string;
+    cfo?: string;
+  };
+}
+
+export interface ValidateAssignmentsResponse {
+  technicianValidation: ValidationResult;
+  cfoValidation: ValidationResult;
+  overallValid: boolean;
+}
