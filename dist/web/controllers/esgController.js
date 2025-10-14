@@ -26,7 +26,8 @@ class EsgController {
                 }
                 const supabaseClient = (0, supabase_1.getSupabaseClientForToken)(token);
                 const result = await this.getService().calculateFromDatabase(body.building_id, supabaseClient);
-                res.json({ data: result });
+                // El resultado ya viene con la estructura correcta desde el servicio
+                res.json(result);
             }
             catch (error) {
                 console.error('Error al calcular ESG:', error);

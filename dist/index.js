@@ -21,6 +21,8 @@ app_1.default.use((err, _req, res, _next) => {
 app_1.default.listen(port, () => {
     // eslint-disable-next-line no-console
     console.log(`Servidor corriendo en http://localhost:${port}`);
+    console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`🎯 FRONTEND_URL: ${process.env.FRONTEND_URL || 'NO CONFIGURADO'}`);
 });
 exports.default = app_1.default;
 //# sourceMappingURL=index.js.map

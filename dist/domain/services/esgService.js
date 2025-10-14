@@ -25,6 +25,49 @@ class EsgService {
         const certificate = certificates?.[0];
         const digitalBook = digitalBooks?.[0];
         const camposAmbientales = digitalBook?.campos_ambientales || {};
+        // Verificar datos críticos faltantes
+        const missingData = [];
+        // Datos críticos del certificado energético
+        if (!certificate?.rating) {
+            missingData.push('Certificado energético (rating)');
+        }
+        if (!certificate?.primary_energy_kwh_per_m2_year) {
+            missingData.push('Consumo energético (kWh/m²·año)');
+        }
+        if (!certificate?.emissions_kg_co2_per_m2_year) {
+            missingData.push('Emisiones CO₂ (kg CO₂eq/m²·año)');
+        }
+        // Datos críticos del libro digital
+        if (!digitalBook?.estado) {
+            missingData.push('Estado del libro digital');
+        }
+        // Verificar datos opcionales que deben estar presentes para cálculo completo
+        if (camposAmbientales.renewableSharePercent === null || camposAmbientales.renewableSharePercent === undefined) {
+            missingData.push('Porcentaje de energía renovable');
+        }
+        if (camposAmbientales.waterFootprintM3PerM2Year === null || camposAmbientales.waterFootprintM3PerM2Year === undefined) {
+            missingData.push('Huella hídrica (m³/m²·año)');
+        }
+        if (!camposAmbientales.accessibility) {
+            missingData.push('Nivel de accesibilidad');
+        }
+        if (camposAmbientales.indoorAirQualityCo2Ppm === null || camposAmbientales.indoorAirQualityCo2Ppm === undefined) {
+            missingData.push('Calidad del aire interior (ppm CO₂)');
+        }
+        if (!camposAmbientales.safetyCompliance) {
+            missingData.push('Cumplimiento de seguridad');
+        }
+        if (camposAmbientales.regulatoryCompliancePercent === null || camposAmbientales.regulatoryCompliancePercent === undefined) {
+            missingData.push('Porcentaje de cumplimiento normativo');
+        }
+        // Si faltan datos críticos, retornar estado incomplete
+        if (missingData.length > 0) {
+            return {
+                status: 'incomplete',
+                missingData,
+                message: `Faltan datos críticos para calcular el score ESG: ${missingData.join(', ')}. Completa la información necesaria para obtener un cálculo preciso.`
+            };
+        }
         // Mapear estado del libro digital a nivel de completitud
         let digitalBuildingLog = 'none';
         if (digitalBook?.estado === 'publicado') {
@@ -33,24 +76,27 @@ class EsgService {
         else if (digitalBook?.estado === 'validado') {
             digitalBuildingLog = 'partial';
         }
-        // Construir input con datos disponibles y valores por defecto
+        // Construir input con datos reales (todos garantizados por validación anterior)
         const input = {
-            // Datos del certificado energético
-            ceeClass: (certificate?.rating || 'G'),
-            energyConsumptionKwhPerM2Year: certificate?.primary_energy_kwh_per_m2_year || 200,
-            co2EmissionsKgPerM2Year: certificate?.emissions_kg_co2_per_m2_year || 50,
-            // Datos ambientales (con valores por defecto neutros)
-            renewableSharePercent: camposAmbientales.renewableSharePercent || 0,
-            waterFootprintM3PerM2Year: camposAmbientales.waterFootprintM3PerM2Year || 2.0,
-            // Datos sociales (con valores por defecto neutros)
-            accessibility: camposAmbientales.accessibility || 'none',
-            indoorAirQualityCo2Ppm: camposAmbientales.indoorAirQualityCo2Ppm || 1500,
-            safetyCompliance: camposAmbientales.safetyCompliance || 'none',
+            // Datos del certificado energético (garantizados por validación anterior)
+            ceeClass: certificate.rating,
+            energyConsumptionKwhPerM2Year: certificate.primary_energy_kwh_per_m2_year,
+            co2EmissionsKgPerM2Year: certificate.emissions_kg_co2_per_m2_year,
+            // Datos ambientales (garantizados por validación anterior)
+            renewableSharePercent: camposAmbientales.renewableSharePercent,
+            waterFootprintM3PerM2Year: camposAmbientales.waterFootprintM3PerM2Year,
+            // Datos sociales (garantizados por validación anterior)
+            accessibility: camposAmbientales.accessibility,
+            indoorAirQualityCo2Ppm: camposAmbientales.indoorAirQualityCo2Ppm,
+            safetyCompliance: camposAmbientales.safetyCompliance,
             // Datos de governance
             digitalBuildingLog,
-            regulatoryCompliancePercent: camposAmbientales.regulatoryCompliancePercent || 50,
+            regulatoryCompliancePercent: camposAmbientales.regulatoryCompliancePercent,
         };
-        return this.calculate(input);
+        return {
+            status: 'complete',
+            data: this.calculate(input)
+        };
     }
     calculate(input) {
         const ceePoints = this.pointsForCee(input.ceeClass);

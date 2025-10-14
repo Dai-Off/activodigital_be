@@ -66,26 +66,29 @@ El sistema obtiene los datos de las siguientes tablas:
   - `validado` → `partial`
   - `en_borrador` → `none`
 
-### Valores por defecto
+### Estado de datos incompletos
 
-Cuando los datos no están disponibles en la base de datos, el sistema aplica valores por defecto conservadores:
+El sistema ahora diferencia entre **datos faltantes críticos** y **datos opcionales**:
 
+#### Datos críticos requeridos:
+- **Certificado energético**: `rating`, `primary_energy_kwh_per_m2_year`, `emissions_kg_co2_per_m2_year`
+- **Libro digital**: `estado`
+
+Si faltan estos datos críticos, la API retorna `status: "incomplete"` con una lista de los datos faltantes.
+
+#### Datos opcionales (valores por defecto conservadores):
 ```typescript
 {
-  ceeClass: 'G',                          // Sin certificado → peor rating
-  energyConsumptionKwhPerM2Year: 200,     // Consumo alto por defecto
-  co2EmissionsKgPerM2Year: 50,            // Emisiones altas por defecto
   renewableSharePercent: 0,                // Sin energías renovables
   waterFootprintM3PerM2Year: 2.0,         // Consumo de agua medio-alto
   accessibility: 'none',                   // Sin accesibilidad
   indoorAirQualityCo2Ppm: 1500,           // Calidad del aire baja
   safetyCompliance: 'none',                // Sin certificación de seguridad
-  digitalBuildingLog: 'none',              // Sin libro digital
   regulatoryCompliancePercent: 50          // Cumplimiento normativo básico
 }
 ```
 
-> **Nota**: Los valores por defecto están diseñados para penalizar la falta de datos y motivar la recopilación de información completa.
+> **Nota**: Solo se calcula el score ESG cuando los datos críticos están completos. Los valores por defecto para datos opcionales están diseñados para ser conservadores pero no penalizar excesivamente el score.
 
 ### Reglas de cálculo
 
@@ -138,8 +141,10 @@ Content-Type: application/json
 
 ### Ejemplo de respuesta
 
+#### Respuesta exitosa (datos completos)
 ```json
 {
+  "status": "complete",
   "data": {
     "environmental": {
       "ceePoints": 30,
@@ -166,6 +171,18 @@ Content-Type: application/json
     "total": 73,
     "label": "Silver"
   }
+}
+```
+
+#### Respuesta con datos incompletos
+```json
+{
+  "status": "incomplete",
+  "missingData": [
+    "Certificado energético (rating)",
+    "Consumo energético (kWh/m²·año)"
+  ],
+  "message": "Faltan datos críticos para calcular el score ESG: Certificado energético (rating), Consumo energético (kWh/m²·año). Completa la información necesaria para obtener un cálculo preciso."
 }
 ```
 

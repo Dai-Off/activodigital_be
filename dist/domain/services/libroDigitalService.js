@@ -234,6 +234,10 @@ class DigitalBookService {
         if (error) {
             throw new Error(`Error al actualizar libro digital: ${error.message}`);
         }
+        // Si se actualizó la sección de sostenibilidad, actualizar campos_ambientales en el libro digital
+        if (sectionType === 'sustainability_and_esg') {
+            await this.updateCamposAmbientalesInDigitalBook(bookId, data.content);
+        }
         return this.mapToDigitalBook(updated);
     }
     async deleteBook(id, userAuthId) {
@@ -372,6 +376,48 @@ class DigitalBookService {
             updatedAt: data.updated_at,
             userId: data.user_id // Mantener por compatibilidad
         };
+    }
+    /**
+     * Actualiza los campos_ambientales en el libro digital
+     * para que el ESG service pueda leerlos correctamente
+     */
+    async updateCamposAmbientalesInDigitalBook(bookId, sustainabilityContent) {
+        try {
+            // Obtener el libro actual
+            const { data: book, error: selectError } = await this.getSupabase()
+                .from('digital_books')
+                .select('campos_ambientales')
+                .eq('id', bookId)
+                .single();
+            if (selectError) {
+                console.error('Error al obtener libro digital:', selectError);
+                return;
+            }
+            // Crear o actualizar campos_ambientales
+            const camposAmbientalesData = {
+                renewableSharePercent: sustainabilityContent.renewableSharePercent || null,
+                waterFootprintM3PerM2Year: sustainabilityContent.waterFootprintM3PerM2Year || null,
+                accessibility: sustainabilityContent.accessibility || null,
+                indoorAirQualityCo2Ppm: sustainabilityContent.indoorAirQualityCo2Ppm || null,
+                safetyCompliance: sustainabilityContent.safetyCompliance || null,
+                regulatoryCompliancePercent: sustainabilityContent.regulatoryCompliancePercent || null,
+                updated_at: new Date().toISOString()
+            };
+            // Actualizar el campo campos_ambientales en el libro digital
+            const { error: updateError } = await this.getSupabase()
+                .from('digital_books')
+                .update({ campos_ambientales: camposAmbientalesData })
+                .eq('id', bookId);
+            if (updateError) {
+                console.error('Error al actualizar campos_ambientales en libro digital:', updateError);
+            }
+            else {
+                console.log('✅ Campos ambientales actualizados en libro digital:', bookId);
+            }
+        }
+        catch (error) {
+            console.error('Error en updateCamposAmbientalesInDigitalBook:', error);
+        }
     }
 }
 exports.DigitalBookService = DigitalBookService;

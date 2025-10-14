@@ -151,6 +151,27 @@ class BuildingController {
                 res.status(500).json({ error: 'Error interno del servidor' });
             }
         };
+        // Nuevo endpoint para validar emails de técnico y CFO
+        this.validateUserAssignments = async (req, res) => {
+            try {
+                const userId = req.user?.id;
+                if (!userId) {
+                    res.status(401).json({ error: 'Usuario no autenticado' });
+                    return;
+                }
+                const { technicianEmail, cfoEmail } = req.body;
+                if (!technicianEmail && !cfoEmail) {
+                    res.status(400).json({ error: 'Se requiere al menos un email para validar' });
+                    return;
+                }
+                const validationResults = await this.getBuildingService().validateUserAssignments(technicianEmail, cfoEmail, userId);
+                res.json({ data: validationResults });
+            }
+            catch (error) {
+                console.error('Error al validar asignaciones:', error);
+                res.status(500).json({ error: 'Error interno del servidor' });
+            }
+        };
     }
     getBuildingService() {
         return new edificioService_1.BuildingService();

@@ -538,6 +538,110 @@ class BuildingService {
         // Usar el método de notificación de asignación
         await emailService.sendAssignmentNotificationEmail(technician, building, assignedByUser);
     }
+    /**
+     * Valida las asignaciones de técnico y CFO antes de crear el edificio
+     */
+    async validateUserAssignments(technicianEmail, cfoEmail, userAuthId) {
+        const technicianValidation = { isValid: true, errors: {} };
+        const cfoValidation = { isValid: true, errors: {} };
+        // Validar técnico si se proporciona
+        if (technicianEmail) {
+            const technicianResult = await this.validateTechnicianEmail(technicianEmail, cfoEmail);
+            if (!technicianResult.isValid) {
+                technicianValidation.isValid = false;
+                technicianValidation.errors.technician = technicianResult.error;
+            }
+        }
+        // Validar CFO si se proporciona
+        if (cfoEmail) {
+            const cfoResult = await this.validateCfoEmail(cfoEmail, technicianEmail);
+            if (!cfoResult.isValid) {
+                cfoValidation.isValid = false;
+                cfoValidation.errors.cfo = cfoResult.error;
+            }
+        }
+        const overallValid = technicianValidation.isValid && cfoValidation.isValid;
+        return {
+            technicianValidation,
+            cfoValidation,
+            overallValid
+        };
+    }
+    /**
+     * Valida si un email de técnico es válido para asignación
+     */
+    async validateTechnicianEmail(technicianEmail, cfoEmail) {
+        // Verificar si el email ya existe
+        const existingUser = await this.userService.getUserByEmail(technicianEmail);
+        if (existingUser) {
+            // Si existe, verificar el rol
+            if (existingUser.role.name === user_1.UserRole.PROPIETARIO) {
+                return {
+                    isValid: false,
+                    error: 'Este email corresponde a un usuario propietario. Los propietarios no pueden ser asignados como técnicos.'
+                };
+            }
+            if (existingUser.role.name === user_1.UserRole.CFO) {
+                return {
+                    isValid: false,
+                    error: 'Este email corresponde a un usuario CFO. Un usuario no puede tener roles múltiples (CFO y técnico).'
+                };
+            }
+            if (existingUser.role.name === user_1.UserRole.TECNICO) {
+                // Es técnico válido
+                return { isValid: true };
+            }
+            if (existingUser.role.name === user_1.UserRole.ADMINISTRADOR) {
+                return {
+                    isValid: false,
+                    error: 'Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como técnicos.'
+                };
+            }
+        }
+        // Si no existe, es válido (se enviará invitación)
+        return { isValid: true };
+    }
+    /**
+     * Valida si un email de CFO es válido para asignación
+     */
+    async validateCfoEmail(cfoEmail, technicianEmail) {
+        // Verificar si es el mismo email que el técnico
+        if (technicianEmail && cfoEmail === technicianEmail) {
+            return {
+                isValid: false,
+                error: 'El CFO y el técnico no pueden ser la misma persona.'
+            };
+        }
+        // Verificar si el email ya existe
+        const existingUser = await this.userService.getUserByEmail(cfoEmail);
+        if (existingUser) {
+            // Si existe, verificar el rol
+            if (existingUser.role.name === user_1.UserRole.PROPIETARIO) {
+                return {
+                    isValid: false,
+                    error: 'Este email corresponde a un usuario propietario. Los propietarios no pueden ser asignados como CFO.'
+                };
+            }
+            if (existingUser.role.name === user_1.UserRole.TECNICO) {
+                return {
+                    isValid: false,
+                    error: 'Este email corresponde a un usuario técnico. Un usuario no puede tener roles múltiples (técnico y CFO).'
+                };
+            }
+            if (existingUser.role.name === user_1.UserRole.CFO) {
+                // Es CFO válido
+                return { isValid: true };
+            }
+            if (existingUser.role.name === user_1.UserRole.ADMINISTRADOR) {
+                return {
+                    isValid: false,
+                    error: 'Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como CFO.'
+                };
+            }
+        }
+        // Si no existe, es válido (se enviará invitación)
+        return { isValid: true };
+    }
     mapToBuilding(data) {
         return {
             id: data.id,

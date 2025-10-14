@@ -135,12 +135,25 @@ export interface AnexosPlanos {
   otrosAnexos?: DocumentFile[]; // Otros anexos (DOC/XLS/etc.)
 }
 
-// Campos ambientales y rating
+// Campos ambientales y rating (ESG)
 export interface CamposAmbientales {
+  // Environmental (E)
+  renewableSharePercent?: number; // 0-100
+  waterFootprintM3PerM2Year?: number; // m³/m²·año
+  
+  // Social (S)
+  accessibility?: 'full' | 'partial' | 'none';
+  indoorAirQualityCo2Ppm?: number; // ppm
+  safetyCompliance?: 'full' | 'pending' | 'none';
+  
+  // Governance (G)
+  regulatoryCompliancePercent?: number; // 0-100
+  
+  // Legacy campos (mantener compatibilidad)
   claseEnergeticaActual?: string; // A-G
   consumoEnergiaPrimariaTotal?: number; // kWh/m²·año
   emisionesCO2?: number; // kgCO₂eq/m²·año
-  huellaHidrica?: number; // m³/m²·año
+  huellaHidrica?: number; // m³/m²·año (deprecated, usar waterFootprintM3PerM2Year)
   ratingPlataforma?: number; // 1-5
   gradoDescarbonizacion?: number; // %
   cumplimientoNormativo?: boolean | string; // boolean o enum
