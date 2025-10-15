@@ -56,19 +56,24 @@ export class EsgService {
    */
   async calculateFromDatabase(buildingId: string, supabase: any): Promise<EsgResult> {
     // Obtener el certificado energético más reciente
-    const { data: certificates } = await supabase
+    const { data: certificates, error: certError } = await supabase
       .from('energy_certificates')
       .select('rating, primary_energy_kwh_per_m2_year, emissions_kg_co2_per_m2_year')
       .eq('building_id', buildingId)
       .order('issue_date', { ascending: false })
       .limit(1);
 
+    console.log('ESG Service - Building ID:', buildingId);
+    console.log('ESG Service - Certificates query result:', { certificates, certError });
+
     // Obtener el libro digital
-    const { data: digitalBooks } = await supabase
+    const { data: digitalBooks, error: bookError } = await supabase
       .from('digital_books')
       .select('estado, campos_ambientales')
       .eq('building_id', buildingId)
       .limit(1);
+
+    console.log('ESG Service - Digital books query result:', { digitalBooks, bookError });
 
     const certificate = certificates?.[0];
     const digitalBook = digitalBooks?.[0];
@@ -115,11 +120,16 @@ export class EsgService {
     
     // Si faltan datos críticos, retornar estado incomplete
     if (missingData.length > 0) {
-      return {
+      const incompleteResult: EsgResult = {
         status: 'incomplete',
         missingData,
         message: `Faltan datos críticos para calcular el score ESG: ${missingData.join(', ')}. Completa la información necesaria para obtener un cálculo preciso.`
       };
+      
+      // Guardar resultado incomplete en la base de datos
+      await this.saveEsgScore(buildingId, incompleteResult, supabase);
+      
+      return incompleteResult;
     }
 
     // Mapear estado del libro digital a nivel de completitud
@@ -151,10 +161,146 @@ export class EsgService {
       regulatoryCompliancePercent: camposAmbientales.regulatoryCompliancePercent,
     };
 
+    const calculatedData = this.calculate(input);
+    
+    // Guardar resultado en la base de datos
+    await this.saveEsgScore(buildingId, { status: 'complete', data: calculatedData }, supabase);
+
     return {
       status: 'complete',
-      data: this.calculate(input)
+      data: calculatedData
     };
+  }
+  
+  /**
+   * Guarda el resultado del cálculo ESG en la base de datos
+   */
+  private async saveEsgScore(buildingId: string, result: EsgResult, supabase: any): Promise<void> {
+    try {
+      if (result.status === 'complete' && result.data) {
+        const data = result.data;
+        await supabase
+          .from('esg_scores')
+          .upsert({
+            building_id: buildingId,
+            status: 'complete',
+            environmental_cee_points: data.environmental.ceePoints,
+            environmental_consumption_points: data.environmental.consumptionPoints,
+            environmental_emissions_points: data.environmental.emissionsPoints,
+            environmental_renewable_points: data.environmental.renewablePoints,
+            environmental_water_points: data.environmental.waterPoints,
+            environmental_subtotal_raw: data.environmental.subtotalRaw,
+            environmental_normalized: data.environmental.normalized,
+            social_accessibility_points: data.social.accessibilityPoints,
+            social_air_quality_points: data.social.airQualityPoints,
+            social_safety_points: data.social.safetyPoints,
+            social_subtotal_raw: data.social.subtotalRaw,
+            social_normalized: data.social.normalized,
+            governance_digital_log_points: data.governance.digitalLogPoints,
+            governance_compliance_points: data.governance.compliancePoints,
+            governance_subtotal_raw: data.governance.subtotalRaw,
+            governance_normalized: data.governance.normalized,
+            total: data.total,
+            label: data.label,
+            missing_data: null,
+            message: null,
+            calculated_at: new Date().toISOString()
+          }, {
+            onConflict: 'building_id'
+          });
+      } else if (result.status === 'incomplete') {
+        await supabase
+          .from('esg_scores')
+          .upsert({
+            building_id: buildingId,
+            status: 'incomplete',
+            environmental_cee_points: null,
+            environmental_consumption_points: null,
+            environmental_emissions_points: null,
+            environmental_renewable_points: null,
+            environmental_water_points: null,
+            environmental_subtotal_raw: null,
+            environmental_normalized: null,
+            social_accessibility_points: null,
+            social_air_quality_points: null,
+            social_safety_points: null,
+            social_subtotal_raw: null,
+            social_normalized: null,
+            governance_digital_log_points: null,
+            governance_compliance_points: null,
+            governance_subtotal_raw: null,
+            governance_normalized: null,
+            total: null,
+            label: null,
+            missing_data: JSON.stringify(result.missingData),
+            message: result.message,
+            calculated_at: new Date().toISOString()
+          }, {
+            onConflict: 'building_id'
+          });
+      }
+    } catch (error) {
+      console.error('Error guardando ESG score:', error);
+      // No lanzar error para no bloquear el cálculo
+    }
+  }
+  
+  /**
+   * Obtiene el ESG guardado desde la base de datos
+   */
+  async getStoredEsgScore(buildingId: string, supabase: any): Promise<EsgResult | null> {
+    try {
+      const { data, error } = await supabase
+        .from('esg_scores')
+        .select('*')
+        .eq('building_id', buildingId)
+        .single();
+      
+      if (error || !data) {
+        return null;
+      }
+      
+      if (data.status === 'complete') {
+        return {
+          status: 'complete',
+          data: {
+            environmental: {
+              ceePoints: data.environmental_cee_points,
+              consumptionPoints: data.environmental_consumption_points,
+              emissionsPoints: data.environmental_emissions_points,
+              renewablePoints: data.environmental_renewable_points,
+              waterPoints: data.environmental_water_points,
+              subtotalRaw: data.environmental_subtotal_raw,
+              normalized: data.environmental_normalized
+            },
+            social: {
+              accessibilityPoints: data.social_accessibility_points,
+              airQualityPoints: data.social_air_quality_points,
+              safetyPoints: data.social_safety_points,
+              subtotalRaw: data.social_subtotal_raw,
+              normalized: data.social_normalized
+            },
+            governance: {
+              digitalLogPoints: data.governance_digital_log_points,
+              compliancePoints: data.governance_compliance_points,
+              subtotalRaw: data.governance_subtotal_raw,
+              normalized: data.governance_normalized
+            },
+            total: data.total,
+            label: data.label
+          }
+        };
+      } else {
+        return {
+          status: 'incomplete',
+          missingData: JSON.parse(data.missing_data || '[]'),
+          message: data.message || 'Datos incompletos'
+        };
+      }
+    } catch (error) {
+      console.error('Error obteniendo ESG score guardado:', error);
+      return null;
+    }
   }
 
   calculate(input: EsgInput): EsgBreakdown {

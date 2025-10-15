@@ -345,18 +345,6 @@ export class CertificateEnergeticoService {
     const isTechnician = building.technician_email === userData.email;
     const isCFO = building.cfo_email === userData.email;
 
-    console.log('🔍 Verificando permisos para certificados:', {
-      buildingId,
-      userAuthId,
-      userEmail: userData.email,
-      building: {
-        owner_id: building.owner_id,
-        technician_email: building.technician_email,
-        cfo_email: building.cfo_email
-      },
-      permisos: { isOwner, isTechnician, isCFO }
-    });
-
     if (!isOwner && !isTechnician && !isCFO) {
       throw new Error('No tienes permisos para ver los certificados de este edificio');
     }
@@ -416,12 +404,6 @@ export class CertificateEnergeticoService {
     if (certificatesError) {
       throw new Error(`Error obteniendo certificados: ${certificatesError.message}`);
     }
-
-    console.log('✅ Certificados encontrados:', {
-      buildingId,
-      sessionsCount: sessions.length,
-      certificatesCount: certificates.length
-    });
 
     return {
       sessions: sessions.map(s => this.mapDbToEnergyCertificateSession(s)),

@@ -66,12 +66,8 @@ export class BuildingService {
     // Si se especificó un email de técnico, intentar asignarlo o enviar invitación
     if (data.technicianEmail) {
       try {
-        console.log(`\n🎯 PROCESANDO TÉCNICO: ${data.technicianEmail}`);
         await this.handleTechnicianAssignment(building.id, data.technicianEmail, userAuthId);
-        console.log(`✅ TÉCNICO PROCESADO EXITOSAMENTE\n`);
       } catch (error) {
-        console.error(`❌ Error al asignar técnico: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-        console.error('Stack trace:', error);
         // Si falla la asignación/invitación, eliminar el edificio creado
         await this.getSupabase()
           .from('buildings')
@@ -85,12 +81,8 @@ export class BuildingService {
     // Si se especificó un email de CFO, enviar invitación
     if (data.cfoEmail) {
       try {
-        console.log(`🔍 Intentando enviar invitación CFO a: ${data.cfoEmail}`);
         await this.handleCfoInvitation(building.id, data.cfoEmail, userAuthId);
-        console.log(`✅ Email enviado exitosamente a CFO: ${data.cfoEmail}`);
       } catch (error) {
-        console.error(`❌ Error al invitar CFO: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-        console.error('Stack trace:', error);
         // Si falla la invitación CFO, no eliminar el edificio (es menos crítico)
         throw new Error(`Error al invitar CFO: ${error instanceof Error ? error.message : 'Error desconocido'}`);
       }
