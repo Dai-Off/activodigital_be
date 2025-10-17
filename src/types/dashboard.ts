@@ -36,8 +36,8 @@ export interface DashboardStats {
     commercial: number;
   };
   
-  // ESG (placeholder para futuro)
-  averageESGScore: number | null;
+  // ESG Score promedio ('Premium' | 'Gold' | 'Silver' | 'Bronze' | 'Crítico', null si no hay edificios con ESG completo)
+  averageESGScore: string | null;
 }
 
 export interface DashboardMetricsResponse {

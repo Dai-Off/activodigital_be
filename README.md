@@ -310,6 +310,7 @@ Authorization: Bearer <token-tecnico>
   // Campos financieros
   "rehabilitationCost": "number", // Coste de rehabilitación (por defecto 0)
   "potentialValue": "number", // Valor potencial del edificio (por defecto 0)
+  "squareMeters": "number", // Superficie en metros cuadrados
   
   "createdAt": "string (ISO date)",
   "updatedAt": "string (ISO date)",
@@ -437,6 +438,7 @@ $buildingBody = @{
     # Campos financieros
     rehabilitationCost = 120000
     potentialValue = 950000
+    squareMeters = 500.50
     images = @(
         @{
             id = "img-001"
@@ -1048,9 +1050,10 @@ router.post('/items', authenticateToken, itemsController.create);
 - **Documentación actualizada**: ejemplos completos de gestión de imágenes
 
 ### v4.1.0 - Enero 2025
-- **Nuevos campos financieros en edificios**: rehabilitationCost y potentialValue
-- **Valores por defecto**: ambos campos inician en 0 hasta que el cliente proporcione información
+- **Nuevos campos financieros en edificios**: rehabilitationCost, potentialValue y squareMeters
+- **Valores por defecto**: campos financieros inician en 0 hasta que el cliente proporcione información
 - **Migración 005**: agregar campos financieros a tabla buildings
+- **Migración 018**: agregar campo square_meters a tabla buildings
 - **Validaciones**: restricciones para valores no negativos
 - **Índices optimizados**: para consultas financieras mejoradas
 - **Documentación actualizada**: modelos y ejemplos con campos financieros

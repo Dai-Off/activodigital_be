@@ -13,6 +13,9 @@ router.post('/calculate', controller.calculate);
 // GET /esg/building/:buildingId - Obtiene el ESG guardado
 router.get('/building/:buildingId', controller.getStored);
 
+// NOTA: El promedio de ESG se calcula automáticamente en el dashboard (DashboardService)
+// No requiere endpoint adicional ya que el dashboard obtiene los scores directamente de la tabla esg_scores
+
 export default router;
 
 

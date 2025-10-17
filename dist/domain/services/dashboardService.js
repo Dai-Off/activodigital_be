@@ -59,7 +59,16 @@ class DashboardService {
         if (certsError) {
             console.error('Error fetching certificates:', certsError);
         }
-        return this.calculateOwnerMetrics(buildings || [], books || [], certificates || []);
+        // Obtener scores ESG
+        const { data: esgScores, error: esgError } = await supabase
+            .from('esg_scores')
+            .select('building_id, status, total')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : ['00000000-0000-0000-0000-000000000000'])
+            .eq('status', 'complete');
+        if (esgError) {
+            console.error('Error fetching ESG scores:', esgError);
+        }
+        return this.calculateOwnerMetrics(buildings || [], books || [], certificates || [], esgScores || []);
     }
     /**
      * Estadísticas para técnicos
@@ -99,21 +108,21 @@ class DashboardService {
     /**
      * Calcula métricas para propietarios
      */
-    calculateOwnerMetrics(buildings, books, certificates) {
+    calculateOwnerMetrics(buildings, books, certificates, esgScores = []) {
         const totalAssets = buildings.length;
         // Métricas financieras
         const totalValue = buildings.reduce((sum, b) => sum + (b.price || 0), 0);
         const totalRehabilitationCost = buildings.reduce((sum, b) => sum + (b.rehabilitation_cost || 0), 0);
         const totalPotentialValue = buildings.reduce((sum, b) => sum + (b.potential_value || 0), 0);
-        // Superficie total (estimación: num_units * 65 m² por unidad)
-        const totalSurfaceArea = buildings.reduce((sum, b) => sum + ((b.num_units || 0) * 65), 0);
+        // Superficie total (usar square_meters si está disponible, sino 0)
+        const totalSurfaceArea = buildings.reduce((sum, b) => sum + (b.square_meters || 0), 0);
         // Emisiones (estimación: 0.12 tCO₂ eq por m² si no hay certificados)
         let totalEmissions = 0;
         if (certificates.length > 0) {
             // Usar datos reales de certificados
             totalEmissions = certificates.reduce((sum, c) => {
                 const building = buildings.find(b => b.id === c.building_id);
-                const surfaceArea = building ? (building.num_units || 0) * 65 : 0;
+                const surfaceArea = building ? (building.square_meters || 0) : 0;
                 return sum + ((c.emissions_kg_co2_per_m2_year || 0) * surfaceArea / 1000); // kg a toneladas
             }, 0);
         }
@@ -147,6 +156,8 @@ class DashboardService {
             : 0;
         // Tipología
         const { mostCommonTypology, typologyDistribution } = this.calculateTypologyStats(buildings);
+        // ESG promedio (solo edificios con score completo)
+        const averageESGScore = this.calculateAverageESGScore(esgScores);
         return {
             totalValue,
             totalAssets,
@@ -167,7 +178,7 @@ class DashboardService {
             averageFloorsPerBuilding,
             mostCommonTypology,
             typologyDistribution,
-            averageESGScore: null, // Placeholder para futuro
+            averageESGScore,
         };
     }
     /**
@@ -175,8 +186,8 @@ class DashboardService {
      */
     calculateTechnicianMetrics(buildings, books) {
         const totalAssets = buildings.length;
-        // Superficie total
-        const totalSurfaceArea = buildings.reduce((sum, b) => sum + ((b.num_units || 0) * 65), 0);
+        // Superficie total (usar square_meters si está disponible, sino 0)
+        const totalSurfaceArea = buildings.reduce((sum, b) => sum + (b.square_meters || 0), 0);
         // Libros digitales
         const completedBooks = books.filter(b => b.status === 'complete').length;
         const inProgressBooks = books.filter(b => b.status === 'in_progress').length;
@@ -287,6 +298,38 @@ class DashboardService {
             }
         });
         return { mostCommonTypology, typologyDistribution: distribution };
+    }
+    /**
+     * Calcula el promedio de scores ESG y retorna el label correspondiente
+     * Solo considera edificios con score completo
+     */
+    calculateAverageESGScore(esgScores) {
+        // Filtrar scores válidos (status = 'complete' y total existe)
+        const validScores = esgScores.filter(score => score.status === 'complete' &&
+            score.total !== null &&
+            score.total !== undefined);
+        if (validScores.length === 0) {
+            return null;
+        }
+        // Calcular promedio numérico
+        const totalSum = validScores.reduce((sum, score) => sum + score.total, 0);
+        const average = totalSum / validScores.length;
+        // Convertir el promedio a label según los rangos ESG
+        return this.getLabelForESGScore(Math.round(average));
+    }
+    /**
+     * Convierte un score numérico a su label correspondiente
+     */
+    getLabelForESGScore(score) {
+        if (score >= 90)
+            return 'Premium';
+        if (score >= 80)
+            return 'Gold';
+        if (score >= 60)
+            return 'Silver';
+        if (score >= 40)
+            return 'Bronze';
+        return 'Crítico';
     }
 }
 exports.DashboardService = DashboardService;

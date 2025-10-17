@@ -41,6 +41,9 @@ export interface Building {
   rehabilitationCost?: number; // Coste de Rehabilitación (por defecto 0)
   potentialValue?: number;     // Valor potencial (por defecto 0)
   
+  // Metros cuadrados
+  squareMeters?: number; // Superficie en metros cuadrados
+  
   createdAt?: string;
   updatedAt?: string;
   userId?: string; // Mantener por compatibilidad temporal
@@ -65,6 +68,7 @@ export interface CreateBuildingRequest {
   // Nuevos campos financieros opcionales
   rehabilitationCost?: number; // Coste de Rehabilitación
   potentialValue?: number;     // Valor potencial
+  squareMeters?: number;       // Superficie en metros cuadrados
 }
 
 export interface UpdateBuildingRequest extends Partial<CreateBuildingRequest> {
