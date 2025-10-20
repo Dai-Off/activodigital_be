@@ -12,6 +12,7 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - **Sistema de invitaciones por email** para técnicos y CFOs
 - **Gestión de edificios** con imágenes, geolocalización y precios
 - **Libros digitales** con 8 secciones y progreso automático
+- **Procesamiento con IA** para crear libros digitales automáticamente desde PDFs
 - **Asignación automática** de técnicos y CFOs por email
 - **Control de permisos** basado en roles y relaciones
 - **Relación 1:1** edificio-libro digital
@@ -39,6 +40,7 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - **📖 [API Reference](docs/api-examples.md)** - Referencia completa de la API
 - **🌱 [ESG API](docs/esg-api.md)** - Cálculo ESG (endpoint, payload, reglas y ejemplos)
 - **📊 [Dashboard API](docs/dashboard-api.md)** - Métricas y estadísticas del dashboard
+- **🤖 [AI Digital Book API](docs/ai-digital-book-api.md)** - Procesamiento automático de PDFs con IA
 
 ## Setup Local
 

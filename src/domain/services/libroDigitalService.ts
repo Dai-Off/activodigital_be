@@ -64,17 +64,22 @@ export class DigitalBookService {
     }
   }
 
-  async createDigitalBook(data: CreateDigitalBookRequest, userAuthId: string): Promise<DigitalBook> {
+  async createDigitalBook(data: CreateDigitalBookRequest, userAuthId: string, overwrite: boolean = false): Promise<DigitalBook> {
     // Verificar que el usuario tenga permisos para crear libro digital
     const canCreate = await this.userCanCreateDigitalBook(userAuthId, data.buildingId);
     if (!canCreate) {
       throw new Error('No tienes permisos para crear un libro digital para este edificio');
     }
 
-    // Verificar que el edificio no tenga ya un libro digital
+    // Verificar si el edificio ya tiene un libro digital
     const existingBook = await this.getBookByBuildingId(data.buildingId);
-    if (existingBook) {
+    if (existingBook && !overwrite) {
       throw new Error('Este edificio ya tiene un libro digital asociado');
+    }
+
+    // Si existe y se permite sobrescribir, eliminarlo primero
+    if (existingBook && overwrite) {
+      await this.deleteBook(existingBook.id, userAuthId);
     }
 
     // Obtener el usuario para asignar como técnico
