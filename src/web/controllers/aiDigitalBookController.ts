@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { AIProcessingService } from '../../domain/services/aiProcessingService';
 import { DigitalBookService } from '../../domain/services/libroDigitalService';
+import { NotificationService } from '../../domain/services/notificationService';
 import { BookSource } from '../../types/libroDigital';
 
 export class AIDigitalBookController {
   private aiProcessingService = new AIProcessingService();
   private digitalBookService = new DigitalBookService();
+  private notificationService = new NotificationService();
 
   /**
    * Carga un documento, lo procesa con IA y crea el libro digital automáticamente
@@ -141,6 +143,19 @@ export class AIDigitalBookController {
         console.log('Primera sección:', JSON.stringify(sections[0], null, 2));
       } catch (error) {
         console.error('Error al procesar con IA:', error);
+        
+        // Crear notificación de error
+        try {
+          await this.notificationService.createAIProcessingErrorNotification(
+            userId, 
+            req.file.originalname, 
+            error instanceof Error ? error.message : 'Error desconocido'
+          );
+          console.log('Notificación de error creada');
+        } catch (notificationError) {
+          console.error('Error al crear notificación de error:', notificationError);
+        }
+        
         res.status(500).json({ 
           error: 'Error al procesar el documento con IA',
           details: error instanceof Error ? error.message : 'Error desconocido'
@@ -172,6 +187,19 @@ export class AIDigitalBookController {
         console.log('Libro digital creado exitosamente:', book.id);
         console.log('Secciones del libro creado:', JSON.stringify(book.sections, null, 2));
 
+        // Crear notificación de finalización exitosa
+        try {
+          await this.notificationService.createAIProcessingCompleteNotification(
+            userId, 
+            req.file.originalname, 
+            book.id, 
+            sections.length
+          );
+          console.log('Notificación de finalización exitosa creada');
+        } catch (notificationError) {
+          console.error('Error al crear notificación de finalización:', notificationError);
+        }
+
         res.status(201).json({ 
           data: book,
           message: 'Libro digital creado exitosamente mediante IA',
@@ -185,6 +213,18 @@ export class AIDigitalBookController {
         });
       } catch (error) {
         console.error('Error al crear libro digital:', error);
+        
+        // Crear notificación de error en la creación del libro
+        try {
+          await this.notificationService.createAIProcessingErrorNotification(
+            userId, 
+            req.file.originalname, 
+            error instanceof Error ? error.message : 'Error desconocido al crear libro digital'
+          );
+          console.log('Notificación de error en creación creada');
+        } catch (notificationError) {
+          console.error('⚠️ Error al crear notificación de error en creación:', notificationError);
+        }
         
         if (error instanceof Error && error.message.includes('ya tiene un libro digital')) {
           res.status(409).json({ error: error.message });

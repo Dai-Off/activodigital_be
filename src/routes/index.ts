@@ -8,6 +8,7 @@ import invitationsRouter from './invitations';
 import certificatesEnergeticosRouter from './certificadosEnergeticos';
 import esgRouter from './esg';
 import dashboardRouter from './dashboard';
+import notificationsRouter from './notifications';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/invitations', invitationsRouter);
 router.use('/certificados-energeticos', certificatesEnergeticosRouter);
 router.use('/esg', esgRouter);
 router.use('/dashboard', dashboardRouter);
+router.use('/notifications', notificationsRouter);
 
 export default router;
 
