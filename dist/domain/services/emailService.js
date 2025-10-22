@@ -227,7 +227,7 @@ class EmailService {
 
       Este email fue enviado automáticamente por el sistema ActivoDigital.
       Si no esperabas esta invitación, puedes ignorar este email.
-      Para más información, contacta a: ${invitedByUser.email}
+      Para más información, contacta con: ${invitedByUser.email}
     `;
         return { subject, html, text };
     }

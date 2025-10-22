@@ -187,6 +187,21 @@ export class AIDigitalBookController {
         console.log('Libro digital creado exitosamente:', book.id);
         console.log('Secciones del libro creado:', JSON.stringify(book.sections, null, 2));
 
+        // Extraer y guardar campos ambientales de la sección de sostenibilidad
+        const sustainabilitySection = sections.find(s => s.type === 'sustainability_and_esg');
+        if (sustainabilitySection && sustainabilitySection.content) {
+          console.log('Actualizando campos ambientales desde sección de sostenibilidad...');
+          try {
+            await this.digitalBookService.updateCamposAmbientalesFromSection(
+              book.id, 
+              sustainabilitySection.content
+            );
+            console.log('Campos ambientales actualizados correctamente');
+          } catch (error) {
+            console.error('Error al actualizar campos ambientales:', error);
+          }
+        }
+
         // Crear notificación de finalización exitosa
         try {
           await this.notificationService.createAIProcessingCompleteNotification(

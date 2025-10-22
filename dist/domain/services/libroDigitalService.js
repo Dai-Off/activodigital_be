@@ -393,6 +393,12 @@ class DigitalBookService {
         };
     }
     /**
+     * Actualiza los campos ambientales desde la sección de sostenibilidad (público para uso en controladores)
+     */
+    async updateCamposAmbientalesFromSection(bookId, sustainabilityContent) {
+        return this.updateCamposAmbientalesInDigitalBook(bookId, sustainabilityContent);
+    }
+    /**
      * Actualiza los campos_ambientales en el libro digital
      * para que el ESG service pueda leerlos correctamente
      */

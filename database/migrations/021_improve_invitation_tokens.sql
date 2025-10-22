@@ -9,21 +9,21 @@ RETURNS text
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    token text;
-    exists boolean;
+    v_token text;
+    v_exists boolean;
 BEGIN
     LOOP
         -- Generar token usando solo caracteres alfanuméricos seguros para URLs
         -- Usar base64url encoding que es más seguro para URLs
-        token := replace(replace(encode(gen_random_bytes(24), 'base64'), '+', '-'), '/', '_');
+        v_token := replace(replace(encode(gen_random_bytes(24), 'base64'), '+', '-'), '/', '_');
         -- Remover padding = si existe
-        token := rtrim(token, '=');
+        v_token := rtrim(v_token, '=');
         
         -- Verificar que no exista
-        SELECT EXISTS(SELECT 1 FROM invitations WHERE invitations.token = token) INTO exists;
+        SELECT EXISTS(SELECT 1 FROM invitations WHERE token = v_token) INTO v_exists;
         
-        IF NOT exists THEN
-            RETURN token;
+        IF NOT v_exists THEN
+            RETURN v_token;
         END IF;
     END LOOP;
 END;
