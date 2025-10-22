@@ -73,11 +73,22 @@ class DigitalBookService {
         }
         // Crear secciones por defecto si no se proporcionan
         const defaultSections = data.sections || this.createDefaultSections();
+        // Calcular progreso inicial basado en secciones completas
+        const completeSections = defaultSections.filter(section => section.complete).length;
+        const initialProgress = completeSections;
+        // Determinar estado inicial basado en el progreso
+        let initialStatus = libroDigital_1.BookStatus.DRAFT;
+        if (initialProgress > 0 && initialProgress < 8) {
+            initialStatus = libroDigital_1.BookStatus.IN_PROGRESS;
+        }
+        else if (initialProgress === 8) {
+            initialStatus = libroDigital_1.BookStatus.COMPLETE;
+        }
         const bookData = {
             building_id: data.buildingId,
             source: data.source,
-            status: libroDigital_1.BookStatus.DRAFT,
-            progress: 0,
+            status: initialStatus,
+            progress: initialProgress,
             sections: defaultSections,
             user_id: userAuthId, // Mantener por compatibilidad
             // Si el creador es técnico, establecerlo como técnico del libro

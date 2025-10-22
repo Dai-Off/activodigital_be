@@ -142,38 +142,12 @@ class NotificationService {
     /**
      * Métodos específicos para notificaciones de IA
      */
-    async createAIProcessingStartNotification(userId, fileName, buildingId) {
-        return this.createNotification({
-            userId,
-            type: notification_1.NotificationType.AI_PROCESSING_START,
-            title: 'Procesando documento con IA',
-            message: `Iniciando análisis del documento "${fileName}" para crear el libro digital.`,
-            metadata: {
-                fileName,
-                buildingId,
-                stage: 'start'
-            }
-        });
-    }
-    async createAIProcessingProgressNotification(userId, fileName, progress) {
-        return this.createNotification({
-            userId,
-            type: notification_1.NotificationType.AI_PROCESSING_PROGRESS,
-            title: 'Procesando documento con IA',
-            message: `Analizando contenido del documento "${fileName}". Progreso: ${progress}%`,
-            metadata: {
-                fileName,
-                progress,
-                stage: 'progress'
-            }
-        });
-    }
     async createAIProcessingCompleteNotification(userId, fileName, bookId, sectionsCount) {
         return this.createNotification({
             userId,
             type: notification_1.NotificationType.AI_PROCESSING_COMPLETE,
-            title: 'Libro digital creado exitosamente',
-            message: `El libro digital ha sido creado exitosamente a partir del documento "${fileName}". Se generaron ${sectionsCount} secciones.`,
+            title: 'Libro creado',
+            message: 'El libro digital ha sido creado exitosamente con todas las secciones completas',
             metadata: {
                 fileName,
                 bookId,
@@ -186,8 +160,8 @@ class NotificationService {
         return this.createNotification({
             userId,
             type: notification_1.NotificationType.AI_PROCESSING_ERROR,
-            title: 'Error en el procesamiento',
-            message: `Hubo un error al procesar el documento "${fileName}": ${errorMessage}`,
+            title: 'Error',
+            message: 'Hubo un problema al procesar el documento con IA',
             metadata: {
                 fileName,
                 errorMessage,
