@@ -21,8 +21,8 @@ export const signupController = async (req: Request, res: Response) => {
       });
     }
 
-    // Forzar rol por defecto a propietario (con compatibilidad en servicio)
-    const forcedRole = UserRole.PROPIETARIO;
+    // Forzar rol por defecto a administrador (con compatibilidad en servicio)
+    const forcedRole = UserRole.ADMINISTRADOR;
 
     const result = await signUpUser({ 
       email, 
@@ -30,7 +30,19 @@ export const signupController = async (req: Request, res: Response) => {
       fullName: full_name, 
       role: forcedRole 
     });
-    return res.status(201).json(result);
+    
+    // Transformar la respuesta para que coincida con lo que espera el frontend
+    return res.status(201).json({
+      access_token: result.access_token,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        fullName: result.userProfile.fullName,
+        role: {
+          name: result.userProfile.role?.name ?? null
+        }
+      }
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return res.status(500).json({ error: message });
@@ -44,7 +56,19 @@ export const loginController = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'email and password are required' });
     }
     const result = await signInUser({ email, password });
-    return res.status(200).json(result);
+    
+    // Transformar la respuesta para que coincida con el formato esperado por el frontend
+    return res.status(200).json({
+      access_token: result.access_token,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        fullName: result.userProfile.fullName,
+        role: {
+          name: result.userProfile.role?.name ?? null
+        }
+      }
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return res.status(401).json({ error: message });
@@ -104,7 +128,8 @@ export const signupWithInvitationController = async (req: Request, res: Response
     }
 
     // Determinar el rol basado en la invitación
-    const role = invitation.role?.name === 'tecnico' ? UserRole.TECNICO : UserRole.CFO;
+    const role = invitation.role?.name === 'tecnico' ? UserRole.TECNICO : 
+                 invitation.role?.name === 'cfo' ? UserRole.CFO : UserRole.PROPIETARIO;
 
     const result = await signUpUserWithInvitation({ 
       email, 

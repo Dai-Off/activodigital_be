@@ -71,9 +71,9 @@ class UserService {
     }
     // Crear usuario en la tabla users (después de crear en auth)
     async createUserProfile(authUserId, userData) {
-        // Buscar el rol preferentemente por el nombre actual ('propietario')
-        const roleNamesToTry = userData.role === user_1.UserRole.PROPIETARIO
-            ? [user_1.UserRole.PROPIETARIO]
+        // Buscar el rol preferentemente por el nombre actual ('administrador')
+        const roleNamesToTry = userData.role === user_1.UserRole.ADMINISTRADOR
+            ? [user_1.UserRole.ADMINISTRADOR]
             : [userData.role];
         let role = null;
         for (const roleName of roleNamesToTry) {
@@ -200,6 +200,22 @@ class UserService {
             .eq('status', 'active');
         if (error) {
             throw new Error(`Error al obtener edificios CFO: ${error.message}`);
+        }
+        return data.map((item) => item.building_id);
+    }
+    // Obtener edificios asignados a un propietario
+    async getPropietarioBuildings(propietarioAuthId) {
+        const user = await this.getUserByAuthId(propietarioAuthId);
+        if (!user) {
+            throw new Error('Usuario no encontrado');
+        }
+        const { data, error } = await this.getSupabase()
+            .from('building_propietario_assignments')
+            .select('building_id')
+            .eq('propietario_id', user.id)
+            .eq('status', 'active');
+        if (error) {
+            throw new Error(`Error al obtener edificios del propietario: ${error.message}`);
         }
         return data.map((item) => item.building_id);
     }

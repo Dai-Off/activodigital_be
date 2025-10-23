@@ -63,6 +63,7 @@ export interface CreateBuildingRequest {
   price?: number;
   technicianEmail?: string;
   cfoEmail?: string;
+  propietarioEmail?: string;
   images?: BuildingImage[];
   
   // Nuevos campos financieros opcionales
@@ -88,6 +89,7 @@ export interface SetMainImageRequest {
 export interface ValidateAssignmentsRequest {
   technicianEmail?: string;
   cfoEmail?: string;
+  propietarioEmail?: string;
 }
 
 export interface ValidationResult {
@@ -95,11 +97,13 @@ export interface ValidationResult {
   errors: {
     technician?: string;
     cfo?: string;
+    propietario?: string;
   };
 }
 
 export interface ValidateAssignmentsResponse {
   technicianValidation: ValidationResult;
   cfoValidation: ValidationResult;
+  propietarioValidation?: ValidationResult;
   overallValid: boolean;
 }

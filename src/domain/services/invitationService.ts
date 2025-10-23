@@ -29,14 +29,14 @@ export class InvitationService {
       throw new Error('Usuario no encontrado');
     }
 
-    if (invitedByUser.role.name !== UserRole.PROPIETARIO) {
-      throw new Error('Solo los propietarios pueden enviar invitaciones');
+    if (invitedByUser.role.name !== UserRole.ADMINISTRADOR) {
+      throw new Error('Solo los administradores pueden enviar invitaciones');
     }
 
-    // Verificar que el edificio pertenezca al propietario
+    // Verificar que el edificio pertenezca al administrador (creador del edificio)
     const isOwner = await this.userService.isOwnerOfBuilding(invitedByAuthId, data.buildingId);
     if (!isOwner) {
-      throw new Error('Solo puedes invitar usuarios a tus propios edificios');
+      throw new Error('Solo puedes invitar usuarios a edificios que hayas creado');
     }
 
     // Verificar que el email no esté ya registrado (solo para nuevas invitaciones)
@@ -121,7 +121,8 @@ export class InvitationService {
           await this.emailService.sendWelcomeEmail(
             result.email,
             data.fullName || 'Usuario',
-            result.role === 'tecnico' ? 'Técnico' : 'CFO',
+            result.role === 'tecnico' ? 'Técnico' : 
+            result.role === 'cfo' ? 'CFO' : 'Propietario',
             building.name
           );
         } catch (emailError) {

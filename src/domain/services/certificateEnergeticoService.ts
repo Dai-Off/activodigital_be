@@ -340,12 +340,12 @@ export class CertificateEnergeticoService {
       throw new Error('Usuario no encontrado');
     }
 
-    // Verificar permisos: debe ser propietario, técnico o CFO del edificio
-    const isOwner = building.owner_id === userData.id;
-    const isTechnician = building.technician_email === userData.email;
-    const isCFO = building.cfo_email === userData.email;
-
-    if (!isOwner && !isTechnician && !isCFO) {
+    // Verificar permisos: debe tener acceso al edificio (propietario, técnico, CFO o administrador)
+    const { BuildingService } = await import('./edificioService');
+    const edificioService = new BuildingService();
+    const hasAccess = await edificioService.userHasAccessToBuilding(userAuthId, buildingId);
+    
+    if (!hasAccess) {
       throw new Error('No tienes permisos para ver los certificados de este edificio');
     }
 

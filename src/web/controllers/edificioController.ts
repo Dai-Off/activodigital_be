@@ -183,16 +183,17 @@ export class BuildingController {
         return;
       }
 
-      const { technicianEmail, cfoEmail } = req.body;
+      const { technicianEmail, cfoEmail, propietarioEmail } = req.body;
 
-      if (!technicianEmail && !cfoEmail) {
+      if (!technicianEmail && !cfoEmail && !propietarioEmail) {
         res.status(400).json({ error: 'Se requiere al menos un email para validar' });
         return;
       }
 
       const validationResults = await this.getBuildingService().validateUserAssignments(
         technicianEmail, 
-        cfoEmail, 
+        cfoEmail,
+        propietarioEmail,
         userId
       );
 

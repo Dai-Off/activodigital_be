@@ -1,9 +1,9 @@
 -- Migración para corregir la función accept_invitation
--- El problema es que está usando p_user_id (auth.uid()) directamente
--- pero necesita usar el ID del perfil en la tabla users
+-- El problema es que está usando el ID incorrecto para la asignación de propietarios
 
 BEGIN;
 
+-- Actualizar la función accept_invitation para usar el ID correcto del usuario
 CREATE OR REPLACE FUNCTION accept_invitation(
     p_token text,
     p_user_id uuid,
@@ -86,4 +86,3 @@ END;
 $$;
 
 COMMIT;
-

@@ -381,18 +381,10 @@ export class DigitalBookService {
   }
 
   private async userCanAccessBuildingBook(userAuthId: string, buildingId: string): Promise<boolean> {
-    const user = await this.userService.getUserByAuthId(userAuthId);
-    if (!user) return false;
-
-    if (user.role.name === UserRole.TECNICO) {
-      // Los técnicos pueden acceder a libros de edificios asignados
-      return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
-    } else if (user.role.name === UserRole.PROPIETARIO) {
-      // Los propietarios pueden acceder a libros de sus edificios
-      return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
-    }
-
-    return false;
+    // Usar el método de edificioService que ya maneja todos los roles correctamente
+    const { BuildingService } = await import('./edificioService');
+    const edificioService = new BuildingService();
+    return await edificioService.userHasAccessToBuilding(userAuthId, buildingId);
   }
 
   private async userCanUpdateDigitalBook(userAuthId: string, bookId: string): Promise<boolean> {

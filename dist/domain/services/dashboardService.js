@@ -21,7 +21,11 @@ class DashboardService {
             throw new Error('Usuario no encontrado');
         }
         const isPropietario = user.role.name === user_1.UserRole.PROPIETARIO;
+        const isAdministrador = user.role.name === user_1.UserRole.ADMINISTRADOR;
         if (isPropietario) {
+            return this.getPropietarioStats(user.id, userAuthId);
+        }
+        else if (isAdministrador) {
             return this.getOwnerStats(user.id, userAuthId);
         }
         else {
@@ -29,11 +33,56 @@ class DashboardService {
         }
     }
     /**
-     * Estadísticas para propietarios
+     * Estadísticas para propietarios (solo lectura)
+     */
+    async getPropietarioStats(userId, userAuthId) {
+        const supabase = this.getSupabase();
+        // Obtener edificios asignados al propietario
+        const assignedBuildingIds = await this.userService.getPropietarioBuildings(userAuthId);
+        if (assignedBuildingIds.length === 0) {
+            return this.getEmptyStats();
+        }
+        const { data: buildings, error: buildingsError } = await supabase
+            .from('buildings')
+            .select('*')
+            .in('id', assignedBuildingIds);
+        if (buildingsError) {
+            console.error('Error fetching buildings:', buildingsError);
+            throw new Error('Error al obtener edificios');
+        }
+        // Obtener libros digitales de estos edificios
+        const { data: books, error: booksError } = await supabase
+            .from('digital_books')
+            .select('status, building_id')
+            .in('building_id', assignedBuildingIds);
+        if (booksError) {
+            console.error('Error fetching books:', booksError);
+        }
+        // Obtener certificados energéticos
+        const { data: certificates, error: certsError } = await supabase
+            .from('energy_certificates')
+            .select('rating, building_id, emissions_kg_co2_per_m2_year')
+            .in('building_id', assignedBuildingIds);
+        if (certsError) {
+            console.error('Error fetching certificates:', certsError);
+        }
+        // Obtener scores ESG
+        const { data: esgScores, error: esgError } = await supabase
+            .from('esg_scores')
+            .select('building_id, status, total')
+            .in('building_id', assignedBuildingIds)
+            .eq('status', 'complete');
+        if (esgError) {
+            console.error('Error fetching ESG scores:', esgError);
+        }
+        return this.calculateOwnerMetrics(buildings || [], books || [], certificates || [], esgScores || []);
+    }
+    /**
+     * Estadísticas para administradores
      */
     async getOwnerStats(userId, userAuthId) {
         const supabase = this.getSupabase();
-        // Obtener todos los edificios del propietario
+        // Obtener edificios del propietario/administrador
         const { data: buildings, error: buildingsError } = await supabase
             .from('buildings')
             .select('*')
@@ -330,6 +379,37 @@ class DashboardService {
         if (score >= 40)
             return 'Bronze';
         return 'Crítico';
+    }
+    /**
+     * Retorna estadísticas vacías cuando no hay edificios asignados
+     */
+    getEmptyStats() {
+        return {
+            totalValue: 0,
+            totalAssets: 0,
+            totalRehabilitationCost: 0,
+            totalPotentialValue: 0,
+            totalSurfaceArea: 0,
+            totalEmissions: 0,
+            averageEnergyClass: null,
+            averageEnergyRating: null,
+            completedBooks: 0,
+            pendingBooks: 0,
+            draftBooks: 0,
+            completionPercentage: 0,
+            greenFinancingEligiblePercentage: 0,
+            greenFinancingEligibleCount: 0,
+            averageUnitsPerBuilding: 0,
+            averageBuildingAge: 0,
+            averageFloorsPerBuilding: 0,
+            mostCommonTypology: null,
+            typologyDistribution: {
+                residential: 0,
+                mixed: 0,
+                commercial: 0
+            },
+            averageESGScore: null
+        };
     }
 }
 exports.DashboardService = DashboardService;

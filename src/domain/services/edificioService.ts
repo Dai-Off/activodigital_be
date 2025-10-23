@@ -27,8 +27,8 @@ export class BuildingService {
       throw new Error('Usuario no encontrado');
     }
     
-    if (user.role.name !== UserRole.PROPIETARIO) {
-      throw new Error('Solo los propietarios pueden crear edificios');
+    if (user.role.name !== UserRole.ADMINISTRADOR) {
+      throw new Error('Solo los administradores pueden crear edificios');
     }
 
     const buildingData = {
@@ -89,6 +89,16 @@ export class BuildingService {
       }
     }
 
+    // Si se especificó un email de propietario, enviar invitación
+    if (data.propietarioEmail) {
+      try {
+        await this.handlePropietarioInvitation(building.id, data.propietarioEmail, userAuthId);
+      } catch (error) {
+        // Si falla la invitación del propietario, no eliminar el edificio (es menos crítico)
+        throw new Error(`Error al invitar propietario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      }
+    }
+
     return this.mapToBuilding(building);
   }
 
@@ -125,11 +135,16 @@ export class BuildingService {
 
     let query;
     if (user.role.name === UserRole.PROPIETARIO) {
-      // Los propietarios ven sus propios edificios
+      // Los propietarios ven solo los edificios que les fueron asignados
+      const assignedBuildingIds = await this.userService.getPropietarioBuildings(userAuthId);
+      if (assignedBuildingIds.length === 0) {
+        return []; // No tiene edificios asignados
+      }
+      
       query = this.getSupabase()
         .from('buildings')
         .select('*')
-        .eq('owner_id', user.id);
+        .in('id', assignedBuildingIds);
     } else if (user.role.name === UserRole.TECNICO) {
       // Los técnicos ven edificios asignados
       const assignedBuildingIds = await this.userService.getTechnicianBuildings(userAuthId);
@@ -152,6 +167,12 @@ export class BuildingService {
         .from('buildings')
         .select('*')
         .in('id', assignedBuildingIds);
+    } else if (user.role.name === UserRole.ADMINISTRADOR) {
+      // Los administradores ven solo los edificios que ellos crearon
+      query = this.getSupabase()
+        .from('buildings')
+        .select('*')
+        .eq('owner_id', user.id);
     } else {
       throw new Error('Rol no autorizado');
     }
@@ -313,14 +334,23 @@ export class BuildingService {
     if (!user) return false;
 
     if (user.role.name === UserRole.PROPIETARIO) {
-      // Los propietarios tienen acceso a sus propios edificios
-      return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
+      // Los propietarios tienen acceso a edificios asignados
+      return await this.propietarioHasAccessToBuilding(userAuthId, buildingId);
     } else if (user.role.name === UserRole.TECNICO) {
       // Los técnicos tienen acceso a edificios asignados
       return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
     } else if (user.role.name === UserRole.CFO) {
       // Los CFOs tienen acceso a edificios asignados
       return await this.cfoHasAccessToBuilding(userAuthId, buildingId);
+    } else if (user.role.name === UserRole.ADMINISTRADOR) {
+      // Los administradores tienen acceso a edificios que ellos crearon
+      const { data: building } = await this.getSupabase()
+        .from('buildings')
+        .select('owner_id')
+        .eq('id', buildingId)
+        .single();
+      
+      return !!(building && building.owner_id === user.id);
     }
 
     return false;
@@ -331,14 +361,23 @@ export class BuildingService {
     if (!user) return false;
 
     if (user.role.name === UserRole.PROPIETARIO) {
-      // Los propietarios pueden actualizar sus propios edificios
-      return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
+      // Los propietarios NO pueden actualizar edificios, solo verlos
+      return false;
     } else if (user.role.name === UserRole.TECNICO) {
       // Los técnicos pueden actualizar solo algunos campos de edificios asignados
       return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
     } else if (user.role.name === UserRole.CFO) {
       // Los CFOs pueden actualizar campos financieros de edificios asignados
       return await this.cfoHasAccessToBuilding(userAuthId, buildingId);
+    } else if (user.role.name === UserRole.ADMINISTRADOR) {
+      // Los administradores pueden actualizar edificios que ellos crearon
+      const { data: building } = await this.getSupabase()
+        .from('buildings')
+        .select('owner_id')
+        .eq('id', buildingId)
+        .single();
+      
+      return !!(building && building.owner_id === user.id);
     }
 
     return false;
@@ -427,6 +466,44 @@ export class BuildingService {
   }
 
   /**
+   * Maneja la invitación de propietario
+   */
+  private async handlePropietarioInvitation(buildingId: string, propietarioEmail: string, userAuthId: string): Promise<void> {
+    // Verificar si el usuario ya existe
+    const existingPropietario = await this.userService.getUserByEmail(propietarioEmail);
+    
+    if (existingPropietario) {
+      // Si existe y es propietario, asignarlo directamente
+      if (existingPropietario.role.name === UserRole.PROPIETARIO) {
+        // Enviar email de notificación de asignación directamente
+        const assignedByUser = await this.userService.getUserByAuthId(userAuthId);
+        const building = await this.getBuildingById(buildingId);
+        
+        if (assignedByUser && building) {
+          try {
+            // PRIMERO: Crear la asignación en la base de datos
+            await this.assignPropietarioToBuilding(buildingId, existingPropietario.id, userAuthId);
+            
+            // SEGUNDO: Enviar email de notificación
+            await this.sendAssignmentNotificationEmail(existingPropietario, building, assignedByUser);
+          } catch (error) {
+            throw error;
+          }
+        }
+      } else {
+        throw new Error('El usuario existe pero no es un propietario');
+      }
+    } else {
+      // Si no existe, enviar invitación de registro
+      await this.invitationService.createInvitation({
+        email: propietarioEmail,
+        role: UserRole.PROPIETARIO,
+        buildingId: buildingId
+      }, userAuthId);
+    }
+  }
+
+  /**
    * Obtiene el propietario de un edificio
    */
   async getBuildingOwner(buildingId: string): Promise<any> {
@@ -464,6 +541,21 @@ export class BuildingService {
       .select('id')
       .eq('building_id', buildingId)
       .eq('cfo_id', user.id)
+      .eq('status', 'active')
+      .single();
+
+    return !error && !!data;
+  }
+
+  private async propietarioHasAccessToBuilding(propietarioAuthId: string, buildingId: string): Promise<boolean> {
+    const user = await this.userService.getUserByAuthId(propietarioAuthId);
+    if (!user) return false;
+
+    const { data, error } = await this.getSupabase()
+      .from('building_propietario_assignments')
+      .select('id')
+      .eq('building_id', buildingId)
+      .eq('propietario_id', user.id)
       .eq('status', 'active')
       .single();
 
@@ -543,6 +635,31 @@ export class BuildingService {
   }
 
   /**
+   * Asigna un propietario a un edificio
+   */
+  async assignPropietarioToBuilding(buildingId: string, propietarioId: string, assignedByUserId: string): Promise<void> {
+    const assignedByUser = await this.userService.getUserByAuthId(assignedByUserId);
+    if (!assignedByUser) {
+      throw new Error('Usuario asignador no encontrado');
+    }
+
+    const assignmentData = {
+      building_id: buildingId,
+      propietario_id: propietarioId,
+      assigned_by: assignedByUser.id,
+      status: 'active'
+    };
+
+    const { error } = await this.getSupabase()
+      .from('building_propietario_assignments')
+      .insert(assignmentData);
+
+    if (error) {
+      throw new Error(`Error al asignar propietario: ${error.message}`);
+    }
+  }
+
+  /**
    * Envía un email de notificación cuando se asigna un técnico existente a un nuevo edificio
    */
   private async sendAssignmentNotificationEmail(technician: any, building: Building, assignedByUser: any): Promise<void> {
@@ -557,15 +674,17 @@ export class BuildingService {
    */
   async validateUserAssignments(
     technicianEmail?: string, 
-    cfoEmail?: string, 
+    cfoEmail?: string,
+    propietarioEmail?: string,
     userAuthId?: string
   ): Promise<ValidateAssignmentsResponse> {
     const technicianValidation: ValidationResult = { isValid: true, errors: {} };
     const cfoValidation: ValidationResult = { isValid: true, errors: {} };
+    const propietarioValidation: ValidationResult = { isValid: true, errors: {} };
 
     // Validar técnico si se proporciona
     if (technicianEmail) {
-      const technicianResult = await this.validateTechnicianEmail(technicianEmail, cfoEmail);
+      const technicianResult = await this.validateTechnicianEmail(technicianEmail, cfoEmail, propietarioEmail);
       if (!technicianResult.isValid) {
         technicianValidation.isValid = false;
         technicianValidation.errors.technician = technicianResult.error;
@@ -574,18 +693,28 @@ export class BuildingService {
 
     // Validar CFO si se proporciona
     if (cfoEmail) {
-      const cfoResult = await this.validateCfoEmail(cfoEmail, technicianEmail);
+      const cfoResult = await this.validateCfoEmail(cfoEmail, technicianEmail, propietarioEmail);
       if (!cfoResult.isValid) {
         cfoValidation.isValid = false;
         cfoValidation.errors.cfo = cfoResult.error;
       }
     }
 
-    const overallValid = technicianValidation.isValid && cfoValidation.isValid;
+    // Validar propietario si se proporciona
+    if (propietarioEmail) {
+      const propietarioResult = await this.validatePropietarioEmail(propietarioEmail, technicianEmail, cfoEmail);
+      if (!propietarioResult.isValid) {
+        propietarioValidation.isValid = false;
+        propietarioValidation.errors.propietario = propietarioResult.error;
+      }
+    }
+
+    const overallValid = technicianValidation.isValid && cfoValidation.isValid && propietarioValidation.isValid;
 
     return {
       technicianValidation,
       cfoValidation,
+      propietarioValidation,
       overallValid
     };
   }
@@ -593,7 +722,7 @@ export class BuildingService {
   /**
    * Valida si un email de técnico es válido para asignación
    */
-  private async validateTechnicianEmail(technicianEmail: string, cfoEmail?: string): Promise<{ isValid: boolean; error?: string }> {
+  private async validateTechnicianEmail(technicianEmail: string, cfoEmail?: string, propietarioEmail?: string): Promise<{ isValid: boolean; error?: string }> {
     // Verificar si el email ya existe
     const existingUser = await this.userService.getUserByEmail(technicianEmail);
     
@@ -633,12 +762,20 @@ export class BuildingService {
   /**
    * Valida si un email de CFO es válido para asignación
    */
-  private async validateCfoEmail(cfoEmail: string, technicianEmail?: string): Promise<{ isValid: boolean; error?: string }> {
+  private async validateCfoEmail(cfoEmail: string, technicianEmail?: string, propietarioEmail?: string): Promise<{ isValid: boolean; error?: string }> {
     // Verificar si es el mismo email que el técnico
     if (technicianEmail && cfoEmail === technicianEmail) {
       return { 
         isValid: false, 
         error: 'El CFO y el técnico no pueden ser la misma persona.' 
+      };
+    }
+
+    // Verificar si es el mismo email que el propietario
+    if (propietarioEmail && cfoEmail === propietarioEmail) {
+      return { 
+        isValid: false, 
+        error: 'El CFO y el propietario no pueden ser la misma persona.' 
       };
     }
 
@@ -671,6 +808,62 @@ export class BuildingService {
           isValid: false, 
           error: 'Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como CFO.' 
         };
+      }
+    }
+
+    // Si no existe, es válido (se enviará invitación)
+    return { isValid: true };
+  }
+
+  /**
+   * Valida si un email de propietario es válido para asignación
+   */
+  private async validatePropietarioEmail(propietarioEmail: string, technicianEmail?: string, cfoEmail?: string): Promise<{ isValid: boolean; error?: string }> {
+    // Verificar si es el mismo email que el técnico
+    if (technicianEmail && propietarioEmail === technicianEmail) {
+      return { 
+        isValid: false, 
+        error: 'El propietario y el técnico no pueden ser la misma persona.' 
+      };
+    }
+
+    // Verificar si es el mismo email que el CFO
+    if (cfoEmail && propietarioEmail === cfoEmail) {
+      return { 
+        isValid: false, 
+        error: 'El propietario y el CFO no pueden ser la misma persona.' 
+      };
+    }
+
+    // Verificar si el email ya existe
+    const existingUser = await this.userService.getUserByEmail(propietarioEmail);
+    
+    if (existingUser) {
+      // Si existe, verificar el rol
+      if (existingUser.role.name === UserRole.TECNICO) {
+        return { 
+          isValid: false, 
+          error: 'Este email corresponde a un usuario técnico. Los técnicos no pueden ser asignados como propietarios.' 
+        };
+      }
+      
+      if (existingUser.role.name === UserRole.CFO) {
+        return { 
+          isValid: false, 
+          error: 'Este email corresponde a un usuario CFO. Los CFOs no pueden ser asignados como propietarios.' 
+        };
+      }
+      
+      if (existingUser.role.name === UserRole.ADMINISTRADOR) {
+        return { 
+          isValid: false, 
+          error: 'Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como propietarios.' 
+        };
+      }
+      
+      if (existingUser.role.name === UserRole.PROPIETARIO) {
+        // Es propietario válido
+        return { isValid: true };
       }
     }
 

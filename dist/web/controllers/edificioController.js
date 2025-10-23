@@ -159,12 +159,12 @@ class BuildingController {
                     res.status(401).json({ error: 'Usuario no autenticado' });
                     return;
                 }
-                const { technicianEmail, cfoEmail } = req.body;
-                if (!technicianEmail && !cfoEmail) {
+                const { technicianEmail, cfoEmail, propietarioEmail } = req.body;
+                if (!technicianEmail && !cfoEmail && !propietarioEmail) {
                     res.status(400).json({ error: 'Se requiere al menos un email para validar' });
                     return;
                 }
-                const validationResults = await this.getBuildingService().validateUserAssignments(technicianEmail, cfoEmail, userId);
+                const validationResults = await this.getBuildingService().validateUserAssignments(technicianEmail, cfoEmail, propietarioEmail, userId);
                 res.json({ data: validationResults });
             }
             catch (error) {

@@ -47,15 +47,26 @@ const signupController = async (req, res) => {
                 error: 'email and password are required'
             });
         }
-        // Forzar rol por defecto a propietario (con compatibilidad en servicio)
-        const forcedRole = user_1.UserRole.PROPIETARIO;
+        // Forzar rol por defecto a administrador (con compatibilidad en servicio)
+        const forcedRole = user_1.UserRole.ADMINISTRADOR;
         const result = await (0, authService_1.signUpUser)({
             email,
             password,
             fullName: full_name,
             role: forcedRole
         });
-        return res.status(201).json(result);
+        // Transformar la respuesta para que coincida con lo que espera el frontend
+        return res.status(201).json({
+            access_token: result.access_token,
+            user: {
+                id: result.user.id,
+                email: result.user.email,
+                fullName: result.userProfile.fullName,
+                role: {
+                    name: result.userProfile.role?.name ?? null
+                }
+            }
+        });
     }
     catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -70,7 +81,18 @@ const loginController = async (req, res) => {
             return res.status(400).json({ error: 'email and password are required' });
         }
         const result = await (0, authService_1.signInUser)({ email, password });
-        return res.status(200).json(result);
+        // Transformar la respuesta para que coincida con el formato esperado por el frontend
+        return res.status(200).json({
+            access_token: result.access_token,
+            user: {
+                id: result.user.id,
+                email: result.user.email,
+                fullName: result.userProfile.fullName,
+                role: {
+                    name: result.userProfile.role?.name ?? null
+                }
+            }
+        });
     }
     catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -128,7 +150,8 @@ const signupWithInvitationController = async (req, res) => {
             });
         }
         // Determinar el rol basado en la invitación
-        const role = invitation.role?.name === 'tecnico' ? user_1.UserRole.TECNICO : user_1.UserRole.CFO;
+        const role = invitation.role?.name === 'tecnico' ? user_1.UserRole.TECNICO :
+            invitation.role?.name === 'cfo' ? user_1.UserRole.CFO : user_1.UserRole.PROPIETARIO;
         const result = await (0, authService_1.signUpUserWithInvitation)({
             email,
             password,

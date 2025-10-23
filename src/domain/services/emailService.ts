@@ -90,7 +90,8 @@ export class EmailService {
    * Genera el template de email para invitaciones
    */
   private generateInvitationEmail(invitation: Invitation, building: Building, invitedByUser: any): EmailTemplate {
-    const roleName = invitation.role?.name === 'tecnico' ? 'Técnico' : 'CFO';
+    const roleName = invitation.role?.name === 'tecnico' ? 'Técnico' : 
+                     invitation.role?.name === 'cfo' ? 'CFO' : 'Propietario';
     
     // Determinar si es una invitación de registro o de asignación
     const isAssignmentNotification = invitation.token === 'assignment-notification';
@@ -197,7 +198,9 @@ export class EmailService {
           <ul>
             ${invitation.role?.name === 'tecnico' ? 
               '<li>Gestionar el libro digital del edificio</li><li>Actualizar información técnica</li><li>Documentar el estado del edificio</li>' :
-              '<li>Acceder a información financiera</li><li>Ver reportes económicos</li><li>Analizar la rentabilidad del edificio</li>'
+              invitation.role?.name === 'cfo' ?
+                '<li>Acceder a información financiera</li><li>Ver reportes económicos</li><li>Analizar la rentabilidad del edificio</li>' :
+                '<li>Ver información del edificio</li><li>Acceder a reportes y estadísticas</li><li>Consultar el estado del edificio</li>'
             }
           </ul>
           
@@ -239,7 +242,9 @@ export class EmailService {
       Como ${roleName}, tendrás acceso a:
       ${invitation.role?.name === 'tecnico' ? 
         '- Gestionar el libro digital del edificio\n- Actualizar información técnica\n- Documentar el estado del edificio' :
-        '- Acceder a información financiera\n- Ver reportes económicos\n- Analizar la rentabilidad del edificio'
+        invitation.role?.name === 'cfo' ?
+          '- Acceder a información financiera\n- Ver reportes económicos\n- Analizar la rentabilidad del edificio' :
+          '- Ver información del edificio\n- Acceder a reportes y estadísticas\n- Consultar el estado del edificio'
       }
 
       ⏰ IMPORTANTE: Esta invitación expira en 7 días.
@@ -258,7 +263,8 @@ export class EmailService {
    * Envía un email de notificación cuando se asigna un usuario existente a un nuevo edificio
    */
   async sendAssignmentNotificationEmail(user: any, building: Building, assignedByUser: any): Promise<void> {
-    const roleName = user.role?.name === 'tecnico' ? 'Técnico' : 'CFO';
+    const roleName = user.role?.name === 'tecnico' ? 'Técnico' : 
+                     user.role?.name === 'cfo' ? 'CFO' : 'Propietario';
     const frontendUrl = this.getFrontendUrl();
     const acceptUrl = `${frontendUrl}/auth/auto-accept?email=${encodeURIComponent(user.email)}&building=${building.id}`;
     
