@@ -87,8 +87,8 @@ class CertificateEnergeticoService {
     /**
      * Crear sesión de certificado energético con documentos
      */
-    async createEnergyCertificateSession(data, userAuthId) {
-        const supabase = this.getSupabase();
+    async createEnergyCertificateSession(data, userAuthId, token) {
+        const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
         // Crear documentos primero
         const documentIds = [];
         for (const docData of data.documents) {
@@ -142,8 +142,8 @@ class CertificateEnergeticoService {
     /**
      * Actualizar sesión de certificado energético (para extracción por IA)
      */
-    async updateEnergyCertificateSession(sessionId, data, userAuthId) {
-        const supabase = this.getSupabase();
+    async updateEnergyCertificateSession(sessionId, data, userAuthId, token) {
+        const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
         // Verificar que la sesión pertenece al usuario
         const { data: existingSession, error: fetchError } = await supabase
             .from('energy_certificate_sessions')
@@ -215,8 +215,8 @@ class CertificateEnergeticoService {
     /**
      * Confirmar certificado energético y guardarlo definitivamente
      */
-    async confirmEnergyCertificate(data, userAuthId) {
-        const supabase = this.getSupabase();
+    async confirmEnergyCertificate(data, userAuthId, token) {
+        const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
         // Obtener la sesión
         const { data: session, error: sessionError } = await supabase
             .from('energy_certificate_sessions')

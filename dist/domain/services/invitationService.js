@@ -58,6 +58,7 @@ class InvitationService {
             // Obtener la invitación completa con relaciones
             const invitation = await this.getInvitationById(invitationId);
             if (!invitation) {
+                console.error('Error: No se pudo obtener la invitación creada con ID:', invitationId);
                 throw new Error('Error al obtener la invitación creada');
             }
             // Obtener información del edificio
@@ -138,23 +139,30 @@ class InvitationService {
      * Obtiene una invitación por ID
      */
     async getInvitationById(id) {
-        const { data, error } = await this.getSupabase()
-            .from('invitations')
-            .select(`
-        *,
-        role:roles(*),
-        building:buildings(id, name, address),
-        invited_by_user:users!invited_by(*)
-      `)
-            .eq('id', id)
-            .single();
-        if (error) {
-            if (error.code === 'PGRST116') {
-                return null; // No encontrado
+        try {
+            const { data, error } = await this.getSupabase()
+                .from('invitations')
+                .select(`
+          *,
+          role:roles(*),
+          building:buildings(id, name, address),
+          invited_by_user:users!invited_by(*)
+        `)
+                .eq('id', id)
+                .single();
+            if (error) {
+                console.error('Error obteniendo invitación por ID:', error);
+                if (error.code === 'PGRST116') {
+                    return null; // No encontrado
+                }
+                throw new Error(`Error al obtener invitación: ${error.message}`);
             }
-            throw new Error(`Error al obtener invitación: ${error.message}`);
+            return this.mapToInvitation(data);
         }
-        return this.mapToInvitation(data);
+        catch (err) {
+            console.error('Error en getInvitationById:', err);
+            return null;
+        }
     }
     /**
      * Obtiene invitaciones pendientes para un email y edificio

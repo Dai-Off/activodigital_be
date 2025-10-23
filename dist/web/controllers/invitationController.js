@@ -24,8 +24,8 @@ class InvitationController {
                 return;
             }
             // Validar que el rol sea válido para invitaciones
-            if (![user_1.UserRole.TECNICO, user_1.UserRole.CFO].includes(role)) {
-                res.status(400).json({ error: 'Solo se pueden invitar técnicos y CFOs' });
+            if (![user_1.UserRole.TECNICO, user_1.UserRole.CFO, user_1.UserRole.PROPIETARIO].includes(role)) {
+                res.status(400).json({ error: 'Solo se pueden invitar técnicos, CFOs y propietarios' });
                 return;
             }
             const invitation = await this.invitationService.createInvitation({

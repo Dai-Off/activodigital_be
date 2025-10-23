@@ -29,8 +29,8 @@ export class InvitationController {
       }
 
       // Validar que el rol sea válido para invitaciones
-      if (![UserRole.TECNICO, UserRole.CFO].includes(role)) {
-        res.status(400).json({ error: 'Solo se pueden invitar técnicos y CFOs' });
+      if (![UserRole.TECNICO, UserRole.CFO, UserRole.PROPIETARIO].includes(role)) {
+        res.status(400).json({ error: 'Solo se pueden invitar técnicos, CFOs y propietarios' });
         return;
       }
 

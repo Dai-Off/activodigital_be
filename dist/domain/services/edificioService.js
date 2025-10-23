@@ -469,37 +469,48 @@ class BuildingService {
      * Maneja la invitación de propietario
      */
     async handlePropietarioInvitation(buildingId, propietarioEmail, userAuthId) {
+        console.log(`\n🔍 ASIGNACIÓN PROPIETARIO - Email: ${propietarioEmail} | Building: ${buildingId}`);
         // Verificar si el usuario ya existe
         const existingPropietario = await this.userService.getUserByEmail(propietarioEmail);
         if (existingPropietario) {
+            console.log(`✅ Usuario existe - Rol: ${existingPropietario.role.name} | ID: ${existingPropietario.id}`);
             // Si existe y es propietario, asignarlo directamente
             if (existingPropietario.role.name === user_1.UserRole.PROPIETARIO) {
+                console.log(`📧 Enviando EMAIL DE ASIGNACIÓN para propietario existente`);
                 // Enviar email de notificación de asignación directamente
                 const assignedByUser = await this.userService.getUserByAuthId(userAuthId);
                 const building = await this.getBuildingById(buildingId);
                 if (assignedByUser && building) {
                     try {
                         // PRIMERO: Crear la asignación en la base de datos
+                        console.log(`🏢 CREANDO ASIGNACIÓN en BD para propietario existente`);
                         await this.assignPropietarioToBuilding(buildingId, existingPropietario.id, userAuthId);
+                        console.log(`✅ ASIGNACIÓN CREADA en BD exitosamente`);
                         // SEGUNDO: Enviar email de notificación
+                        console.log(`📧 Enviando EMAIL DE ASIGNACIÓN para propietario existente`);
                         await this.sendAssignmentNotificationEmail(existingPropietario, building, assignedByUser);
+                        console.log(`✅ EMAIL DE ASIGNACIÓN enviado exitosamente`);
                     }
                     catch (error) {
-                        throw error;
+                        console.error(`❌ Error en asignación de propietario:`, error);
+                        throw error; // Re-lanzar el error para que se maneje apropiadamente
                     }
                 }
             }
             else {
+                console.log('❌ User exists but is not a propietario');
                 throw new Error('El usuario existe pero no es un propietario');
             }
         }
         else {
             // Si no existe, enviar invitación de registro
+            console.log(`📧 Creando INVITACIÓN DE REGISTRO para propietario nuevo`);
             await this.invitationService.createInvitation({
                 email: propietarioEmail,
                 role: user_1.UserRole.PROPIETARIO,
                 buildingId: buildingId
             }, userAuthId);
+            console.log(`✅ INVITACIÓN DE REGISTRO creada exitosamente`);
         }
     }
     /**
@@ -622,6 +633,18 @@ class BuildingService {
         if (!assignedByUser) {
             throw new Error('Usuario asignador no encontrado');
         }
+        // Verificar que el propietario no esté ya asignado a este edificio
+        const existingAssignment = await this.getSupabase()
+            .from('building_propietario_assignments')
+            .select('id')
+            .eq('building_id', buildingId)
+            .eq('propietario_id', propietarioId)
+            .eq('status', 'active')
+            .single();
+        if (existingAssignment.data) {
+            console.log('⚠️ El propietario ya está asignado a este edificio');
+            return; // No lanzar error, simplemente no hacer nada
+        }
         const assignmentData = {
             building_id: buildingId,
             propietario_id: propietarioId,
@@ -636,12 +659,50 @@ class BuildingService {
         }
     }
     /**
-     * Envía un email de notificación cuando se asigna un técnico existente a un nuevo edificio
+     * Envía un email de notificación cuando se asigna un usuario existente a un nuevo edificio
      */
-    async sendAssignmentNotificationEmail(technician, building, assignedByUser) {
-        const emailService = new (await Promise.resolve().then(() => __importStar(require('./emailService')))).EmailService();
-        // Usar el método de notificación de asignación
-        await emailService.sendAssignmentNotificationEmail(technician, building, assignedByUser);
+    async sendAssignmentNotificationEmail(user, building, assignedByUser) {
+        try {
+            const emailService = new (await Promise.resolve().then(() => __importStar(require('./emailService')))).EmailService();
+            // Usar el método de notificación de asignación
+            await emailService.sendAssignmentNotificationEmail(user, building, assignedByUser);
+            // También crear una notificación en la base de datos
+            await this.createAssignmentNotification(user, building, assignedByUser);
+        }
+        catch (error) {
+            console.error('Error enviando notificación de asignación:', error);
+            // No lanzar error para no interrumpir el flujo principal
+        }
+    }
+    /**
+     * Crea una notificación en la base de datos para el usuario asignado
+     */
+    async createAssignmentNotification(user, building, assignedByUser) {
+        try {
+            const { getSupabaseClient } = await Promise.resolve().then(() => __importStar(require('../../lib/supabase')));
+            const supabase = getSupabaseClient();
+            const roleName = user.role?.name || 'usuario';
+            const roleLabel = roleName === 'tecnico' ? 'Técnico' :
+                roleName === 'cfo' ? 'CFO' :
+                    roleName === 'propietario' ? 'Propietario' : 'Usuario';
+            await supabase
+                .from('notifications')
+                .insert({
+                user_id: user.userId,
+                type: 'building_assignment',
+                title: `Asignación a edificio "${building.name}"`,
+                message: `Has sido asignado como ${roleLabel} al edificio "${building.name}" por ${assignedByUser.fullName}.`,
+                metadata: {
+                    building_id: building.id,
+                    building_name: building.name,
+                    assigned_by: assignedByUser.fullName,
+                    role: roleName
+                }
+            });
+        }
+        catch (error) {
+            console.error('Error creando notificación:', error);
+        }
     }
     /**
      * Valida las asignaciones de técnico y CFO antes de crear el edificio

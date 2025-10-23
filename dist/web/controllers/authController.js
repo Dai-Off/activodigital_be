@@ -81,6 +81,75 @@ const loginController = async (req, res) => {
             return res.status(400).json({ error: 'email and password are required' });
         }
         const result = await (0, authService_1.signInUser)({ email, password });
+        // Procesar asignaciones pendientes después del login exitoso
+        try {
+            const userService = new userService_1.UserService();
+            const user = await userService.getUserByEmail(email);
+            if (user) {
+                // Buscar invitaciones pendientes para este usuario
+                const { getSupabaseClient } = await Promise.resolve().then(() => __importStar(require('../../lib/supabase')));
+                const supabase = getSupabaseClient();
+                const { data: pendingInvitations } = await supabase
+                    .from('invitations')
+                    .select('building_id, role:roles(name)')
+                    .eq('email', email)
+                    .eq('status', 'pending')
+                    .gt('expires_at', new Date().toISOString());
+                // Procesar cada invitación pendiente
+                if (pendingInvitations && pendingInvitations.length > 0) {
+                    const buildingService = new edificioService_1.BuildingService();
+                    for (const invitation of pendingInvitations) {
+                        try {
+                            // Verificar si ya tiene acceso al edificio
+                            const hasAccess = await buildingService.userHasAccessToBuilding(user.userId, invitation.building_id);
+                            if (!hasAccess) {
+                                // Obtener información del edificio y su propietario
+                                const { data: buildingWithOwner } = await supabase
+                                    .from('buildings')
+                                    .select(`
+                    id,
+                    owner_id,
+                    owner:users!owner_id(
+                      id,
+                      user_id,
+                      email,
+                      full_name
+                    )
+                  `)
+                                    .eq('id', invitation.building_id)
+                                    .single();
+                                if (buildingWithOwner && buildingWithOwner.owner) {
+                                    const owner = buildingWithOwner.owner;
+                                    // Crear asignación según el rol
+                                    const roleName = invitation.role?.name;
+                                    if (roleName === 'tecnico') {
+                                        const ownerUserId = owner?.user_id;
+                                        await buildingService.assignTechnicianToBuilding(invitation.building_id, user.userId, ownerUserId);
+                                    }
+                                    else if (roleName === 'cfo') {
+                                        const ownerUserId = owner?.user_id;
+                                        await buildingService.assignCfoToBuilding(invitation.building_id, user.id, ownerUserId);
+                                    }
+                                    else if (roleName === 'propietario') {
+                                        const ownerUserId = owner?.user_id;
+                                        await buildingService.assignPropietarioToBuilding(invitation.building_id, user.id, ownerUserId);
+                                    }
+                                    console.log(`✅ Asignación automática completada para ${email} en edificio ${invitation.building_id}`);
+                                }
+                            }
+                        }
+                        catch (assignmentError) {
+                            console.error(`Error procesando asignación para ${email}:`, assignmentError);
+                            // No fallar el login por errores de asignación
+                        }
+                    }
+                }
+            }
+        }
+        catch (assignmentError) {
+            console.error('Error procesando asignaciones pendientes:', assignmentError);
+            // No fallar el login por errores de asignación
+        }
         // Transformar la respuesta para que coincida con el formato esperado por el frontend
         return res.status(200).json({
             access_token: result.access_token,
@@ -499,18 +568,21 @@ const processPendingAssignmentsController = async (req, res) => {
                 throw new Error('No se pudo obtener información del edificio');
             }
             const buildingOwner = buildingWithOwner.owner;
-            if (!buildingOwner || !Array.isArray(buildingOwner) || buildingOwner.length === 0) {
+            if (!buildingOwner) {
                 throw new Error('No se pudo determinar el propietario del edificio');
             }
-            const owner = buildingOwner[0]; // Tomar el primer (y único) propietario
+            const owner = buildingOwner;
             // Crear una asignación directa para el usuario existente
-            if (user.role?.name === 'tecnico') {
+            const userRoleName = user.role?.name;
+            if (userRoleName === 'tecnico') {
                 // Para técnicos, crear la relación building-technician
-                await buildingService.assignTechnicianToBuilding(buildingId, user.userId, owner.user_id);
+                const ownerUserId = owner?.user_id;
+                await buildingService.assignTechnicianToBuilding(buildingId, user.userId, ownerUserId);
             }
-            else if (user.role?.name === 'cfo') {
+            else if (userRoleName === 'cfo') {
                 // Para CFOs, crear la asignación CFO
-                await buildingService.assignCfoToBuilding(buildingId, user.id, owner.user_id);
+                const ownerUserId = owner?.user_id;
+                await buildingService.assignCfoToBuilding(buildingId, user.id, ownerUserId);
             }
             return res.status(200).json({
                 success: true,

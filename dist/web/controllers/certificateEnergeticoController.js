@@ -48,13 +48,19 @@ class CertificateEnergeticoController {
                     res.status(401).json({ error: 'Usuario no autenticado' });
                     return;
                 }
+                // Obtener el token del usuario para respetar RLS
+                const token = req.headers.authorization?.split(' ')[1];
+                if (!token) {
+                    res.status(401).json({ error: 'Token no encontrado' });
+                    return;
+                }
                 const data = req.body;
                 // Validación básica
                 if (!data.buildingId || !data.kind || !data.documents || data.documents.length === 0) {
                     res.status(400).json({ error: 'Faltan campos requeridos: buildingId, kind, documents' });
                     return;
                 }
-                const session = await this.getCertificateService().createEnergyCertificateSession(data, userId);
+                const session = await this.getCertificateService().createEnergyCertificateSession(data, userId, token);
                 res.status(201).json({ data: session });
             }
             catch (error) {
@@ -75,9 +81,15 @@ class CertificateEnergeticoController {
                     res.status(401).json({ error: 'Usuario no autenticado' });
                     return;
                 }
+                // Obtener el token del usuario para respetar RLS
+                const token = req.headers.authorization?.split(' ')[1];
+                if (!token) {
+                    res.status(401).json({ error: 'Token no encontrado' });
+                    return;
+                }
                 const sessionId = req.params.sessionId;
                 const data = req.body;
-                const session = await this.getCertificateService().updateEnergyCertificateSession(sessionId, data, userId);
+                const session = await this.getCertificateService().updateEnergyCertificateSession(sessionId, data, userId, token);
                 res.json({ data: session });
             }
             catch (error) {
@@ -98,13 +110,19 @@ class CertificateEnergeticoController {
                     res.status(401).json({ error: 'Usuario no autenticado' });
                     return;
                 }
+                // Obtener el token del usuario para respetar RLS
+                const token = req.headers.authorization?.split(' ')[1];
+                if (!token) {
+                    res.status(401).json({ error: 'Token no encontrado' });
+                    return;
+                }
                 const sessionId = req.params.sessionId;
                 const finalData = req.body;
                 const certificateRequest = {
                     sessionId,
                     finalData
                 };
-                const certificate = await this.getCertificateService().confirmEnergyCertificate(certificateRequest, userId);
+                const certificate = await this.getCertificateService().confirmEnergyCertificate(certificateRequest, userId, token);
                 res.status(201).json({ data: certificate });
             }
             catch (error) {

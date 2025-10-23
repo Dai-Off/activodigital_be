@@ -1,4 +1,4 @@
-import { getSupabaseClient } from '../../lib/supabase';
+import { getSupabaseClient, getSupabaseClientForToken } from '../../lib/supabase';
 import { 
   EnergyCertificateDocument,
   EnergyCertificateSession,
@@ -67,9 +67,10 @@ export class CertificateEnergeticoService {
    */
   async createEnergyCertificateSession(
     data: CreateEnergyCertificateSessionRequest, 
-    userAuthId: string
+    userAuthId: string,
+    token?: string
   ): Promise<EnergyCertificateSession> {
-    const supabase = this.getSupabase();
+    const supabase = token ? getSupabaseClientForToken(token) : this.getSupabase();
 
     // Crear documentos primero
     const documentIds: string[] = [];
@@ -134,9 +135,10 @@ export class CertificateEnergeticoService {
   async updateEnergyCertificateSession(
     sessionId: string,
     data: UpdateEnergyCertificateSessionRequest,
-    userAuthId: string
+    userAuthId: string,
+    token?: string
   ): Promise<EnergyCertificateSession> {
-    const supabase = this.getSupabase();
+    const supabase = token ? getSupabaseClientForToken(token) : this.getSupabase();
 
     // Verificar que la sesión pertenece al usuario
     const { data: existingSession, error: fetchError } = await supabase
@@ -219,9 +221,10 @@ export class CertificateEnergeticoService {
    */
   async confirmEnergyCertificate(
     data: ConfirmEnergyCertificateRequest,
-    userAuthId: string
+    userAuthId: string,
+    token?: string
   ): Promise<EnergyCertificate> {
-    const supabase = this.getSupabase();
+    const supabase = token ? getSupabaseClientForToken(token) : this.getSupabase();
 
     // Obtener la sesión
     const { data: session, error: sessionError } = await supabase

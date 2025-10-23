@@ -155,6 +155,9 @@ BEGIN
     ELSIF v_role_name = 'cfo' THEN
         INSERT INTO building_cfo_assignments (building_id, cfo_id, assigned_by, status)
         VALUES (v_building_id, p_user_id, v_invitation.invited_by, 'active');
+    ELSIF v_role_name = 'propietario' THEN
+        INSERT INTO building_propietario_assignments (building_id, propietario_id, assigned_by, status)
+        VALUES (v_building_id, p_user_id, v_invitation.invited_by, 'active');
     END IF;
     
     -- Retornar información útil

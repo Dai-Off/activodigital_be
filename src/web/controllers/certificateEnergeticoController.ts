@@ -64,6 +64,13 @@ export class CertificateEnergeticoController {
         return;
       }
 
+      // Obtener el token del usuario para respetar RLS
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        res.status(401).json({ error: 'Token no encontrado' });
+        return;
+      }
+
       const data: CreateEnergyCertificateSessionRequest = req.body;
       
       // Validación básica
@@ -72,7 +79,7 @@ export class CertificateEnergeticoController {
         return;
       }
 
-      const session = await this.getCertificateService().createEnergyCertificateSession(data, userId);
+      const session = await this.getCertificateService().createEnergyCertificateSession(data, userId, token);
       res.status(201).json({ data: session });
     } catch (error) {
       console.error('Error al crear sesión de certificado energético:', error);
@@ -94,13 +101,21 @@ export class CertificateEnergeticoController {
         return;
       }
 
+      // Obtener el token del usuario para respetar RLS
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        res.status(401).json({ error: 'Token no encontrado' });
+        return;
+      }
+
       const sessionId = req.params.sessionId;
       const data: UpdateEnergyCertificateSessionRequest = req.body;
 
       const session = await this.getCertificateService().updateEnergyCertificateSession(
         sessionId, 
         data, 
-        userId
+        userId,
+        token
       );
       
       res.json({ data: session });
@@ -124,6 +139,13 @@ export class CertificateEnergeticoController {
         return;
       }
 
+      // Obtener el token del usuario para respetar RLS
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        res.status(401).json({ error: 'Token no encontrado' });
+        return;
+      }
+
       const sessionId = req.params.sessionId;
       const finalData = req.body;
 
@@ -134,7 +156,8 @@ export class CertificateEnergeticoController {
 
       const certificate = await this.getCertificateService().confirmEnergyCertificate(
         certificateRequest, 
-        userId
+        userId,
+        token
       );
       
       res.status(201).json({ data: certificate });
