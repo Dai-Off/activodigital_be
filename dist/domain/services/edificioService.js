@@ -47,6 +47,38 @@ class BuildingService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
     }
+    /**
+     * Llama a la edge function para generar embeddings del edificio
+     */
+    async generateBuildingEmbedding(buildingId) {
+        try {
+            const supabaseUrl = process.env.SUPABASE_URL;
+            const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            if (!supabaseUrl || !serviceRoleKey) {
+                console.warn('⚠️ No se pudo generar embeddings: faltan variables de entorno');
+                return;
+            }
+            const response = await fetch(`${supabaseUrl}/functions/v1/generate-building-embedding`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${serviceRoleKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ building_id: buildingId }),
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ Error al generar embeddings para edificio ${buildingId}:`, errorText);
+                return;
+            }
+            const result = await response.json();
+            console.log(`✅ Embeddings generados para edificio ${buildingId}:`, result);
+        }
+        catch (error) {
+            console.error(`❌ Error al llamar a edge function para edificio ${buildingId}:`, error);
+            // No lanzamos error para no afectar la creación/actualización del edificio
+        }
+    }
     async createBuilding(data, userAuthId) {
         // Verificar que el usuario sea propietario
         const user = await this.userService.getUserByAuthId(userAuthId);
@@ -120,6 +152,10 @@ class BuildingService {
                 throw new Error(`Error al invitar propietario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
             }
         }
+        // Generar embeddings del edificio en segundo plano
+        this.generateBuildingEmbedding(building.id).catch(err => {
+            console.error('Error generando embeddings (no crítico):', err);
+        });
         return this.mapToBuilding(building);
     }
     async getBuildingById(id, userAuthId) {
@@ -250,6 +286,10 @@ class BuildingService {
         if (error) {
             throw new Error(`Error al actualizar edificio: ${error.message}`);
         }
+        // Regenerar embeddings del edificio en segundo plano
+        this.generateBuildingEmbedding(id).catch(err => {
+            console.error('Error regenerando embeddings (no crítico):', err);
+        });
         return this.mapToBuilding(building);
     }
     async deleteBuilding(id, userAuthId) {

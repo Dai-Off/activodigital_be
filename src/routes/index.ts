@@ -9,6 +9,7 @@ import certificatesEnergeticosRouter from './certificadosEnergeticos';
 import esgRouter from './esg';
 import dashboardRouter from './dashboard';
 import notificationsRouter from './notifications';
+import financialSnapshotsRouter from './financialSnapshots';
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.use('/certificados-energeticos', certificatesEnergeticosRouter);
 router.use('/esg', esgRouter);
 router.use('/dashboard', dashboardRouter);
 router.use('/notifications', notificationsRouter);
+router.use('/financial-snapshots', financialSnapshotsRouter);
 
 export default router;
 

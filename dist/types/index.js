@@ -21,4 +21,5 @@ __exportStar(require("./user"), exports);
 __exportStar(require("./certificateEnergetico"), exports);
 __exportStar(require("./dashboard"), exports);
 __exportStar(require("./notification"), exports);
+__exportStar(require("./financialSnapshot"), exports);
 //# sourceMappingURL=index.js.map
