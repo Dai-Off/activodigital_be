@@ -40,7 +40,8 @@ class FinancialSnapshotService {
             estimated_energy_savings_pct: data.ahorro_energia_pct_estimado ?? null,
             estimated_price_uplift_pct: data.uplift_precio_pct_estimado ?? null,
             estimated_rehab_duration_weeks: data.lead_time_rehab_semanas ?? null,
-            meta: data.meta ? JSON.stringify(data.meta) : null,
+            // Supabase maneja JSONB automáticamente, no necesita JSON.stringify()
+            meta: data.meta ?? null,
         };
         console.log('Insertando/actualizando snapshot con datos:', JSON.stringify(snapData, null, 2));
         // Intentar hacer UPSERT (actualizar si existe, insertar si no)
@@ -65,6 +66,10 @@ class FinancialSnapshotService {
             .order('created_at', { ascending: false });
         if (error) {
             throw new Error(`Error al obtener financial snapshots: ${error.message}`);
+        }
+        // Si no hay snapshots, devolver array vacío
+        if (!snapshots || snapshots.length === 0) {
+            return [];
         }
         return snapshots.map(s => this.mapToFinancialSnapshot(s));
     }
@@ -128,8 +133,9 @@ class FinancialSnapshotService {
             updateData.estimated_price_uplift_pct = data.uplift_precio_pct_estimado;
         if (data.lead_time_rehab_semanas !== undefined)
             updateData.estimated_rehab_duration_weeks = data.lead_time_rehab_semanas;
+        // Supabase maneja JSONB automáticamente, no necesita JSON.stringify()
         if (data.meta !== undefined)
-            updateData.meta = JSON.stringify(data.meta);
+            updateData.meta = data.meta;
         const { data: snapshot, error } = await this.getSupabase()
             .from('financial_snapshots')
             .update(updateData)
@@ -179,7 +185,8 @@ class FinancialSnapshotService {
             ahorro_energia_pct_estimado: dbRow.estimated_energy_savings_pct ? parseFloat(dbRow.estimated_energy_savings_pct) : null,
             uplift_precio_pct_estimado: dbRow.estimated_price_uplift_pct ? parseFloat(dbRow.estimated_price_uplift_pct) : null,
             lead_time_rehab_semanas: dbRow.estimated_rehab_duration_weeks,
-            meta: dbRow.meta ? JSON.parse(dbRow.meta) : undefined,
+            // Supabase devuelve JSONB ya como objeto, no necesita JSON.parse()
+            meta: dbRow.meta || undefined,
             created_at: dbRow.created_at,
             updated_at: dbRow.updated_at,
         };
