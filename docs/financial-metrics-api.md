@@ -18,6 +18,71 @@ Authorization: Bearer <token>
 
 ---
 
+## Principios de Diseño
+
+### Temporalidad Parametrizable
+
+Todos los endpoints GET soportan el parámetro `period` que permite obtener métricas en formato anual o mensual:
+
+- `period=annual` (default): Métricas anuales
+- `period=monthly`: Métricas mensuales (valores anuales divididos por 12)
+
+**Ejemplo:**
+```
+GET /edificios/{id}/metrics?period=annual
+GET /edificios/{id}/metrics?period=monthly
+```
+
+### Moneda y Tasa de Descuento Parametrizables
+
+- **Currency (`currency`)**: Parámetro opcional en endpoints GET. Valores: `EUR` (default) | `USD`
+- **Discount Rate (`discountRate`)**: Parámetro opcional/requerido en endpoints POST para cálculos de NPV/IRR. Valor decimal entre 0 y 1 (ej: 0.08 = 8%)
+
+**Ejemplo:**
+```
+GET /edificios/{id}/metrics?currency=EUR
+POST /edificios/{id}/scenarios/npv
+Body: { "discountRate": 0.08, ... }
+```
+
+### Escenarios Reproducibles con scenarioId
+
+Todos los endpoints POST de escenarios soportan `scenarioId` para reproducir escenarios:
+
+- **Si pasas `scenarioId`**: El endpoint usa ese ID y lo devuelve en la respuesta
+- **Si NO pasas `scenarioId`**: Se genera automáticamente y se devuelve en la respuesta
+- **Idempotencia**: Mismo `scenarioId` + mismos inputs = mismo output
+
+**Ejemplo:**
+```json
+POST /edificios/{id}/scenarios/npv
+Body: {
+  "discountRate": 0.08,
+  "cashflows": [123, 123, 123],
+  "initialInvestment": 12333,
+  "scenarioId": "test_001"  // ← Mismo scenarioId = mismo resultado
+}
+```
+
+### Compatibilidad n8n
+
+Los endpoints están diseñados para ser usados por orquestadores como n8n:
+
+- **Entradas simples y predecibles**: Parámetros claros, sin lógica compleja
+- **Respuestas auto-contenidas**: Todas las respuestas incluyen todos los datos necesarios
+- **Idempotencia**: Mismo input → mismo output (cacheable)
+- **JSON estándar**: Fácil de procesar en workflows
+
+**Ejemplo de workflow n8n:**
+```
+1. HTTP Request: POST /edificios/{id}/scenarios/cashflow/run
+2. HTTP Request: POST /edificios/{id}/scenarios/npv
+   Body: { "cashflows": {{$json.cashflows}}, ... }
+3. Function Node: Transforma respuesta a texto natural
+```
+
+---
+
 ## GET - Métricas Financieras
 
 Estos endpoints calculan métricas usando los datos actuales guardados en la base de datos (snapshot financiero + building).
