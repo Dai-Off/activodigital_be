@@ -20,6 +20,7 @@ export interface User {
   fullName: string | null;
   roleId: string;
   role?: Role; // Populated when needed
+  twoFactorEnabled?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

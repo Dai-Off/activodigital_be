@@ -9,7 +9,10 @@ import {
   acceptAssignmentController,
   autoAcceptController,
   processPendingAssignmentsController,
-  smartInvitationController
+  smartInvitationController,
+  setup2FAController,
+  verify2FASetupController,
+  verify2FALoginController
 } from '../web/controllers/authController';
 import { requireAuth } from '../web/middlewares/authMiddleware';
 
@@ -27,6 +30,11 @@ router.get('/invitation/:token', smartInvitationController); // Endpoint intelig
 router.get('/accept-assignment', acceptAssignmentController); // Endpoint para aceptar asignaciones
 router.get('/auto-accept', autoAcceptController); // Endpoint para auto-aceptar invitaciones
 router.post('/process-pending-assignments', requireAuth, processPendingAssignmentsController); // Procesar asignaciones pendientes
+
+// Endpoints para 2FA
+router.post('/setup-2fa', setup2FAController);
+router.post('/verify-2fa-setup', verify2FASetupController);
+router.post('/verify-2fa-login', verify2FALoginController);
 
 export default router;
 

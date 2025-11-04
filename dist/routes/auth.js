@@ -15,5 +15,9 @@ router.get('/invitation/:token', authController_1.smartInvitationController); //
 router.get('/accept-assignment', authController_1.acceptAssignmentController); // Endpoint para aceptar asignaciones
 router.get('/auto-accept', authController_1.autoAcceptController); // Endpoint para auto-aceptar invitaciones
 router.post('/process-pending-assignments', authMiddleware_1.requireAuth, authController_1.processPendingAssignmentsController); // Procesar asignaciones pendientes
+// Endpoints para 2FA
+router.post('/setup-2fa', authController_1.setup2FAController);
+router.post('/verify-2fa-setup', authController_1.verify2FASetupController);
+router.post('/verify-2fa-login', authController_1.verify2FALoginController);
 exports.default = router;
 //# sourceMappingURL=auth.js.map

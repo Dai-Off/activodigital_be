@@ -9,6 +9,8 @@ import {
 import { UserService } from '../../domain/services/userService';
 import { BuildingService } from '../../domain/services/edificioService';
 import { UserRole } from '../../types/user';
+import { TwoFactorService } from '../../domain/services/twoFactorService';
+import { getSupabaseClient } from '../../lib/supabase';
 
 export const signupController = async (req: Request, res: Response) => {
   try {
@@ -21,9 +23,19 @@ export const signupController = async (req: Request, res: Response) => {
       });
     }
 
+    // Verificar si el usuario ya existe
+    const userService = new UserService();
+    const existingUser = await userService.getUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ 
+        message: 'El usuario ya existe' 
+      });
+    }
+
     // Forzar rol por defecto a administrador (con compatibilidad en servicio)
     const forcedRole = UserRole.ADMINISTRADOR;
 
+    // Crear usuario pero NO crear sesión todavía (sin access_token)
     const result = await signUpUser({ 
       email, 
       password, 
@@ -31,20 +43,25 @@ export const signupController = async (req: Request, res: Response) => {
       role: forcedRole 
     });
     
-    // Transformar la respuesta para que coincida con lo que espera el frontend
+    // Ahora necesitamos obtener el ID de la tabla users (no el user_id de auth)
+    const userProfile = await userService.getUserByAuthId(result.user.id);
+    if (!userProfile) {
+      throw new Error('Error al obtener perfil de usuario creado');
+    }
+
+    // Devolver solo userId para que el frontend configure 2FA
     return res.status(201).json({
-      access_token: result.access_token,
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-        fullName: result.userProfile.fullName,
-        role: {
-          name: result.userProfile.role?.name ?? null
-        }
-      }
+      message: 'Usuario creado. Configure 2FA para continuar.',
+      userId: userProfile.id // ID de la tabla users
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
+    
+    // Si el error es que el usuario ya existe
+    if (message.includes('already') || message.includes('ya existe')) {
+      return res.status(400).json({ message: 'El usuario ya existe' });
+    }
+    
     return res.status(500).json({ error: message });
   }
 };
@@ -55,93 +72,30 @@ export const loginController = async (req: Request, res: Response) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'email and password are required' });
     }
+    
+    // Validar credenciales (sin crear sesión todavía)
     const result = await signInUser({ email, password });
     
-    // Procesar asignaciones pendientes después del login exitoso
-    try {
-      const userService = new UserService();
-      const user = await userService.getUserByEmail(email);
-      
-      if (user) {
-        // Buscar invitaciones pendientes para este usuario
-        const { getSupabaseClient } = await import('../../lib/supabase');
-        const supabase = getSupabaseClient();
-        
-        const { data: pendingInvitations } = await supabase
-          .from('invitations')
-          .select('building_id, role:roles(name)')
-          .eq('email', email)
-          .eq('status', 'pending')
-          .gt('expires_at', new Date().toISOString());
-
-        // Procesar cada invitación pendiente
-        if (pendingInvitations && pendingInvitations.length > 0) {
-          const buildingService = new BuildingService();
-          
-          for (const invitation of pendingInvitations) {
-            try {
-              // Verificar si ya tiene acceso al edificio
-              const hasAccess = await buildingService.userHasAccessToBuilding(user.userId, invitation.building_id);
-              
-              if (!hasAccess) {
-                // Obtener información del edificio y su propietario
-                const { data: buildingWithOwner } = await supabase
-                  .from('buildings')
-                  .select(`
-                    id,
-                    owner_id,
-                    owner:users!owner_id(
-                      id,
-                      user_id,
-                      email,
-                      full_name
-                    )
-                  `)
-                  .eq('id', invitation.building_id)
-                  .single();
-
-                if (buildingWithOwner && buildingWithOwner.owner) {
-                  const owner = buildingWithOwner.owner;
-                  
-                  // Crear asignación según el rol
-                  const roleName = (invitation.role as any)?.name;
-                  if (roleName === 'tecnico') {
-                    const ownerUserId = (owner as any)?.user_id;
-                    await buildingService.assignTechnicianToBuilding(invitation.building_id, user.userId, ownerUserId);
-                  } else if (roleName === 'cfo') {
-                    const ownerUserId = (owner as any)?.user_id;
-                    await buildingService.assignCfoToBuilding(invitation.building_id, user.id, ownerUserId);
-                  } else if (roleName === 'propietario') {
-                    const ownerUserId = (owner as any)?.user_id;
-                    await buildingService.assignPropietarioToBuilding(invitation.building_id, user.id, ownerUserId);
-                  }
-                  
-                  console.log(`✅ Asignación automática completada para ${email} en edificio ${invitation.building_id}`);
-                }
-              }
-            } catch (assignmentError) {
-              console.error(`Error procesando asignación para ${email}:`, assignmentError);
-              // No fallar el login por errores de asignación
-            }
-          }
-        }
-      }
-    } catch (assignmentError) {
-      console.error('Error procesando asignaciones pendientes:', assignmentError);
-      // No fallar el login por errores de asignación
-    }
+    // Verificar que el usuario tenga 2FA habilitado
+    const userService = new UserService();
+    const user = await userService.getUserByEmail(email);
     
-    // Transformar la respuesta para que coincida con el formato esperado por el frontend
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales incorrectas' });
+    }
+
+    // Verificar que tenga 2FA configurado
+    if (!user.twoFactorEnabled) {
+      return res.status(400).json({ 
+        error: '2FA no configurado. Por favor configure 2FA antes de iniciar sesión.' 
+      });
+    }
+
+    // Las credenciales son válidas y tiene 2FA configurado
+    // NO devolver access_token todavía, necesita verificar código 2FA
     return res.status(200).json({
-      access_token: result.access_token,
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-        fullName: result.userProfile.fullName,
-        role: {
-          name: result.userProfile.role?.name ?? null
-        }
-      }
+      message: 'Credenciales válidas. Verifica código 2FA.',
+      requiresTwoFactor: true
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -633,6 +587,155 @@ export const processPendingAssignmentsController = async (req: Request, res: Res
   } catch (error) {
     console.error('Error en processPendingAssignmentsController:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+/**
+ * Setup 2FA - Genera secret TOTP y QR code
+ * POST /api/auth/setup-2fa
+ */
+export const setup2FAController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId es requerido' });
+    }
+
+    const twoFactorService = new TwoFactorService();
+    const result = await twoFactorService.setup2FA(userId);
+
+    return res.status(200).json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return res.status(500).json({ error: message });
+  }
+};
+
+/**
+ * Verificar código 2FA durante setup inicial
+ * POST /api/auth/verify-2fa-setup
+ */
+export const verify2FASetupController = async (req: Request, res: Response) => {
+  try {
+    const { userId, token } = req.body;
+    
+    if (!userId || !token) {
+      return res.status(400).json({ 
+        error: 'userId y token son requeridos' 
+      });
+    }
+
+    // Asegurar que el token sea string y tenga 6 dígitos
+    const tokenString = String(token).trim();
+    if (!/^\d{6}$/.test(tokenString)) {
+      return res.status(400).json({
+        success: false,
+        message: 'El código debe tener 6 dígitos numéricos'
+      });
+    }
+
+    const twoFactorService = new TwoFactorService();
+    const result = await twoFactorService.verify2FASetup(userId, tokenString);
+
+    if (result.success) {
+      return res.status(200).json(result);
+    } else {
+      return res.status(400).json(result);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error en verify2FASetupController:', err);
+    return res.status(500).json({ error: message });
+  }
+};
+
+/**
+ * Verificar código 2FA durante login y devolver access_token
+ * POST /api/auth/verify-2fa-login
+ * 
+ * Nota: El frontend debe enviar password nuevamente después de verificar 2FA
+ * para crear la sesión. Esto es necesario porque Supabase requiere contraseña
+ * para crear sesiones, pero ya validamos el 2FA previamente.
+ */
+export const verify2FALoginController = async (req: Request, res: Response) => {
+  try {
+    const { email, token, password } = req.body;
+    
+    if (!email || !token) {
+      return res.status(400).json({ 
+        error: 'email y token son requeridos' 
+      });
+    }
+
+    // Asegurar que el token sea string y tenga 6 dígitos
+    const tokenString = String(token).trim();
+    if (!/^\d{6}$/.test(tokenString)) {
+      return res.status(400).json({
+        success: false,
+        message: 'El código debe tener 6 dígitos numéricos'
+      });
+    }
+
+    const twoFactorService = new TwoFactorService();
+    const verifyResult = await twoFactorService.verify2FALogin(email, tokenString);
+
+    if (!verifyResult.success || !verifyResult.userId) {
+      return res.status(400).json({
+        success: false,
+        message: verifyResult.message || 'Código 2FA inválido'
+      });
+    }
+
+    // Si se proporciona password, crear sesión directamente
+    if (password) {
+      const supabase = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (sessionError || !sessionData.session) {
+        return res.status(401).json({
+          success: false,
+          message: 'Error al crear sesión. Verifica tus credenciales.'
+        });
+      }
+
+      // Obtener perfil completo del usuario
+      const userService = new UserService();
+      const userProfile = await userService.getUserByAuthId(verifyResult.userId);
+      
+      if (!userProfile) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      return res.status(200).json({
+        success: true,
+        access_token: sessionData.session.access_token,
+        refresh_token: sessionData.session.refresh_token,
+        user: {
+          id: sessionData.user.id,
+          email: sessionData.user.email || email,
+          fullName: userProfile.fullName,
+          role: {
+            name: userProfile.role?.name ?? null
+          }
+        },
+        message: 'Login exitoso'
+      });
+    } else {
+      // Si no se proporciona password, solo confirmar que 2FA fue verificado
+      // El frontend debe llamar a login nuevamente con password
+      return res.status(200).json({
+        success: true,
+        message: '2FA verificado correctamente',
+        requiresPassword: true
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return res.status(500).json({ error: message });
   }
 };
 

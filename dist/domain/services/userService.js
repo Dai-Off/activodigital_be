@@ -254,6 +254,7 @@ class UserService {
             email: data.email,
             fullName: data.full_name,
             roleId: data.role_id,
+            twoFactorEnabled: data.two_factor_enabled ?? false,
             createdAt: data.created_at,
             updatedAt: data.updated_at
         };
