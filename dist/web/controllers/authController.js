@@ -180,10 +180,11 @@ const signupWithInvitationController = async (req, res) => {
             invitationToken: decodedToken
         });
         // Transformar la respuesta para que coincida con lo que espera el frontend
+        // IMPORTANTE: Usar result.userProfile.id (ID de tabla users) para setup-2fa
         return res.status(201).json({
             access_token: result.access_token,
             user: {
-                id: result.user.id,
+                id: result.userProfile.id, // ID de la tabla users (necesario para setup-2fa)
                 email: result.user.email,
                 fullName: result.userProfile.fullName,
                 role: {
