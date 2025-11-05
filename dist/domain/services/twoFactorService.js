@@ -75,6 +75,18 @@ class TwoFactorService {
      * @param userId - ID de la tabla users (no user_id de auth.users)
      */
     async verify2FASetup(userId, token) {
+        const tokenString = String(token).trim();
+        // 🔓 Modo desarrollo: bypass 2FA con código específico
+        if (process.env.DEV_MODE_2FA === 'true' && (tokenString === '000000' || tokenString === '123456')) {
+            console.warn('🔓 Modo Dev 2FA activado - Bypass de verificación setup para userId:', userId);
+            const supabase = (0, supabase_1.getSupabaseClient)();
+            // Activar 2FA para el usuario en modo dev
+            await supabase
+                .from('users')
+                .update({ two_factor_enabled: true })
+                .eq('id', userId);
+            return { success: true, message: '2FA configurado correctamente (modo dev)' };
+        }
         const supabase = (0, supabase_1.getSupabaseClient)();
         // Obtener secret encriptado de la base de datos usando el ID de la tabla users
         const { data: userData, error: fetchError } = await supabase
@@ -98,7 +110,6 @@ class TwoFactorService {
             return { success: false, message: 'Error al desencriptar secret 2FA' };
         }
         // Verificar token con ventana de ±3 períodos (90 segundos) y asegurar que token sea string
-        const tokenString = String(token).trim();
         console.log('Verificando token:', tokenString, 'para userId:', userId);
         const verified = speakeasy_1.default.totp.verify({
             secret: decryptedSecret,
@@ -133,6 +144,16 @@ class TwoFactorService {
      * Verifica el código 2FA durante el login
      */
     async verify2FALogin(email, token) {
+        const tokenString = String(token).trim();
+        // 🔓 Modo desarrollo: bypass 2FA con código específico
+        if (process.env.DEV_MODE_2FA === 'true' && (tokenString === '000000' || tokenString === '123456')) {
+            console.warn('🔓 Modo Dev 2FA activado - Bypass de verificación login para email:', email);
+            const user = await this.userService.getUserByEmail(email);
+            if (!user) {
+                return { success: false, message: 'Usuario no encontrado' };
+            }
+            return { success: true, userId: user.userId, message: 'Login exitoso (modo dev)' };
+        }
         const supabase = (0, supabase_1.getSupabaseClient)();
         // Obtener usuario por email
         const user = await this.userService.getUserByEmail(email);
@@ -161,7 +182,6 @@ class TwoFactorService {
             return { success: false, message: 'Error al desencriptar secret 2FA' };
         }
         // Verificar token con ventana de ±3 períodos y asegurar que token sea string
-        const tokenString = String(token).trim();
         const verified = speakeasy_1.default.totp.verify({
             secret: decryptedSecret,
             encoding: 'base32',

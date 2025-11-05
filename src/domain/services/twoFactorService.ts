@@ -99,6 +99,22 @@ export class TwoFactorService {
    * @param userId - ID de la tabla users (no user_id de auth.users)
    */
   async verify2FASetup(userId: string, token: string): Promise<Verify2FAResult> {
+    const tokenString = String(token).trim();
+
+    // 🔓 Modo desarrollo: bypass 2FA con código específico
+    if (process.env.DEV_MODE_2FA === 'true' && (tokenString === '000000' || tokenString === '123456')) {
+      console.warn('🔓 Modo Dev 2FA activado - Bypass de verificación setup para userId:', userId);
+      
+      const supabase = getSupabaseClient();
+      // Activar 2FA para el usuario en modo dev
+      await supabase
+        .from('users')
+        .update({ two_factor_enabled: true })
+        .eq('id', userId);
+      
+      return { success: true, message: '2FA configurado correctamente (modo dev)' };
+    }
+
     const supabase = getSupabaseClient();
 
     // Obtener secret encriptado de la base de datos usando el ID de la tabla users
@@ -125,7 +141,6 @@ export class TwoFactorService {
     }
 
     // Verificar token con ventana de ±3 períodos (90 segundos) y asegurar que token sea string
-    const tokenString = String(token).trim();
     console.log('Verificando token:', tokenString, 'para userId:', userId);
     
     const verified = speakeasy.totp.verify({
@@ -165,6 +180,20 @@ export class TwoFactorService {
    * Verifica el código 2FA durante el login
    */
   async verify2FALogin(email: string, token: string): Promise<{ success: boolean; message?: string; userId?: string }> {
+    const tokenString = String(token).trim();
+
+    // 🔓 Modo desarrollo: bypass 2FA con código específico
+    if (process.env.DEV_MODE_2FA === 'true' && (tokenString === '000000' || tokenString === '123456')) {
+      console.warn('🔓 Modo Dev 2FA activado - Bypass de verificación login para email:', email);
+      
+      const user = await this.userService.getUserByEmail(email);
+      if (!user) {
+        return { success: false, message: 'Usuario no encontrado' };
+      }
+      
+      return { success: true, userId: user.userId, message: 'Login exitoso (modo dev)' };
+    }
+
     const supabase = getSupabaseClient();
 
     // Obtener usuario por email
@@ -198,7 +227,6 @@ export class TwoFactorService {
     }
 
     // Verificar token con ventana de ±3 períodos y asegurar que token sea string
-    const tokenString = String(token).trim();
     const verified = speakeasy.totp.verify({
       secret: decryptedSecret,
       encoding: 'base32',
