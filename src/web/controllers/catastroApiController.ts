@@ -50,3 +50,16 @@ export const getVias = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
+
+export const getInmuebleRc = async (req: Request, res: Response) => {
+  const rc = req.query.rc as string;
+  try {
+    const inmueble = await catastroApiService.getInmuebleRc(rc);
+    res.status(200).json(inmueble);
+  } catch (error) {
+    console.error("Error al obtener los municipios", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+export const getInmuebleLoc = async (rerq: Request, res: Response) => {};
