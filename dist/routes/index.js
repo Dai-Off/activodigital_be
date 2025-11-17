@@ -15,20 +15,22 @@ const esg_1 = __importDefault(require("./esg"));
 const dashboard_1 = __importDefault(require("./dashboard"));
 const notifications_1 = __importDefault(require("./notifications"));
 const financialSnapshots_1 = __importDefault(require("./financialSnapshots"));
+const catastroApi_1 = __importDefault(require("./catastroApi"));
 const router = (0, express_1.Router)();
-router.get('/', (_req, res) => {
-    res.json({ message: '¡Bienvenido a la API de Activo Digital Backend!' });
+router.get("/", (_req, res) => {
+    res.json({ message: "¡Bienvenido a la API de Activo Digital Backend!" });
 });
-router.use('/health', health_1.default);
-router.use('/auth', auth_1.default);
-router.use('/users', users_1.default);
-router.use('/edificios', edificios_1.default);
-router.use('/libros-digitales', librosDigitales_1.default);
-router.use('/invitations', invitations_1.default);
-router.use('/certificados-energeticos', certificadosEnergeticos_1.default);
-router.use('/esg', esg_1.default);
-router.use('/dashboard', dashboard_1.default);
-router.use('/notifications', notifications_1.default);
-router.use('/financial-snapshots', financialSnapshots_1.default);
+router.use("/health", health_1.default);
+router.use("/auth", auth_1.default);
+router.use("/users", users_1.default);
+router.use("/edificios", edificios_1.default);
+router.use("/libros-digitales", librosDigitales_1.default);
+router.use("/invitations", invitations_1.default);
+router.use("/certificados-energeticos", certificadosEnergeticos_1.default);
+router.use("/esg", esg_1.default);
+router.use("/dashboard", dashboard_1.default);
+router.use("/notifications", notifications_1.default);
+router.use("/financial-snapshots", financialSnapshots_1.default);
+router.use("/catastroApi", catastroApi_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map
