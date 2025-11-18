@@ -162,4 +162,40 @@ export class CatastroApiService {
       return "Hubo un error al consultar el inmueble";
     }
   }
+
+  async getInmuebleXY(x: string, y: string): Promise<any | null> {
+    interface resultadoLoc {
+      pc1: string;
+      pc2: string;
+      referenciaCatastral: string;
+      direccion: string;
+    }
+    try {
+      const localizacion = await fetch(
+        `${this.urlCatastro}/api/coordenadas/rc-por-coordenadas?x=${x}&y=${y}`,
+        this.options
+      );
+      const dataLoc = await localizacion.json();
+      const listadoLoc: resultadoLoc[] = dataLoc.referencias;
+      const promesasInmuebles = listadoLoc.map(async (resultadoLoc) => {
+        const rc = resultadoLoc.referenciaCatastral;
+
+        const responseInmueble = await fetch(
+          `${this.urlCatastro}/api/callejero/inmueble-rc?rc=${rc}`,
+          this.options
+        );
+
+        const detailInmueble: any = await responseInmueble.json();
+
+        return detailInmueble;
+      });
+
+      const listadoInmuebles: any[] = await Promise.all(promesasInmuebles);
+
+      return listadoInmuebles;
+    } catch (error) {
+      console.error("Error en la solicitud:", error);
+      return "Hubo un error al consultar el inmueble";
+    }
+  }
 }

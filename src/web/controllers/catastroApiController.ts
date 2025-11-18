@@ -57,9 +57,63 @@ export const getInmuebleRc = async (req: Request, res: Response) => {
     const inmueble = await catastroApiService.getInmuebleRc(rc);
     res.status(200).json(inmueble);
   } catch (error) {
-    console.error("Error al obtener los municipios", error);
+    console.error("Error al obtener el inmueble", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 
-export const getInmuebleLoc = async (rerq: Request, res: Response) => {};
+export const getInmuebleLoc = async (req: Request, res: Response) => {
+  const provincia = req.query.provincia as string;
+  const municipio = req.query.municipio as string;
+  const tipoVia = req.query.tipoVia as string;
+  const nombreVia = req.query.nombreVia as string;
+  const numero = req.query.numero as string;
+  let bloque = "";
+  let escalera = "";
+  let planta = "";
+  let puerta = "";
+
+  if (req.query.bloque) {
+    bloque = req.query.bloque as string;
+  }
+  if (req.query.escalera) {
+    escalera = req.query.escalera as string;
+  }
+  if (req.query.planta) {
+    planta = req.query.planta as string;
+  }
+  if (req.query.puerta) {
+    puerta = req.query.puerta as string;
+  }
+
+  try {
+    const inmueble = await catastroApiService.getInmuebleLoc(
+      provincia,
+      municipio,
+      tipoVia,
+      nombreVia,
+      numero,
+      bloque,
+      escalera,
+      planta,
+      puerta
+    );
+    res.status(200).json(inmueble);
+  } catch (error) {
+    console.error("Error al obtener el inmueble", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+export const getInmuebleXY = async (req: Request, res: Response) => {
+  const x = req.query.x as string;
+  const y = req.query.y as string;
+
+  try {
+    const inmueble = await catastroApiService.getInmuebleXY(x, y);
+    res.status(200).json(inmueble);
+  } catch (error) {
+    console.error("Error al obtener el inmueble", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
