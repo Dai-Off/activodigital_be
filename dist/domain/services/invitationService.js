@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InvitationService = void 0;
 const supabase_1 = require("../../lib/supabase");
-const user_1 = require("../../types/user");
 const userService_1 = require("./userService");
 const emailService_1 = require("./emailService");
 class InvitationService {
@@ -17,18 +16,10 @@ class InvitationService {
      * Crea una invitación y envía el email
      */
     async createInvitation(data, invitedByAuthId) {
-        // Verificar que el usuario que invita sea propietario
+        // Todos los usuarios pueden enviar invitaciones
         const invitedByUser = await this.userService.getUserByAuthId(invitedByAuthId);
         if (!invitedByUser) {
             throw new Error('Usuario no encontrado');
-        }
-        if (invitedByUser.role.name !== user_1.UserRole.ADMINISTRADOR) {
-            throw new Error('Solo los administradores pueden enviar invitaciones');
-        }
-        // Verificar que el edificio pertenezca al administrador (creador del edificio)
-        const isOwner = await this.userService.isOwnerOfBuilding(invitedByAuthId, data.buildingId);
-        if (!isOwner) {
-            throw new Error('Solo puedes invitar usuarios a edificios que hayas creado');
         }
         // Verificar que el email no esté ya registrado (solo para nuevas invitaciones)
         const existingUser = await this.userService.getUserByEmail(data.email);

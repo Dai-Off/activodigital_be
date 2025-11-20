@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CertificateEnergeticoService = void 0;
 const supabase_1 = require("../../lib/supabase");
@@ -144,16 +111,7 @@ class CertificateEnergeticoService {
      */
     async updateEnergyCertificateSession(sessionId, data, userAuthId, token) {
         const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
-        // Verificar que la sesión pertenece al usuario
-        const { data: existingSession, error: fetchError } = await supabase
-            .from('energy_certificate_sessions')
-            .select('id, user_id')
-            .eq('id', sessionId)
-            .eq('user_id', userAuthId)
-            .single();
-        if (fetchError || !existingSession) {
-            throw new Error('Sesión no encontrada o sin permisos');
-        }
+        // Todos los usuarios pueden actualizar cualquier sesión
         const updateData = {};
         if (data.status !== undefined)
             updateData.status = data.status;
@@ -217,15 +175,14 @@ class CertificateEnergeticoService {
      */
     async confirmEnergyCertificate(data, userAuthId, token) {
         const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
-        // Obtener la sesión
+        // Obtener la sesión - Todos los usuarios pueden confirmar cualquier sesión
         const { data: session, error: sessionError } = await supabase
             .from('energy_certificate_sessions')
             .select('*')
             .eq('id', data.sessionId)
-            .eq('user_id', userAuthId)
             .single();
         if (sessionError || !session) {
-            throw new Error('Sesión no encontrada o sin permisos');
+            throw new Error('Sesión no encontrada');
         }
         // Validar que los datos requeridos estén presentes
         const requiredFields = ['rating', 'primaryEnergyKwhPerM2Year', 'emissionsKgCo2PerM2Year', 'certificateNumber', 'issuerName', 'issueDate', 'expiryDate'];
@@ -317,13 +274,7 @@ class CertificateEnergeticoService {
         if (userError || !userData) {
             throw new Error('Usuario no encontrado');
         }
-        // Verificar permisos: debe tener acceso al edificio (propietario, técnico, CFO o administrador)
-        const { BuildingService } = await Promise.resolve().then(() => __importStar(require('./edificioService')));
-        const edificioService = new BuildingService();
-        const hasAccess = await edificioService.userHasAccessToBuilding(userAuthId, buildingId);
-        if (!hasAccess) {
-            throw new Error('No tienes permisos para ver los certificados de este edificio');
-        }
+        // Todos los usuarios pueden ver certificados de cualquier edificio
         // Obtener sesiones (sin filtrar por user_id, solo por building_id)
         const { data: sessions, error: sessionsError } = await supabase
             .from('energy_certificate_sessions')
@@ -423,15 +374,14 @@ class CertificateEnergeticoService {
      */
     async deleteEnergyCertificateSession(sessionId, userAuthId) {
         const supabase = this.getSupabase();
-        // Verificar que la sesión pertenece al usuario
+        // Todos los usuarios pueden eliminar cualquier sesión
         const { data: session, error: sessionError } = await supabase
             .from('energy_certificate_sessions')
-            .select('documents, user_id')
+            .select('documents')
             .eq('id', sessionId)
-            .eq('user_id', userAuthId)
             .single();
         if (sessionError || !session) {
-            throw new Error('Sesión no encontrada o sin permisos');
+            throw new Error('Sesión no encontrada');
         }
         // Eliminar documentos asociados
         if (session.documents && session.documents.length > 0) {
@@ -457,11 +407,11 @@ class CertificateEnergeticoService {
      */
     async deleteEnergyCertificate(certificateId, userAuthId) {
         const supabase = this.getSupabase();
+        // Todos los usuarios pueden eliminar cualquier certificado
         const { error } = await supabase
             .from('energy_certificates')
             .delete()
-            .eq('id', certificateId)
-            .eq('user_id', userAuthId);
+            .eq('id', certificateId);
         if (error) {
             throw new Error(`Error eliminando certificado: ${error.message}`);
         }
@@ -471,15 +421,14 @@ class CertificateEnergeticoService {
      */
     async getSessionDocuments(sessionId, userAuthId) {
         const supabase = this.getSupabase();
-        // Verificar que la sesión pertenece al usuario
+        // Todos los usuarios pueden ver documentos de cualquier sesión
         const { data: session, error: sessionError } = await supabase
             .from('energy_certificate_sessions')
-            .select('documents, user_id')
+            .select('documents')
             .eq('id', sessionId)
-            .eq('user_id', userAuthId)
             .single();
         if (sessionError || !session) {
-            throw new Error('Sesión no encontrada o sin permisos');
+            throw new Error('Sesión no encontrada');
         }
         if (!session.documents || session.documents.length === 0) {
             return [];

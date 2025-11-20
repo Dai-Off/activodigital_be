@@ -23,20 +23,10 @@ export class InvitationService {
    * Crea una invitación y envía el email
    */
   async createInvitation(data: CreateInvitationRequest, invitedByAuthId: string): Promise<Invitation> {
-    // Verificar que el usuario que invita sea propietario
+    // Todos los usuarios pueden enviar invitaciones
     const invitedByUser = await this.userService.getUserByAuthId(invitedByAuthId);
     if (!invitedByUser) {
       throw new Error('Usuario no encontrado');
-    }
-
-    if (invitedByUser.role.name !== UserRole.ADMINISTRADOR) {
-      throw new Error('Solo los administradores pueden enviar invitaciones');
-    }
-
-    // Verificar que el edificio pertenezca al administrador (creador del edificio)
-    const isOwner = await this.userService.isOwnerOfBuilding(invitedByAuthId, data.buildingId);
-    if (!isOwner) {
-      throw new Error('Solo puedes invitar usuarios a edificios que hayas creado');
     }
 
     // Verificar que el email no esté ya registrado (solo para nuevas invitaciones)

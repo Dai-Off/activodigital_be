@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.assignTechnicianToBuilding = exports.getTechnicians = exports.updateUserProfile = exports.getUserProfile = void 0;
 const userService_1 = require("../../domain/services/userService");
-const user_1 = require("../../types/user");
 const userService = new userService_1.UserService();
 const getUserProfile = async (req, res) => {
     try {
@@ -48,11 +47,7 @@ const getTechnicians = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: 'Usuario no autenticado' });
         }
-        // Verificar que el usuario sea propietario
-        const user = await userService.getUserByAuthId(userId);
-        if (!user || user.role.name !== user_1.UserRole.PROPIETARIO) {
-            return res.status(403).json({ error: 'Solo los propietarios pueden ver técnicos' });
-        }
+        // Todos los usuarios pueden ver técnicos
         const technicians = await userService.getTechnicians();
         res.json(technicians);
     }
@@ -68,19 +63,10 @@ const assignTechnicianToBuilding = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: 'Usuario no autenticado' });
         }
-        // Verificar que el usuario sea propietario
-        const user = await userService.getUserByAuthId(userId);
-        if (!user || user.role.name !== user_1.UserRole.PROPIETARIO) {
-            return res.status(403).json({ error: 'Solo los propietarios pueden asignar técnicos' });
-        }
+        // Todos los usuarios pueden asignar técnicos a cualquier edificio
         const { buildingId, technicianEmail } = req.body;
         if (!buildingId || !technicianEmail) {
             return res.status(400).json({ error: 'buildingId y technicianEmail son requeridos' });
-        }
-        // Verificar que el edificio pertenece al propietario
-        const isOwner = await userService.isOwnerOfBuilding(userId, buildingId);
-        if (!isOwner) {
-            return res.status(403).json({ error: 'No eres propietario de este edificio' });
         }
         const assignment = await userService.assignTechnicianToBuilding(buildingId, technicianEmail, userId);
         res.json(assignment);

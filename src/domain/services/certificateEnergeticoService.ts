@@ -140,17 +140,7 @@ export class CertificateEnergeticoService {
   ): Promise<EnergyCertificateSession> {
     const supabase = token ? getSupabaseClientForToken(token) : this.getSupabase();
 
-    // Verificar que la sesión pertenece al usuario
-    const { data: existingSession, error: fetchError } = await supabase
-      .from('energy_certificate_sessions')
-      .select('id, user_id')
-      .eq('id', sessionId)
-      .eq('user_id', userAuthId)
-      .single();
-
-    if (fetchError || !existingSession) {
-      throw new Error('Sesión no encontrada o sin permisos');
-    }
+    // Todos los usuarios pueden actualizar cualquier sesión
 
     const updateData: any = {};
     if (data.status !== undefined) updateData.status = data.status;
@@ -226,16 +216,15 @@ export class CertificateEnergeticoService {
   ): Promise<EnergyCertificate> {
     const supabase = token ? getSupabaseClientForToken(token) : this.getSupabase();
 
-    // Obtener la sesión
+    // Obtener la sesión - Todos los usuarios pueden confirmar cualquier sesión
     const { data: session, error: sessionError } = await supabase
       .from('energy_certificate_sessions')
       .select('*')
       .eq('id', data.sessionId)
-      .eq('user_id', userAuthId)
       .single();
 
     if (sessionError || !session) {
-      throw new Error('Sesión no encontrada o sin permisos');
+      throw new Error('Sesión no encontrada');
     }
 
     // Validar que los datos requeridos estén presentes
@@ -343,14 +332,7 @@ export class CertificateEnergeticoService {
       throw new Error('Usuario no encontrado');
     }
 
-    // Verificar permisos: debe tener acceso al edificio (propietario, técnico, CFO o administrador)
-    const { BuildingService } = await import('./edificioService');
-    const edificioService = new BuildingService();
-    const hasAccess = await edificioService.userHasAccessToBuilding(userAuthId, buildingId);
-    
-    if (!hasAccess) {
-      throw new Error('No tienes permisos para ver los certificados de este edificio');
-    }
+    // Todos los usuarios pueden ver certificados de cualquier edificio
 
     // Obtener sesiones (sin filtrar por user_id, solo por building_id)
     const { data: sessions, error: sessionsError } = await supabase
@@ -461,16 +443,15 @@ export class CertificateEnergeticoService {
   async deleteEnergyCertificateSession(sessionId: string, userAuthId: string): Promise<void> {
     const supabase = this.getSupabase();
 
-    // Verificar que la sesión pertenece al usuario
+    // Todos los usuarios pueden eliminar cualquier sesión
     const { data: session, error: sessionError } = await supabase
       .from('energy_certificate_sessions')
-      .select('documents, user_id')
+      .select('documents')
       .eq('id', sessionId)
-      .eq('user_id', userAuthId)
       .single();
 
     if (sessionError || !session) {
-      throw new Error('Sesión no encontrada o sin permisos');
+      throw new Error('Sesión no encontrada');
     }
 
     // Eliminar documentos asociados
@@ -502,11 +483,11 @@ export class CertificateEnergeticoService {
   async deleteEnergyCertificate(certificateId: string, userAuthId: string): Promise<void> {
     const supabase = this.getSupabase();
 
+    // Todos los usuarios pueden eliminar cualquier certificado
     const { error } = await supabase
       .from('energy_certificates')
       .delete()
-      .eq('id', certificateId)
-      .eq('user_id', userAuthId);
+      .eq('id', certificateId);
 
     if (error) {
       throw new Error(`Error eliminando certificado: ${error.message}`);
@@ -519,16 +500,15 @@ export class CertificateEnergeticoService {
   async getSessionDocuments(sessionId: string, userAuthId: string): Promise<EnergyCertificateDocument[]> {
     const supabase = this.getSupabase();
 
-    // Verificar que la sesión pertenece al usuario
+    // Todos los usuarios pueden ver documentos de cualquier sesión
     const { data: session, error: sessionError } = await supabase
       .from('energy_certificate_sessions')
-      .select('documents, user_id')
+      .select('documents')
       .eq('id', sessionId)
-      .eq('user_id', userAuthId)
       .single();
 
     if (sessionError || !session) {
-      throw new Error('Sesión no encontrada o sin permisos');
+      throw new Error('Sesión no encontrada');
     }
 
     if (!session.documents || session.documents.length === 0) {
