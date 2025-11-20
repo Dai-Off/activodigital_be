@@ -57,14 +57,10 @@ export class BuildingService {
   }
 
   async createBuilding(data: CreateBuildingRequest, userAuthId: string): Promise<Building> {
-    // Verificar que el usuario sea propietario
+    // Obtener usuario
     const user = await this.userService.getUserByAuthId(userAuthId);
     if (!user) {
       throw new Error('Usuario no encontrado');
-    }
-    
-    if (user.role.name !== UserRole.ADMINISTRADOR) {
-      throw new Error('Solo los administradores pueden crear edificios');
     }
 
     const buildingData = {
@@ -144,14 +140,7 @@ export class BuildingService {
   }
 
   async getBuildingById(id: string, userAuthId?: string): Promise<Building | null> {
-    // Si se proporciona userAuthId, verificar acceso
-    if (userAuthId) {
-      const hasAccess = await this.userHasAccessToBuilding(userAuthId, id);
-      if (!hasAccess) {
-        return null; // Usuario no tiene acceso
-      }
-    }
-
+    // Todos los usuarios pueden ver cualquier edificio
     const { data, error } = await this.getSupabase()
       .from('buildings')
       .select('*')
@@ -174,51 +163,11 @@ export class BuildingService {
       throw new Error('Usuario no encontrado');
     }
 
-    let query;
-    if (user.role.name === UserRole.PROPIETARIO) {
-      // Los propietarios ven solo los edificios que les fueron asignados
-      const assignedBuildingIds = await this.userService.getPropietarioBuildings(userAuthId);
-      if (assignedBuildingIds.length === 0) {
-        return []; // No tiene edificios asignados
-      }
-      
-      query = this.getSupabase()
-        .from('buildings')
-        .select('*')
-        .in('id', assignedBuildingIds);
-    } else if (user.role.name === UserRole.TECNICO) {
-      // Los técnicos ven edificios asignados
-      const assignedBuildingIds = await this.userService.getTechnicianBuildings(userAuthId);
-      if (assignedBuildingIds.length === 0) {
-        return []; // No tiene edificios asignados
-      }
-      
-      query = this.getSupabase()
-        .from('buildings')
-        .select('*')
-        .in('id', assignedBuildingIds);
-    } else if (user.role.name === UserRole.CFO) {
-      // Los CFOs ven edificios asignados
-      const assignedBuildingIds = await this.userService.getCfoBuildings(userAuthId);
-      if (assignedBuildingIds.length === 0) {
-        return []; // No tiene edificios asignados
-      }
-      
-      query = this.getSupabase()
-        .from('buildings')
-        .select('*')
-        .in('id', assignedBuildingIds);
-    } else if (user.role.name === UserRole.ADMINISTRADOR) {
-      // Los administradores ven solo los edificios que ellos crearon
-      query = this.getSupabase()
-        .from('buildings')
-        .select('*')
-        .eq('owner_id', user.id);
-    } else {
-      throw new Error('Rol no autorizado');
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
+    // Todos los usuarios pueden ver todos los edificios
+    const { data, error } = await this.getSupabase()
+      .from('buildings')
+      .select('*')
+      .order('created_at', { ascending: false });
 
     if (error) {
       throw new Error(`Error al obtener edificios: ${error.message}`);
@@ -228,11 +177,7 @@ export class BuildingService {
   }
 
   async updateBuilding(id: string, data: UpdateBuildingRequest, userAuthId: string): Promise<Building> {
-    // Verificar que el usuario tenga permisos para actualizar el edificio
-    const canUpdate = await this.userCanUpdateBuilding(userAuthId, id);
-    if (!canUpdate) {
-      throw new Error('No tienes permisos para actualizar este edificio');
-    }
+    // Todos los usuarios pueden actualizar cualquier edificio
 
     // Mapear campos camelCase a snake_case
     const updateData: any = {};
@@ -275,11 +220,7 @@ export class BuildingService {
   }
 
   async deleteBuilding(id: string, userAuthId: string): Promise<void> {
-    // Solo los propietarios pueden eliminar edificios
-    const isOwner = await this.userService.isOwnerOfBuilding(userAuthId, id);
-    if (!isOwner) {
-      throw new Error('Solo el propietario puede eliminar el edificio');
-    }
+    // Todos los usuarios pueden eliminar cualquier edificio
 
     const { error } = await this.getSupabase()
       .from('buildings')
@@ -339,11 +280,7 @@ export class BuildingService {
 
   // Método para verificar si un edificio tiene libro digital
   async hasDigitalBook(buildingId: string, userAuthId: string): Promise<boolean> {
-    // Verificar acceso al edificio
-    const hasAccess = await this.userHasAccessToBuilding(userAuthId, buildingId);
-    if (!hasAccess) {
-      return false;
-    }
+    // Todos los usuarios pueden verificar si un edificio tiene libro digital
 
     const { data, error } = await this.getSupabase()
       .from('digital_books')
@@ -376,57 +313,13 @@ export class BuildingService {
 
   // Métodos auxiliares para verificar permisos
   public async userHasAccessToBuilding(userAuthId: string, buildingId: string): Promise<boolean> {
-    const user = await this.userService.getUserByAuthId(userAuthId);
-    if (!user) return false;
-
-    if (user.role.name === UserRole.PROPIETARIO) {
-      // Los propietarios tienen acceso a edificios asignados
-      return await this.propietarioHasAccessToBuilding(userAuthId, buildingId);
-    } else if (user.role.name === UserRole.TECNICO) {
-      // Los técnicos tienen acceso a edificios asignados
-      return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
-    } else if (user.role.name === UserRole.CFO) {
-      // Los CFOs tienen acceso a edificios asignados
-      return await this.cfoHasAccessToBuilding(userAuthId, buildingId);
-    } else if (user.role.name === UserRole.ADMINISTRADOR) {
-      // Los administradores tienen acceso a edificios que ellos crearon
-      const { data: building } = await this.getSupabase()
-        .from('buildings')
-        .select('owner_id')
-        .eq('id', buildingId)
-        .single();
-      
-      return !!(building && building.owner_id === user.id);
-    }
-
-    return false;
+    // Todos los usuarios tienen acceso a todos los edificios
+    return true;
   }
 
   private async userCanUpdateBuilding(userAuthId: string, buildingId: string): Promise<boolean> {
-    const user = await this.userService.getUserByAuthId(userAuthId);
-    if (!user) return false;
-
-    if (user.role.name === UserRole.PROPIETARIO) {
-      // Los propietarios NO pueden actualizar edificios, solo verlos
-      return false;
-    } else if (user.role.name === UserRole.TECNICO) {
-      // Los técnicos pueden actualizar solo algunos campos de edificios asignados
-      return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
-    } else if (user.role.name === UserRole.CFO) {
-      // Los CFOs pueden actualizar campos financieros de edificios asignados
-      return await this.cfoHasAccessToBuilding(userAuthId, buildingId);
-    } else if (user.role.name === UserRole.ADMINISTRADOR) {
-      // Los administradores pueden actualizar edificios que ellos crearon
-      const { data: building } = await this.getSupabase()
-        .from('buildings')
-        .select('owner_id')
-        .eq('id', buildingId)
-        .single();
-      
-      return !!(building && building.owner_id === user.id);
-    }
-
-    return false;
+    // Todos los usuarios pueden actualizar cualquier edificio
+    return true;
   }
 
   /**

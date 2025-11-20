@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DigitalBookService = void 0;
 const supabase_1 = require("../../lib/supabase");
@@ -85,11 +52,7 @@ class DigitalBookService {
         }
     }
     async createDigitalBook(data, userAuthId, overwrite = false) {
-        // Verificar que el usuario tenga permisos para crear libro digital
-        const canCreate = await this.userCanCreateDigitalBook(userAuthId, data.buildingId);
-        if (!canCreate) {
-            throw new Error('No tienes permisos para crear un libro digital para este edificio');
-        }
+        // Todos los usuarios pueden crear libros digitales para cualquier edificio
         // Verificar si el edificio ya tiene un libro digital
         const existingBook = await this.getBookByBuildingId(data.buildingId);
         if (existingBook && !overwrite) {
@@ -138,13 +101,7 @@ class DigitalBookService {
         return this.mapToDigitalBook(book);
     }
     async getBookById(id, userAuthId) {
-        // Si se proporciona userAuthId, verificar acceso
-        if (userAuthId) {
-            const hasAccess = await this.userCanAccessDigitalBook(userAuthId, id);
-            if (!hasAccess) {
-                return null; // Usuario no tiene acceso
-            }
-        }
+        // Todos los usuarios pueden ver cualquier libro digital
         const { data, error } = await this.getSupabase()
             .from('digital_books')
             .select('*')
@@ -159,13 +116,7 @@ class DigitalBookService {
         return this.mapToDigitalBook(data);
     }
     async getBookByBuildingId(buildingId, userAuthId) {
-        // Si se proporciona userAuthId, verificar acceso al edificio
-        if (userAuthId) {
-            const hasAccess = await this.userCanAccessBuildingBook(userAuthId, buildingId);
-            if (!hasAccess) {
-                return null; // Usuario no tiene acceso
-            }
-        }
+        // Todos los usuarios pueden ver libros digitales de cualquier edificio
         const { data, error } = await this.getSupabase()
             .from('digital_books')
             .select('*')
@@ -184,39 +135,18 @@ class DigitalBookService {
         if (!user) {
             throw new Error('Usuario no encontrado');
         }
-        let query;
-        if (user.role.name === user_1.UserRole.TECNICO) {
-            // Los técnicos ven solo los libros que gestionan
-            query = this.getSupabase()
-                .from('digital_books')
-                .select('*')
-                .eq('technician_id', user.id);
-        }
-        else if (user.role.name === user_1.UserRole.PROPIETARIO) {
-            // Los propietarios ven libros de sus edificios
-            query = this.getSupabase()
-                .from('digital_books')
-                .select(`
-          *,
-          building:buildings!inner(owner_id)
-        `)
-                .eq('buildings.owner_id', user.id);
-        }
-        else {
-            throw new Error('Rol no autorizado');
-        }
-        const { data, error } = await query.order('created_at', { ascending: false });
+        // Todos los usuarios pueden ver todos los libros digitales
+        const { data, error } = await this.getSupabase()
+            .from('digital_books')
+            .select('*')
+            .order('created_at', { ascending: false });
         if (error) {
             throw new Error(`Error al obtener libros digitales: ${error.message}`);
         }
         return data.map(this.mapToDigitalBook);
     }
     async updateBook(id, data, userAuthId) {
-        // Verificar que el usuario pueda actualizar el libro
-        const canUpdate = await this.userCanUpdateDigitalBook(userAuthId, id);
-        if (!canUpdate) {
-            throw new Error('No tienes permisos para actualizar este libro digital');
-        }
+        // Todos los usuarios pueden actualizar cualquier libro digital
         const { data: book, error } = await this.getSupabase()
             .from('digital_books')
             .update(data)
@@ -229,11 +159,7 @@ class DigitalBookService {
         return this.mapToDigitalBook(book);
     }
     async updateSection(bookId, sectionType, data, userAuthId) {
-        // Verificar permisos de actualización
-        const canUpdate = await this.userCanUpdateDigitalBook(userAuthId, bookId);
-        if (!canUpdate) {
-            throw new Error('No tienes permisos para actualizar este libro digital');
-        }
+        // Todos los usuarios pueden actualizar cualquier sección de cualquier libro digital
         // Obtener el libro actual
         const book = await this.getBookById(bookId);
         if (!book) {
@@ -289,11 +215,7 @@ class DigitalBookService {
         return this.mapToDigitalBook(updated);
     }
     async deleteBook(id, userAuthId) {
-        // Verificar permisos para eliminar
-        const canDelete = await this.userCanDeleteDigitalBook(userAuthId, id);
-        if (!canDelete) {
-            throw new Error('No tienes permisos para eliminar este libro digital');
-        }
+        // Todos los usuarios pueden eliminar cualquier libro digital
         const { error } = await this.getSupabase()
             .from('digital_books')
             .delete()
@@ -318,90 +240,21 @@ class DigitalBookService {
             return v.toString(16);
         });
     }
-    // Métodos auxiliares para verificar permisos
+    // Métodos auxiliares para verificar permisos - Todos permiten acceso total
     async userCanCreateDigitalBook(userAuthId, buildingId) {
-        const user = await this.userService.getUserByAuthId(userAuthId);
-        if (!user)
-            return false;
-        if (user.role.name === user_1.UserRole.TECNICO) {
-            // Los técnicos pueden crear libros solo para edificios asignados
-            return await this.userService.technicianHasAccessToBuilding(userAuthId, buildingId);
-        }
-        else if (user.role.name === user_1.UserRole.PROPIETARIO) {
-            // Los propietarios pueden crear libros para sus propios edificios
-            return await this.userService.isOwnerOfBuilding(userAuthId, buildingId);
-        }
-        return false;
+        return true;
     }
     async userCanAccessDigitalBook(userAuthId, bookId) {
-        const user = await this.userService.getUserByAuthId(userAuthId);
-        if (!user)
-            return false;
-        const { data: book } = await this.getSupabase()
-            .from('digital_books')
-            .select('building_id, technician_id')
-            .eq('id', bookId)
-            .single();
-        if (!book)
-            return false;
-        if (user.role.name === user_1.UserRole.TECNICO) {
-            // Los técnicos pueden acceder a libros que gestionan
-            return book.technician_id === user.id;
-        }
-        else if (user.role.name === user_1.UserRole.PROPIETARIO) {
-            // Los propietarios pueden acceder a libros de sus edificios
-            return await this.userService.isOwnerOfBuilding(userAuthId, book.building_id);
-        }
-        return false;
+        return true;
     }
     async userCanAccessBuildingBook(userAuthId, buildingId) {
-        // Usar el método de edificioService que ya maneja todos los roles correctamente
-        const { BuildingService } = await Promise.resolve().then(() => __importStar(require('./edificioService')));
-        const edificioService = new BuildingService();
-        return await edificioService.userHasAccessToBuilding(userAuthId, buildingId);
+        return true;
     }
     async userCanUpdateDigitalBook(userAuthId, bookId) {
-        const user = await this.userService.getUserByAuthId(userAuthId);
-        if (!user)
-            return false;
-        if (user.role.name === user_1.UserRole.TECNICO) {
-            // Los técnicos pueden actualizar libros que gestionan
-            // Caso 1: technician_id coincide
-            const { data: book } = await this.getSupabase()
-                .from('digital_books')
-                .select('technician_id, building_id')
-                .eq('id', bookId)
-                .single();
-            if (!book)
-                return false;
-            if (book.technician_id === user.id)
-                return true;
-            // Caso 2: technician_id nulo o distinto, pero el técnico tiene asignación activa al edificio
-            return await this.userService.technicianHasAccessToBuilding(userAuthId, book.building_id);
-        }
-        // Los propietarios no pueden actualizar libros digitales directamente
-        return false;
+        return true;
     }
     async userCanDeleteDigitalBook(userAuthId, bookId) {
-        const user = await this.userService.getUserByAuthId(userAuthId);
-        if (!user)
-            return false;
-        const { data: book } = await this.getSupabase()
-            .from('digital_books')
-            .select('building_id, technician_id')
-            .eq('id', bookId)
-            .single();
-        if (!book)
-            return false;
-        if (user.role.name === user_1.UserRole.PROPIETARIO) {
-            // Los propietarios pueden eliminar libros de sus edificios
-            return await this.userService.isOwnerOfBuilding(userAuthId, book.building_id);
-        }
-        else if (user.role.name === user_1.UserRole.TECNICO) {
-            // Los técnicos pueden eliminar libros que gestionan
-            return book.technician_id === user.id;
-        }
-        return false;
+        return true;
     }
     mapToDigitalBook(data) {
         return {
