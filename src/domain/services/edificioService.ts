@@ -11,6 +11,7 @@ import {
 import { UserService } from './userService';
 import { InvitationService } from './invitationService';
 import { UserRole } from '../../types/user';
+import { generateBuildingEmbedding } from '../../lib/embeddingHelper';
 
 export class BuildingService {
   private userService = new UserService();
@@ -18,42 +19,6 @@ export class BuildingService {
 
   getSupabase() {
     return getSupabaseClient();
-  }
-
-  /**
-   * Llama a la edge function para generar embeddings del edificio
-   */
-  private async generateBuildingEmbedding(buildingId: string): Promise<void> {
-    try {
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!supabaseUrl || !serviceRoleKey) {
-        console.warn('⚠️ No se pudo generar embeddings: faltan variables de entorno');
-        return;
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/generate-building-embedding`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${serviceRoleKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ building_id: buildingId }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Error al generar embeddings para edificio ${buildingId}:`, errorText);
-        return;
-      }
-
-      const result = await response.json();
-      console.log(`✅ Embeddings generados para edificio ${buildingId}:`, result);
-    } catch (error) {
-      console.error(`❌ Error al llamar a edge function para edificio ${buildingId}:`, error);
-      // No lanzamos error para no afectar la creación/actualización del edificio
-    }
   }
 
   async createBuilding(data: CreateBuildingRequest, userAuthId: string): Promise<Building> {
@@ -131,9 +96,8 @@ export class BuildingService {
       }
     }
 
-    // Generar embeddings del edificio en segundo plano
-    this.generateBuildingEmbedding(building.id).catch(err => {
-      console.error('Error generando embeddings (no crítico):', err);
+    generateBuildingEmbedding(building.id).catch(err => {
+      console.error('Error generando embeddings:', err);
     });
 
     return this.mapToBuilding(building);
@@ -211,9 +175,8 @@ export class BuildingService {
       throw new Error(`Error al actualizar edificio: ${error.message}`);
     }
 
-    // Regenerar embeddings del edificio en segundo plano
-    this.generateBuildingEmbedding(id).catch(err => {
-      console.error('Error regenerando embeddings (no crítico):', err);
+    generateBuildingEmbedding(id).catch(err => {
+      console.error('Error generando embeddings:', err);
     });
 
     return this.mapToBuilding(building);

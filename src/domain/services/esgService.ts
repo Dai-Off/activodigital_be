@@ -239,6 +239,11 @@ export class EsgService {
             onConflict: 'building_id'
           });
       }
+
+      const { generateBuildingEmbedding } = await import('../../lib/embeddingHelper');
+      generateBuildingEmbedding(buildingId).catch(err => {
+        console.error('Error generando embeddings:', err);
+      });
     } catch (error) {
       console.error('Error guardando ESG score:', error);
       // No lanzar error para no bloquear el cálculo

@@ -12,6 +12,7 @@ import {
 } from '../../types/libroDigital';
 import { UserService } from './userService';
 import { UserRole } from '../../types/user';
+import { generateBuildingEmbedding } from '../../lib/embeddingHelper';
 
 export class DigitalBookService {
   private userService = new UserService();
@@ -120,6 +121,10 @@ export class DigitalBookService {
       throw new Error(`Error al crear libro digital: ${error.message}`);
     }
 
+    generateBuildingEmbedding(data.buildingId).catch(err => {
+      console.error('Error generando embeddings:', err);
+    });
+
     return this.mapToDigitalBook(book);
   }
 
@@ -194,6 +199,10 @@ export class DigitalBookService {
       throw new Error(`Error al actualizar libro digital: ${error.message}`);
     }
 
+    generateBuildingEmbedding(book.building_id).catch(err => {
+      console.error('Error generando embeddings:', err);
+    });
+
     return this.mapToDigitalBook(book);
   }
 
@@ -262,6 +271,10 @@ export class DigitalBookService {
     if (sectionType === 'sustainability_and_esg') {
       await this.updateCamposAmbientalesInDigitalBook(bookId, data.content);
     }
+
+    generateBuildingEmbedding(book.building_id).catch(err => {
+      console.error('Error generando embeddings:', err);
+    });
 
     return this.mapToDigitalBook(updated);
   }
@@ -346,10 +359,10 @@ export class DigitalBookService {
    */
   private async updateCamposAmbientalesInDigitalBook(bookId: string, sustainabilityContent: any): Promise<void> {
     try {
-      // Obtener el libro actual
+      // Obtener el libro actual (necesitamos building_id para regenerar embeddings)
       const { data: book, error: selectError } = await this.getSupabase()
         .from('digital_books')
-        .select('campos_ambientales')
+        .select('campos_ambientales, building_id')
         .eq('id', bookId)
         .single();
 
@@ -379,6 +392,12 @@ export class DigitalBookService {
         console.error('Error al actualizar campos_ambientales en libro digital:', updateError);
       } else {
         console.log('✅ Campos ambientales actualizados en libro digital:', bookId);
+        
+        if (book.building_id) {
+          generateBuildingEmbedding(book.building_id).catch(err => {
+            console.error('Error generando embeddings:', err);
+          });
+        }
       }
     } catch (error) {
       console.error('Error en updateCamposAmbientalesInDigitalBook:', error);

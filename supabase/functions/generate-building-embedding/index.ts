@@ -1,211 +1,219 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-};
+const supabase = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
 
-interface BuildingData {
-  id: string;
-  name: string;
-  address: string;
-  cadastral_reference?: string;
-  construction_year?: number;
-  typology?: string;
-  num_floors?: number;
-  num_units?: number;
-  price?: number;
-  rehabilitation_cost?: number;
-  potential_value?: number;
-  square_meters?: number;
+function block(title: string, content: string): string {
+  return `\n=== ${title.toUpperCase()} ===\n${content.trim()}\n`;
 }
 
-interface EmbeddingRequest {
-  building_id: string;
-}
-
-interface EmbeddingResponse {
-  success: boolean;
-  message: string;
-  building_id: string;
-  embedding_id?: string;
-  error?: string;
-}
-
-/**
- * Generates text content for embedding from building data
- */
-function generateBuildingContent(building: BuildingData): string {
-  const parts: string[] = [];
-  
-  // Basic information
-  if (building.name) parts.push(`Edificio: ${building.name}`);
-  if (building.address) parts.push(`Dirección: ${building.address}`);
-  if (building.cadastral_reference) parts.push(`Referencia catastral: ${building.cadastral_reference}`);
-  
-  // Construction details
-  if (building.construction_year) parts.push(`Año de construcción: ${building.construction_year}`);
-  if (building.typology) parts.push(`Tipología: ${building.typology}`);
-  if (building.num_floors) parts.push(`Número de plantas: ${building.num_floors}`);
-  if (building.num_units) parts.push(`Número de unidades: ${building.num_units}`);
-  if (building.square_meters) parts.push(`Metros cuadrados: ${building.square_meters}`);
-  
-  // Financial information
-  if (building.price) parts.push(`Precio: €${building.price.toLocaleString()}`);
-  if (building.rehabilitation_cost) parts.push(`Costo de rehabilitación: €${building.rehabilitation_cost.toLocaleString()}`);
-  if (building.potential_value) parts.push(`Valor potencial: €${building.potential_value.toLocaleString()}`);
-  
-  return parts.join('. ');
-}
-
-/**
- * Calls OpenAI API to generate embeddings
- */
-async function generateEmbedding(text: string): Promise<number[]> {
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-  
-  if (!openaiApiKey) {
-    throw new Error('OPENAI_API_KEY environment variable is not set');
-  }
-
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-ada-002',
-      input: text,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} ${errorData}`);
-  }
-
-  const data = await response.json();
-  return data.data[0].embedding;
+function stringify(obj: any): string {
+  return JSON.stringify(obj ?? {}, null, 2);
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
   try {
-    // Parse request body
-    const { building_id }: EmbeddingRequest = await req.json();
-
-    // Validate required fields
-    if (!building_id) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'building_id is required'
-      }), {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+    if (req.method !== "POST") {
+      return new Response("Method not allowed", {
+        status: 405
       });
     }
 
-    console.log(`🏢 Generating embedding for building: ${building_id}`);
+    const { building_id } = await req.json();
 
-    // Initialize Supabase client with service role key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase configuration');
+    if (!building_id) {
+      return new Response(JSON.stringify({
+        error: "building_id requerido"
+      }), {
+        status: 400
+      });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get building data
-    console.log(`📋 Fetching building data for: ${building_id}`);
-    const { data: building, error: buildingError } = await supabase
-      .from('buildings')
-      .select('*')
-      .eq('id', building_id)
-      .single();
-
-    if (buildingError) {
-      console.error(`❌ Error fetching building:`, buildingError);
-      throw new Error(`Building not found: ${buildingError.message}`);
-    }
+    const { data: building } = await supabase.from("buildings").select("*").eq("id", building_id).single();
 
     if (!building) {
-      throw new Error('Building not found');
+      return new Response(JSON.stringify({
+        error: "Edificio no encontrado"
+      }), {
+        status: 404
+      });
     }
 
-    console.log(`✅ Building found: ${building.name}`);
-
-    // Generate text content for embedding
-    const content = generateBuildingContent(building);
-    console.log(`📝 Generated content: ${content.substring(0, 100)}...`);
-
-    // Generate embedding using OpenAI
-    console.log(`🤖 Generating embedding with OpenAI...`);
-    const embedding = await generateEmbedding(content);
-    console.log(`✅ Embedding generated (${embedding.length} dimensions)`);
-
-    // Store embedding in database
-    console.log(`💾 Storing embedding in database...`);
-    const { data: embeddingData, error: embeddingError } = await supabase
-      .from('building_embeddings')
-      .upsert({
-        building_id: building_id,
-        embedding: embedding,
-        content: content,
-        content_type: 'building_data',
-        model: 'text-embedding-ada-002'
-      }, {
-        onConflict: 'building_id,content_type'
-      })
-      .select()
-      .single();
-
-    if (embeddingError) {
-      console.error(`❌ Error storing embedding:`, embeddingError);
-      throw new Error(`Failed to store embedding: ${embeddingError.message}`);
-    }
-
-    console.log(`✅ Embedding stored successfully with ID: ${embeddingData.id}`);
-
-    const response: EmbeddingResponse = {
-      success: true,
-      message: `Embedding generated and stored successfully for building ${building.name}`,
-      building_id: building_id,
-      embedding_id: embeddingData.id
-    };
-
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
+    const { data: snapshotRows, error: snapshotError } = await supabase.from("financial_snapshots").select("*").eq("building_id", building_id).order("created_at", {
+      ascending: false
     });
 
-  } catch (error) {
-    console.error('❌ Error in generate-building-embedding function:', error);
-    
-    const response: EmbeddingResponse = {
-      success: false,
-      message: 'Failed to generate embedding',
-      building_id: '',
-      error: error.message
+    if (snapshotError) {
+      console.error("snapshotError", snapshotError);
+    }
+
+    const snapshot = snapshotRows && snapshotRows.length > 0 ? snapshotRows[0] : null;
+    let metaBlock = "Sin meta adicional";
+    if (snapshot?.meta) {
+      try {
+        const metaObj = typeof snapshot.meta === "string" ? JSON.parse(snapshot.meta) : snapshot.meta;
+        if (metaObj && typeof metaObj === "object") {
+          const lines = Object.entries(metaObj).map(([key, value]) => `${key}: ${value}`);
+          metaBlock = lines.join("\n");
+        }
+      } catch (e) {
+        console.error("Error parseando meta snapshot", e);
+        metaBlock = String(snapshot.meta);
+      }
+    }
+
+    let snapshotBlock = "No hay snapshot financiero para este edificio.";
+    if (snapshot) {
+      snapshotBlock = `
+Periodo inicio (period_start): ${snapshot.period_start ?? "Sin dato"}
+Periodo fin (period_end): ${snapshot.period_end ?? "Sin dato"}
+Moneda (currency): ${snapshot.currency ?? "Sin dato"}
+Ingresos anuales brutos (gross_annual_revenue_eur): ${snapshot.gross_annual_revenue_eur ?? "Sin dato"}
+Otros ingresos anuales (other_annual_revenue_eur): ${snapshot.other_annual_revenue_eur ?? "Sin dato"}
+WALT (meses) (walt_months): ${snapshot.walt_months ?? "Sin dato"}
+Concentración top tenant (%) (top_tenant_concentration_pct): ${snapshot.top_tenant_concentration_pct ?? "Sin dato"}
+Cláusula de indexación (has_indexation_clause): ${snapshot.has_indexation_clause ?? "Sin dato"}
+Tasa de morosidad 12m (delinquency_rate_12m): ${snapshot.delinquency_rate_12m ?? "Sin dato"}
+OPEX anual total (total_annual_opex_eur): ${snapshot.total_annual_opex_eur ?? "Sin dato"}
+OPEX anual energía (annual_energy_opex_eur): ${snapshot.annual_energy_opex_eur ?? "Sin dato"}
+OPEX anual mantenimiento (annual_maintenance_opex_eur): ${snapshot.annual_maintenance_opex_eur ?? "Sin dato"}
+OPEX anual seguros (annual_insurance_opex_eur): ${snapshot.annual_insurance_opex_eur ?? "Sin dato"}
+OPEX anual otros (annual_other_opex_eur): ${snapshot.annual_other_opex_eur ?? "Sin dato"}
+DSCR (dscr): ${snapshot.dscr ?? "Sin dato"}
+Servicio de deuda anual (annual_debt_service_eur): ${snapshot.annual_debt_service_eur ?? "Sin dato"}
+Penalización alta por prepago (has_high_prepayment_penalty): ${snapshot.has_high_prepayment_penalty ?? "Sin dato"}
+Principal pendiente (outstanding_principal_eur): ${snapshot.outstanding_principal_eur ?? "Sin dato"}
+CAPEX de rehabilitación estimado (estimated_rehab_capex_eur): ${snapshot.estimated_rehab_capex_eur ?? "Sin dato"}
+Ahorro energético estimado (%) (estimated_energy_savings_pct): ${snapshot.estimated_energy_savings_pct ?? "Sin dato"}
+Revalorización estimada (%) (estimated_price_uplift_pct): ${snapshot.estimated_price_uplift_pct ?? "Sin dato"}
+Duración estimada de la rehabilitación (semanas) (estimated_rehab_duration_weeks): ${snapshot.estimated_rehab_duration_weeks ?? "Sin dato"}
+Meta técnica (meta):
+${metaBlock}
+Fechas snapshot:
+Creado: ${snapshot.created_at ?? "Sin fecha"}
+Actualizado: ${snapshot.updated_at ?? "Sin fecha"}
+      `.trim();
+    }
+
+    const { data: energyCert } = await supabase.from("energy_certificates").select("*").eq("building_id", building_id).order("issue_date", {
+      ascending: false
+    }).maybeSingle();
+
+    const { data: esgScore } = await supabase.from("esg_scores").select("*").eq("building_id", building_id).maybeSingle();
+
+    const { data: digitalBooks } = await supabase.from("digital_books").select("*").eq("building_id", building_id);
+
+    const content = `
+
+${block("Información básica del edificio", stringify({
+      id: building.id,
+      name: building.name,
+      address: building.address,
+      cadastral_reference: building.cadastral_reference,
+      construction_year: building.construction_year,
+      typology: building.typology,
+      status: building.status,
+      coordinates: [
+        building.lat,
+        building.lng
+      ],
+      square_meters: building.square_meters
+    }))}
+
+${block("Información financiera estática del edificio (buildings)", stringify({
+      price: building.price,
+      rehabilitation_cost: building.rehabilitation_cost,
+      potential_value: building.potential_value
+    }))}
+
+${block("Snapshot financiero (financial_snapshots)", snapshotBlock)}
+
+${block("Certificado energético (energy_certificates)", stringify(energyCert))}
+
+${block("ESG Score (esg_scores)", stringify(esgScore))}
+
+${block("Libros digitales ambientales (digital_books.campos_ambientales)", stringify((digitalBooks ?? []).map((b: any) => ({
+        id: b.id,
+        campos_ambientales: b.campos_ambientales,
+        sections: b.sections,
+        status: b.status ?? b.estado,
+        progress: b.progress
+      }))))}
+
+${block("Fechas edificio", stringify({
+      created_at: building.created_at,
+      updated_at: building.updated_at
+    }))}
+
+    `.trim();
+
+    const embedResp = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: content
+      })
+    });
+
+    const embedJson = await embedResp.json();
+    const embedding = embedJson.data[0].embedding;
+
+    const metadata = {
+      source_table: "building_financial_documents",
+      building_id,
+      has_snapshot: !!snapshot,
+      financial_snapshot_id: snapshot?.id ?? null,
+      period_start: snapshot?.period_start ?? null,
+      period_end: snapshot?.period_end ?? null,
+      currency: snapshot?.currency ?? null,
+      price: building.price ?? null,
+      rehabilitation_cost: building.rehabilitation_cost ?? null,
+      potential_value: building.potential_value ?? null,
+      has_energy_certificate: !!energyCert,
+      has_esg_score: !!esgScore,
+      digital_books_count: digitalBooks?.length ?? 0,
+      rating: energyCert?.rating ?? null,
+      emissions: energyCert?.emissions_kg_co2_per_m2_year ?? null,
+      primary_energy: energyCert?.primary_energy_kwh_per_m2_year ?? null
     };
 
-    return new Response(JSON.stringify(response), {
+    await supabase.from("building_financial_documents").upsert({
+      building_id,
+      financial_snapshot_id: snapshot?.id ?? null,
+      period_start: snapshot?.period_start ?? null,
+      period_end: snapshot?.period_end ?? null,
+      currency: snapshot?.currency ?? null,
+      content,
+      embedding,
+      metadata,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: "building_id"
+    }).select();
+
+    return new Response(JSON.stringify({
+      ok: true
+    }), {
+      status: 200
+    });
+
+  } catch (e) {
+    console.error("ERROR:", e);
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const errorStack = e instanceof Error ? e.stack : undefined;
+    
+    return new Response(JSON.stringify({
+      error: "Error interno",
+      message: errorMessage,
+      stack: errorStack
+    }), {
       status: 500,
       headers: {
-        ...corsHeaders,
         'Content-Type': 'application/json'
       }
     });

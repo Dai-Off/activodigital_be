@@ -4,6 +4,7 @@ import {
   CreateFinancialSnapshotRequest, 
   UpdateFinancialSnapshotRequest
 } from '../../types/financialSnapshot';
+import { generateBuildingEmbedding } from '../../lib/embeddingHelper';
 
 export class FinancialSnapshotService {
   getSupabase() {
@@ -65,6 +66,10 @@ export class FinancialSnapshotService {
     if (error) {
       throw new Error(`Error al crear/actualizar financial snapshot: ${error.message}`);
     }
+
+    generateBuildingEmbedding(snapshot.building_id).catch(err => {
+      console.error('Error generando embeddings:', err);
+    });
 
     return this.mapToFinancialSnapshot(snapshot);
   }
@@ -146,6 +151,10 @@ export class FinancialSnapshotService {
       }
       throw new Error(`Error al actualizar financial snapshot: ${error.message}`);
     }
+
+    generateBuildingEmbedding(snapshot.building_id).catch(err => {
+      console.error('Error generando embeddings:', err);
+    });
 
     return this.mapToFinancialSnapshot(snapshot);
   }

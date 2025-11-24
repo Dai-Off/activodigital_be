@@ -297,6 +297,11 @@ export class CertificateEnergeticoService {
       })
       .eq('id', data.sessionId);
 
+    const { generateBuildingEmbedding } = await import('../../lib/embeddingHelper');
+    generateBuildingEmbedding(certificate.building_id).catch(err => {
+      console.error('Error generando embeddings:', err);
+    });
+
     return this.mapDbToEnergyCertificate(certificate);
   }
 
