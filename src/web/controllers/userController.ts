@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { UserService } from '../../domain/services/userService';
-import { UserRole, AssignTechnicianRequest } from '../../types/user';
+import { UserRole, AssignTechnicianRequest, UserWithRole, UpdateUserRequest } from '../../types/user';
 
 const userService = new UserService();
 
@@ -19,6 +19,29 @@ export const getUserProfile = async (req: Request, res: Response) => {
     res.json(user);
   } catch (error) {
     console.error('Error al obtener perfil:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+export const getRoles = async (req: Request, res: Response) => {
+  try {
+    const roles = await userService.getRoles();
+    if (!roles) {
+      return res.status(404).json({ error: 'Rol no encontrado' });
+    }
+    res.json(roles);
+  } catch (error) {
+    console.error('Error al obtener rol:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+export const getAllUsers = async (req: Request, res: Response) => {
+  try {
+    const usuarios = await userService.getAllUsersService();
+    res.json(usuarios);
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
@@ -104,6 +127,35 @@ export const assignTechnicianToBuilding = async (req: Request, res: Response) =>
     res.status(500).json({ 
       error: error instanceof Error ? error.message : 'Error interno del servidor'
     });
+  }
+};
+
+export const createUser = async (req: Request, res: Response) => {
+  try {
+    const { email, role, fullName} = req.body;
+    if (!email || !role  || !fullName) {
+      return res.status(400).json({ error: 'email, fullname y  role son requeridos' });
+    }
+    const usuario = await userService.createUser(req.body);
+    res.status(201).json({ message: 'Usuario creado correctamente', usuario });
+  } catch (error: any) {
+    console.error('Error al crear usuario:', error);
+    res.status(error.status || 500).json({ error: error.message || 'Error interno del servidor' });
+  }
+};
+
+export const editUser = async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId requerido en parámetro' });
+    }
+    const { fullName, roleId, email } : UpdateUserRequest = req.body;
+    const usuario = await userService.editUser(userId, { fullName, roleId, email });
+    res.status(200).json({ message: 'Usuario editado correctamente', usuario });
+  } catch (error: any) {
+    console.error('Error al editar usuario:', error);
+    res.status(error.status || 500).json({ error: error.message || 'Error interno del servidor' });
   }
 };
 
