@@ -182,6 +182,10 @@ Authorization: Bearer <token>
 ### Usuarios
 | Método | Endpoint | Descripción | Autenticación | Rol |
 |--------|----------|-------------|---------------|-----|
+| GET | `/users/roles` | Obtener roles del usuario | Sí | Todos |
+| POST | `/users/create` | creacion de usuario | Sí | Todos |
+| PUT | `/users/edit` | edición de usuario | Sí | Todos |
+| GET | `/users/roles` | Obtener roles del usuario | Sí | Todos |
 | GET | `/users/profile` | Obtener perfil del usuario | Sí | Todos |
 | PUT | `/users/profile` | Actualizar perfil del usuario | Sí | Todos |
 | GET | `/users/technicians` | Obtener lista de técnicos | Sí | Tenedor |

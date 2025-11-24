@@ -8,7 +8,7 @@ export enum UserRole {
 export interface Role {
   id: string;
   name: UserRole;
-  description: string;
+  description?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -49,6 +49,7 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest {
   fullName?: string;
   roleId?: string;
+  email?: string
 }
 
 export interface AssignTechnicianRequest {

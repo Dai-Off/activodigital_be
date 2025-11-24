@@ -4,13 +4,23 @@ import {
   getUserProfile,
   updateUserProfile,
   getTechnicians,
-  assignTechnicianToBuilding
+  assignTechnicianToBuilding,
+  getRoles,
+  getAllUsers,
+  createUser,
+  editUser
 } from '../web/controllers/userController';
 
 const router = Router();
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
+
+// Rutas de roles de usuario
+router.get('/roles', getRoles);
+router.get('/all-users', getAllUsers);
+router.post('/create', createUser);
+router.put('/edit/:userId', editUser);
 
 // Rutas de perfil de usuario
 router.get('/profile', getUserProfile);

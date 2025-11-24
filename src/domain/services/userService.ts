@@ -1,13 +1,12 @@
 import { getSupabaseClient } from '../../lib/supabase';
-import { 
-  User, 
-  Role, 
-  UserRole, 
-  CreateUserRequest, 
+import {
+  User,
+  Role,
+  UserRole,
+  CreateUserRequest,
   UpdateUserRequest,
   UserWithRole,
-  BuildingTechnicianAssignment,
-  AssignTechnicianRequest
+  BuildingTechnicianAssignment
 } from '../../types/user';
 
 export class UserService {
@@ -68,7 +67,92 @@ export class UserService {
       throw new Error(`Error al obtener roles: ${error.message}`);
     }
 
-    return data.map(this.mapToRole);
+    return data.map((r) => this.mapToRole(r));
+  }
+
+  async getAllUsersService(): Promise<User[]> {
+    const { data, error } = await this.getSupabase()
+      .from('users')
+      .select(`
+        *,
+        roles(*)
+      `)
+      .order('email');
+    if (error) {
+      throw new Error(`Error al obtener usuarios: ${error.message}`);
+    }
+
+    return data.map((r) => this.mapToUser(r));
+  }
+
+  async createUser(data: CreateUserRequest & { authUserId: string }): Promise<User> {
+    let userId = data.authUserId;
+
+    const { data: found, error } = await this.getSupabase()
+      .from('users')
+      .select('id')
+      .eq('email', data.email)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      throw new Error(`Error verificando duplicados: ${error.message}`);
+    }
+    if (found) {
+      const errorDup: any = new Error('Ya existe un usuario con este correo.');
+      errorDup.status = 400;
+      throw errorDup;
+    }
+    if (!data.role) {
+      throw new Error("Datos insuficientes para crear usuario");
+    }
+    const userData: Omit<CreateUserRequest, 'password'> = {
+      email: data.email,
+      fullName: data.fullName,
+      role: data.role
+    };
+
+    if (!userId) {
+      const { data: authData, error: authError } = await this.getSupabase()?.auth?.admin.createUser({
+        email: data.email,
+        email_confirm: true,
+      });
+      if (authError || !authData?.user) {
+        throw new Error(authError?.message || 'Failed to create user');
+      }
+      userId = authData.user.id;
+    }
+
+    return this.createUserProfile(userId, userData);
+  }
+
+  async editUser(userId: string, update: UpdateUserRequest & { email?: string }): Promise<User> {
+    if (update.email) {
+      const { data: found, error } = await this.getSupabase()
+        .from('users')
+        .select('id')
+        .eq('email', update.email)
+        .neq('id', userId)
+        .single();
+      if (error && error.code !== 'PGRST116') {
+        throw new Error(`Error verificando duplicados: ${error.message}`);
+      }
+      if (found) {
+        const errorDup: any = new Error('Ya existe un usuario con este correo.');
+        errorDup.status = 400;
+        throw errorDup;
+      }
+    }
+
+    let roleId = update.roleId;
+    if ((update as any).role) {
+      const role = await this.getRoleByName((update as any).role as UserRole);
+      if (role) roleId = role.id;
+    }
+    const updatePayload: UpdateUserRequest = {
+      ...update,
+      roleId,
+    };
+    return this.updateUser(userId, updatePayload);
   }
 
   // Obtener rol por nombre
@@ -126,7 +210,6 @@ export class UserService {
     return this.mapToUser(data);
   }
 
-  // Actualizar usuario
   async updateUser(userId: string, updateData: UpdateUserRequest): Promise<User> {
     const { data, error } = await this.getSupabase()
       .from('users')
@@ -164,8 +247,8 @@ export class UserService {
 
   // Asignar técnico a edificio
   async assignTechnicianToBuilding(
-    buildingId: string, 
-    technicianEmail: string, 
+    buildingId: string,
+    technicianEmail: string,
     assignedByUserId: string
   ): Promise<BuildingTechnicianAssignment> {
     // Buscar el técnico por email
@@ -314,6 +397,10 @@ export class UserService {
       email: data.email,
       fullName: data.full_name,
       roleId: data.role_id,
+      role: {
+        id: data?.roles?.id ?? null,
+        name: data?.roles?.name ?? null,
+      },
       twoFactorEnabled: data.two_factor_enabled ?? false,
       createdAt: data.created_at,
       updatedAt: data.updated_at
