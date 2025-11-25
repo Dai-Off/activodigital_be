@@ -3,24 +3,35 @@ import {
   Notification,
   CreateNotificationRequest,
   NotificationFilters,
-  NotificationType,
 } from "../../types/notification";
+import { notification_read } from "../../types/notificationRead";
 
+/**
+ * Servicio centralizado para operaciones de Notificaciones.
+ * Toda la lógica de filtrado y cruce de datos se realiza en este servicio,
+ * sin depender de funciones RPC o Vistas en la base de datos.
+ */
 export class NotificationService {
   private getSupabase() {
     return getSupabaseClient();
   }
 
+  // ==========================================
+  // 1. GESTIÓN DE NOTIFICACIONES (Tabla: notifications)
+  // ==========================================
+
   /**
-   * Crea una nueva notificación
+   * Crea una nueva notificación asociada a un edificio.
    */
   async createNotification(
     data: CreateNotificationRequest
   ): Promise<Notification> {
-    const notificationData = {
+    const notificationData: any = {
       building_id: data.building_id,
       type: data.type,
       title: data.title,
+      expiration: data.expiration,
+      priority: data.priority,
     };
 
     const { data: notification, error } = await this.getSupabase()
@@ -37,22 +48,24 @@ export class NotificationService {
   }
 
   /**
-   * Obtiene las notificaciones de un usuario con filtros opcionales
+   * Obtiene las notificaciones de un edificio.
+   * Útil para traer el "feed" completo del edificio antes de filtrar.
    */
-  async getUserNotifications(
-    userId: string,
+  async getBuildingNotifications(
+    buildingId: string,
     filters: NotificationFilters = {}
   ): Promise<Notification[]> {
     let query = this.getSupabase()
       .from("notifications")
       .select("*")
-      .eq("user_id", userId)
+      .eq("building_id", buildingId)
       .order("created_at", { ascending: false });
 
     if (filters.type) {
       query = query.eq("type", filters.type);
     }
 
+    // Aplicar límites si existen
     if (filters.limit) {
       query = query.limit(filters.limit);
     }
@@ -73,170 +86,192 @@ export class NotificationService {
     return data.map(this.mapToNotification);
   }
 
-  /**
-   * Obtiene el conteo de notificaciones no leídas de un usuario
-   */
-  // async getUnreadCount(userId: string): Promise<number> {
-  //   const { data, error } = await this.getSupabase()
-  //     .from("notifications")
-  //     .select("id", { count: "exact" })
-  //     .eq("user_id", userId)
-  //     .eq("status", NotificationStatus.UNREAD);
-
-  //   if (error) {
-  //     throw new Error(
-  //       `Error al obtener conteo de notificaciones: ${error.message}`
-  //     );
-  //   }
-
-  //   return data?.length || 0;
-  // }
+  // ==========================================
+  // 2. GESTIÓN DE LECTURAS (Tabla: notification_reads)
+  // ==========================================
 
   /**
-   * Marca una notificación como leída
+   * Marca una notificación como leída para un usuario.
    */
-  // async markAsRead(notificationId: string, userId: string): Promise<boolean> {
-  //   const { data, error } = await this.getSupabase()
-  //     .from("notifications")
-  //     .update({
-  //       status: NotificationStatus.READ,
-  //       read_at: new Date().toISOString(),
-  //     })
-  //     .eq("id", notificationId)
-  //     .eq("user_id", userId)
-  //     .eq("status", NotificationStatus.UNREAD)
-  //     .select();
-
-  //   if (error) {
-  //     throw new Error(
-  //       `Error al marcar notificación como leída: ${error.message}`
-  //     );
-  //   }
-
-  //   return data && data.length > 0;
-  // }
-
-  /**
-   * Marca todas las notificaciones de un usuario como leídas
-   */
-  // async markAllAsRead(userId: string): Promise<number> {
-  //   const { data, error } = await this.getSupabase()
-  //     .from("notifications")
-  //     .update({
-  //       status: NotificationStatus.READ,
-  //       read_at: new Date().toISOString(),
-  //     })
-  //     .eq("user_id", userId)
-  //     .eq("status", NotificationStatus.UNREAD)
-  //     .select();
-
-  //   if (error) {
-  //     throw new Error(
-  //       `Error al marcar todas las notificaciones como leídas: ${error.message}`
-  //     );
-  //   }
-
-  //   return data?.length || 0;
-  // }
-
-  /**
-   * Elimina una notificación
-   */
-  async deleteNotification(
-    notificationId: string,
-    userId: string
-  ): Promise<boolean> {
+  async markNotificationAsRead(
+    userId: string,
+    notificationId: string
+  ): Promise<{ success: boolean; message: string }> {
     const { error } = await this.getSupabase()
-      .from("notifications")
-      .delete()
-      .eq("id", notificationId)
-      .eq("user_id", userId);
+      .from("notification_reads")
+      .insert([
+        {
+          user_id: userId,
+          notification_id: notificationId,
+          read_at: new Date().toISOString(),
+        },
+      ]);
 
     if (error) {
-      throw new Error(`Error al eliminar notificación: ${error.message}`);
+      // Ignoramos error de duplicado (ya estaba leída)
+      if (error.code === "23505") {
+        return {
+          success: true,
+          message: "La notificación ya estaba marcada como leída.",
+        };
+      }
+      console.error("Error al marcar como leída:", error.message);
+      return { success: false, message: `Error: ${error.message}` };
     }
 
-    return true;
+    return {
+      success: true,
+      message: "Notificación marcada como leída.",
+    };
   }
 
   /**
-   * Elimina notificaciones antiguas (más de 30 días)
+   * Obtiene los IDs de las notificaciones que el usuario ya leyó.
+   * Optimizado para traer solo los IDs necesarios para el filtrado.
+   */
+  async getUserReadNotificationIds(userId: string): Promise<Set<string>> {
+    const { data, error } = await this.getSupabase()
+      .from("notification_reads")
+      .select("notification_id")
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error al obtener lecturas:", error.message);
+      return new Set();
+    }
+
+    // Retornamos un Set para búsqueda instantánea O(1)
+    return new Set(data.map((row: any) => row.notification_id));
+  }
+
+  // ==========================================
+  // 3. LÓGICA DE NEGOCIO / FILTRADO (Combinación)
+  // ==========================================
+
+  /**
+   * LÓGICA PRINCIPAL: Obtiene las notificaciones NO LEÍDAS de un edificio.
+   * Realiza el filtrado en el servicio (cliente) sin stored procedures.
+   */
+  async getUnreadBuildingNotificationsForUser(
+    userId: string,
+    buildingId: string,
+    limit: number = 50
+  ): Promise<Notification[]> {
+    // PASO 1: Obtener las últimas N notificaciones del edificio
+    // Traemos un poco más del límite deseado para tener margen tras el filtrado
+    const fetchLimit = limit + 20;
+
+    const buildingNotifications = await this.getBuildingNotifications(
+      buildingId,
+      { limit: fetchLimit }
+    );
+
+    if (buildingNotifications.length === 0) return [];
+
+    // PASO 2: Obtener la lista de IDs que el usuario ya leyó
+    const readIds = await this.getUserReadNotificationIds(userId);
+
+    // PASO 3: Filtrar en memoria
+    // Solo devolvemos las que NO están en el Set de leídos
+    const unreadNotifications = buildingNotifications.filter(
+      (notification) => !readIds.has(notification.id)
+    );
+
+    // Ajustamos al límite solicitado por el usuario
+    return unreadNotifications.slice(0, limit);
+  }
+
+  /**
+   * Elimina notificaciones antiguas (más de X días) de un edificio.
+   * Método de doble consulta para evitar errores de tipo en la llamada a select() y garantizar el conteo.
    */
   async deleteOldNotifications(
-    userId: string,
+    buildingId: string,
     daysOld: number = 30
   ): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    const cutoffDateISO = cutoffDate.toISOString();
 
-    const { data, error } = await this.getSupabase()
+    // PASO 1: Contar cuántas filas se van a borrar (Consulta SEGURA)
+    // ESTA CONSULTA NO FALLA CON ERRORES DE TIPO
+    const { count: preCount, error: countError } = await this.getSupabase()
       .from("notifications")
-      .delete()
-      .eq("user_id", userId)
-      .lt("created_at", cutoffDate.toISOString())
-      .select();
+      .select("*", { count: "exact" })
+      .eq("building_id", buildingId)
+      .lt("created_at", cutoffDateISO);
 
-    if (error) {
+    if (countError) {
       throw new Error(
-        `Error al eliminar notificaciones antiguas: ${error.message}`
+        `Error (conteo previo) al eliminar notificaciones: ${countError.message}`
       );
     }
 
-    return data?.length || 0;
+    // Si no hay nada que borrar, retornamos 0 inmediatamente
+    const countToDelete = preCount || 0;
+    if (countToDelete === 0) {
+      return 0;
+    }
+
+    // PASO 2: Realizar la eliminación (Consulta SEGURA)
+    // ESTA CONSULTA NO NECESITA CONTAR, SÓLO BORRAR
+    const { error: deleteError } = await this.getSupabase()
+      .from("notifications")
+      .delete()
+      .eq("building_id", buildingId)
+      .lt("created_at", cutoffDateISO); // Mismos filtros
+
+    if (deleteError) {
+      throw new Error(
+        `Error (eliminación) al eliminar notificaciones: ${deleteError.message}`
+      );
+    }
+
+    // Retornamos el conteo que obtuvimos en el PASO 1.
+    return countToDelete;
   }
 
   /**
-   * Métodos específicos para notificaciones de IA
+   * Verifica si una notificación individual está leída.
    */
-  // async createAIProcessingCompleteNotification(
-  //   userId: string,
-  //   fileName: string,
-  //   bookId: string,
-  //   sectionsCount: number
-  // ): Promise<Notification> {
-  //   return this.createNotification({
-  //     building_id,
-  //     type: NotificationType.AI_PROCESSING_COMPLETE,
-  //     title: "Libro creado",
-  //     message:
-  //       "El libro digital ha sido creado exitosamente con todas las secciones completas",
-  //     metadata: {
-  //       fileName,
-  //       bookId,
-  //       sectionsCount,
-  //       stage: "complete",
-  //     },
-  //   });
-  // }
+  async checkIfRead(userId: string, notificationId: string): Promise<boolean> {
+    const { data, error } = await this.getSupabase()
+      .from("notification_reads")
+      .select("user_id")
+      .eq("user_id", userId)
+      .eq("notification_id", notificationId)
+      .limit(1)
+      .single();
 
-  // async createAIProcessingErrorNotification(
-  //   userId: string,
-  //   fileName: string,
-  //   errorMessage: string
-  // ): Promise<Notification> {
-  //   return this.createNotification({
-  //     userId,
-  //     type: NotificationType.AI_PROCESSING_ERROR,
-  //     title: "Error",
-  //     message: "Hubo un problema al procesar el documento con IA",
-  //     metadata: {
-  //       fileName,
-  //       errorMessage,
-  //       stage: "error",
-  //     },
-  //   });
-  // }
+    if (error && error.code === "PGR101") return false; // No encontrado
+    if (error) return false;
 
-  /**
-   * Mapea los datos de la base de datos a la interfaz Notification
-   */
+    return !!data;
+  }
+
+  // ==========================================
+  // 4. ELIMINACIÓN Y UTILIDADES
+  // ==========================================
+
+  async deleteNotification(id: string, buildingId: string): Promise<boolean> {
+    const { error } = await this.getSupabase()
+      .from("notifications")
+      .delete()
+      .eq("id", id)
+      .eq("building_id", buildingId);
+
+    if (error) throw new Error(error.message);
+    return true;
+  }
+
   private mapToNotification(data: any): Notification {
     return {
       id: data.id,
-      buildingId: data.user_id,
+      buildingId: data.building_id,
       type: data.type,
       title: data.title,
-      createdAt: data.created_at,
+      expiration: data.expiration,
+      priority: data.priority,
     };
   }
 }

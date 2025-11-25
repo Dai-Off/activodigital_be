@@ -10,13 +10,16 @@ export interface Notification {
   buildingId: string;
   type: NotificationType;
   title: string;
-  createdAt: string;
+  expiration: string | null;
+  priority: number;
 }
 
 export interface CreateNotificationRequest {
   building_id: string;
   type: NotificationType;
   title: string;
+  expiration: string | null;
+  priority: number;
 }
 
 export interface NotificationFilters {
