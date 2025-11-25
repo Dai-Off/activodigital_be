@@ -8,9 +8,11 @@ import {
   UserWithRole,
   BuildingTechnicianAssignment
 } from '../../types/user';
+import { ActionsValues, ModuleValues, TrazabilityServiceParams } from '../trazability/interfaceTrazability';
+import { TrazabilityService } from '../trazability/TrazabilityService';
 
 export class UserService {
-
+  private trazabilityService = new TrazabilityService()
   private getSupabase() {
     return getSupabaseClient();
   }
@@ -123,9 +125,14 @@ export class UserService {
       userId = authData.user.id;
     }
 
-    // await this.trazabilityService.registerTrazability({ action: ActionsValues.CREAR, description: 'Certificado Energetico', module:  ModuleValues.ELECTRICIDAD }, '0007a31b-98fa-4dba-a05e-b62fad1d2e87', '24a73eb2-d86f-4943-8ed5-03c91afca484');
+    await this.insertTrazability({ action: ActionsValues.CREAR, description: 'Agrego un usuario en administración', module: 
+      ModuleValues.ELECTRICIDAD ,  buildingId:'0007a31b-98fa-4dba-a05e-b62fad1d2e87', authUserId:  '24a73eb2-d86f-4943-8ed5-03c91afca484'})
 
     return this.createUserProfile(userId, userData);
+  }
+
+  async insertTrazability(data: TrazabilityServiceParams) {
+    await this.trazabilityService.registerTrazability(data);
   }
 
   async editUser(userId: string, update: UpdateUserRequest & { email?: string }): Promise<User> {

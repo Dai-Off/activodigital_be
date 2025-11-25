@@ -7,15 +7,11 @@ export class TrazabilityService {
     }
 
     async registerTrazability(
-        { action, module, description }: TrazabilityServiceParams,
-        buildingId: string,
-        userAuthId: string
-    ) {
-        // Obtener el ID del usuario directamente desde la BD (evita dependencia circular)
+        { action, module, description, buildingId, authUserId }: TrazabilityServiceParams) {
         const { data: userData, error: userError } = await this.getSupabase()
             .from('users')
             .select('id')
-            .eq('user_id', userAuthId)
+            .eq('user_id', authUserId)
             .single();
 
         if (userError || !userData) {
@@ -57,7 +53,7 @@ export class TrazabilityService {
     private mapToTrazability(data: any): TrazabilityMap {
         return {
             id: data.id,
-            userId: data.user_id,
+            authUserId: data.user_id,
             buildingId: data.building_id,
             action: data.action,
             module: data.module,
