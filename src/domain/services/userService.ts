@@ -10,6 +10,7 @@ import {
 } from '../../types/user';
 
 export class UserService {
+
   private getSupabase() {
     return getSupabaseClient();
   }
@@ -121,6 +122,8 @@ export class UserService {
       }
       userId = authData.user.id;
     }
+
+    // await this.trazabilityService.registerTrazability({ action: ActionsValues.CREAR, description: 'Certificado Energetico', module:  ModuleValues.ELECTRICIDAD }, '0007a31b-98fa-4dba-a05e-b62fad1d2e87', '24a73eb2-d86f-4943-8ed5-03c91afca484');
 
     return this.createUserProfile(userId, userData);
   }
