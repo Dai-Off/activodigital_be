@@ -37,17 +37,17 @@ router.post("/", notificationController.createUserNotifications);
 router.put("/:id/read", notificationController.markAsRead);
 
 /**
- * @route DELETE /api/notifications/:id
- * @desc Eliminar una notificación específica
- * @access Private
- */
-router.delete("/:id", notificationController.deleteNotification);
-
-/**
  * @route DELETE /api/notifications/cleanup
  * @desc Eliminar notificaciones antiguas (más de 30 días o lo especificado por query param 'days')
  * @access Private
  */
 router.delete("/cleanup", notificationController.deleteOldNotifications);
+
+/**
+ * @route DELETE /api/notifications/:id
+ * @desc Eliminar una notificación específica
+ * @access Private
+ */
+router.delete("/:id", notificationController.deleteNotification);
 
 export default router;
