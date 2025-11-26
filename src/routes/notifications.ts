@@ -9,42 +9,56 @@ const notificationController = new NotificationController();
 router.use(authenticateToken);
 
 /**
- * @route GET /api/notifications/unread
+ * @route GET /notifications/unread
  * @desc Obtener notificaciones NO LEÍDAS del usuario autenticado (Requiere buildingId)
  * @access Private
  */
 router.get("/unread", notificationController.getUnreadNotifications);
 
 /**
- * @route GET /api/notifications
+ * @route GET /notifications
+ * @desc Obtener notificaciones de un listado de edificios
+ * @access Private
+ */
+router.get("/", notificationController.getUserNotificationsByBuilding);
+
+/**
+ * @route GET /notifications
  * @desc Obtener TODAS las notificaciones de un edificio (Feed completo, Requiere buildingId)
  * @access Private
  */
-router.get("/", notificationController.getBuildingNotifications);
+router.get("/building", notificationController.getBuildingNotifications);
 
 /**
- * @route POST /api/notifications
+ * @route POST /notifications
  * @desc Crear una nueva notificación
  * @access Private
  */
 router.post("/", notificationController.createUserNotifications);
 
 /**
- * @route PUT /api/notifications/:id/read
+ * @route PUT /notifications/:id/read
  * @desc Marcar una notificación como leída
  * @access Private
  */
 router.put("/:id/read", notificationController.markAsRead);
 
 /**
- * @route DELETE /api/notifications/cleanup
+ * @route PUT /notifications/markAll
+ * @desc Marcar todas la notificaciones de un usuario como leídas
+ * @access Private
+ */
+router.put("/markAll", notificationController.markAllAsRead);
+
+/**
+ * @route DELETE /notifications/cleanup
  * @desc Eliminar notificaciones antiguas (más de 30 días o lo especificado por query param 'days')
  * @access Private
  */
 router.delete("/cleanup", notificationController.deleteOldNotifications);
 
 /**
- * @route DELETE /api/notifications/:id
+ * @route DELETE /notifications/:id
  * @desc Eliminar una notificación específica
  * @access Private
  */

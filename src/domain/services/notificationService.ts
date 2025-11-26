@@ -5,6 +5,8 @@ import {
   NotificationFilters,
 } from "../../types/notification";
 import { notification_read } from "../../types/notificationRead";
+import { BuildingService } from "./edificioService";
+const buildingService = new BuildingService();
 
 /**
  * Servicio centralizado para operaciones de Notificaciones.
@@ -229,6 +231,120 @@ export class NotificationService {
 
     // Retornamos el conteo que obtuvimos en el PASO 1.
     return countToDelete;
+  }
+
+  /**
+   * Obtiene todas las notificaciones (leídas y no leídas) para TODOS los edificios
+   * a los que pertenece un usuario.
+   * Utiliza el filtro 'in' de Supabase/Postgres para buscar por múltiples IDs.
+   */
+  async getUserNotifications(
+    userId: string,
+    filters: NotificationFilters = {}
+  ): Promise<Notification[]> {
+    // 1. Obtener la lista de IDs de edificios del usuario
+    console.log(userId);
+    const rawBuildings: { id: string }[] =
+      await buildingService.getBuildingsByUser(userId);
+    const buildingIds = rawBuildings.map((building: any) => building.id);
+    if (buildingIds.length === 0) {
+      return []; // Si no pertenece a ningún edificio, retorna vacío.
+    }
+
+    let query = this.getSupabase()
+      .from("notifications")
+      .select("*")
+      // 2. Filtrar por todos los building_ids del usuario
+      .in("building_id", buildingIds)
+      .order("created_at", { ascending: false });
+
+    if (filters.type) {
+      query = query.eq("type", filters.type);
+    }
+
+    // Aplicar límites si existen
+    if (filters.limit) {
+      query = query.limit(filters.limit);
+    }
+
+    if (filters.offset) {
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 50) - 1
+      );
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(
+        `Error al obtener notificaciones del usuario: ${error.message}`
+      );
+    }
+
+    return data.map(this.mapToNotification);
+  }
+
+  /**
+   * Marca como leídas TODAS las notificaciones pendientes (no leídas)
+   * del usuario, abarcando todos sus edificios.
+   */
+  async markAllAsReadForUser(
+    userId: string
+  ): Promise<{ count: number; message: string }> {
+    try {
+      // 1. Obtener TODAS las notificaciones del usuario (leídas y no leídas)
+      // Usamos un límite alto para garantizar que capturamos todas las pendientes
+      const allUserNotifications = await this.getUserNotifications(userId, {
+        limit: 1000,
+      });
+
+      // 2. Obtener los IDs de las notificaciones que el usuario YA leyó
+      const readIds = await this.getUserReadNotificationIds(userId);
+
+      // 3. Identificar las notificaciones que aún no han sido leídas
+      const unreadNotifications = allUserNotifications.filter(
+        (notification) => !readIds.has(notification.id)
+      );
+
+      if (unreadNotifications.length === 0) {
+        return {
+          count: 0,
+          message: "No hay notificaciones pendientes para marcar como leídas.",
+        };
+      }
+
+      // 4. Crear el array de objetos para la inserción en lote
+      const readsToInsert = unreadNotifications.map((notification) => ({
+        user_id: userId,
+        notification_id: notification.id,
+        read_at: new Date().toISOString(),
+      }));
+
+      // 5. Insertar en lote los registros de lectura
+      const { error, count } = await this.getSupabase()
+        .from("notification_reads")
+        .insert(readsToInsert)
+        .select()
+        .range(0, readsToInsert.length - 1); // Obtener el conteo de filas insertadas
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const successfulInsertCount = readsToInsert.length;
+
+      return {
+        count: successfulInsertCount,
+        message: `Se marcaron como leídas ${successfulInsertCount} notificaciones.`,
+      };
+    } catch (error: any) {
+      console.error("Error al marcar todas como leídas:", error.message);
+      return {
+        count: 0,
+        message: `Error al marcar todas como leídas: ${error.message}`,
+      };
+    }
   }
 
   /**

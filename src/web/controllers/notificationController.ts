@@ -54,7 +54,6 @@ export class NotificationController {
 
   /**
    * Obtiene todas las notificaciones de un edificio (Feed completo, leídas y no leídas).
-   * Útil para administradores o vistas de historial.
    */
   getBuildingNotifications = async (
     req: Request,
@@ -135,6 +134,88 @@ export class NotificationController {
       console.error("Error al crear notificación:", error);
       res.status(500).json({
         error: "Error al crear la notificación",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  /**
+   * Marca TODAS las notificaciones pendientes de un usuario como leídas.
+   */
+  markAllAsRead = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: "Usuario no autenticado" });
+        return;
+      }
+
+      const result = await this.notificationService.markAllAsReadForUser(
+        userId
+      );
+
+      if (result.count > 0) {
+        res.status(200).json({
+          message: result.message,
+          count: result.count,
+        });
+      } else {
+        // Si count es 0, no es un error, es que no había pendientes
+        res.status(200).json({
+          message: result.message,
+          count: 0,
+        });
+      }
+    } catch (error) {
+      console.error(
+        "Error al marcar todas las notificaciones como leídas:",
+        error
+      );
+      res.status(500).json({
+        error: "Error al marcar todas las notificaciones como leídas",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  /**
+   * Obtiene todas las notificaciones asociadas a TODOS los edificios
+   * administrados o relacionados con el usuario.
+   */
+  getUserNotificationsByBuilding = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: "Usuario no autenticado" });
+        return;
+      }
+      const filters: NotificationFilters = {
+        type: req.query.type as any,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      };
+
+      // Llama al método del servicio que obtiene notificaciones por edificios del usuario
+      const notifications = await this.notificationService.getUserNotifications(
+        userId,
+        filters
+      );
+
+      res.status(200).json({
+        data: notifications,
+        count: notifications.length,
+        message: `Notificaciones obtenidas para ${notifications.length} registros`,
+      });
+    } catch (error) {
+      console.error(
+        "Error al obtener notificaciones por edificio de usuario:",
+        error
+      );
+      res.status(500).json({
+        error: "Error al obtener notificaciones del usuario",
         details: error instanceof Error ? error.message : "Error desconocido",
       });
     }
