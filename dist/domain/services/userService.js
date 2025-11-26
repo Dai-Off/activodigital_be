@@ -52,7 +52,84 @@ class UserService {
         if (error) {
             throw new Error(`Error al obtener roles: ${error.message}`);
         }
-        return data.map(this.mapToRole);
+        return data.map((r) => this.mapToRole(r));
+    }
+    async getAllUsersService() {
+        const { data, error } = await this.getSupabase()
+            .from('users')
+            .select(`
+        *,
+        roles(*)
+      `)
+            .order('email');
+        if (error) {
+            throw new Error(`Error al obtener usuarios: ${error.message}`);
+        }
+        return data.map((r) => this.mapToUser(r));
+    }
+    async createUser(data) {
+        let userId = data.authUserId;
+        const { data: found, error } = await this.getSupabase()
+            .from('users')
+            .select('id')
+            .eq('email', data.email)
+            .single();
+        if (error && error.code !== "PGRST116") {
+            throw new Error(`Error verificando duplicados: ${error.message}`);
+        }
+        if (found) {
+            const errorDup = new Error('Ya existe un usuario con este correo.');
+            errorDup.status = 400;
+            throw errorDup;
+        }
+        if (!data.role) {
+            throw new Error("Datos insuficientes para crear usuario");
+        }
+        const userData = {
+            email: data.email,
+            fullName: data.fullName,
+            role: data.role
+        };
+        if (!userId) {
+            const { data: authData, error: authError } = await this.getSupabase()?.auth?.admin.createUser({
+                email: data.email,
+                email_confirm: true,
+            });
+            if (authError || !authData?.user) {
+                throw new Error(authError?.message || 'Failed to create user');
+            }
+            userId = authData.user.id;
+        }
+        return this.createUserProfile(userId, userData);
+    }
+    async editUser(userId, update) {
+        if (update.email) {
+            const { data: found, error } = await this.getSupabase()
+                .from('users')
+                .select('id')
+                .eq('email', update.email)
+                .neq('id', userId)
+                .single();
+            if (error && error.code !== 'PGRST116') {
+                throw new Error(`Error verificando duplicados: ${error.message}`);
+            }
+            if (found) {
+                const errorDup = new Error('Ya existe un usuario con este correo.');
+                errorDup.status = 400;
+                throw errorDup;
+            }
+        }
+        let roleId = update.roleId;
+        if (update.role) {
+            const role = await this.getRoleByName(update.role);
+            if (role)
+                roleId = role.id;
+        }
+        const updatePayload = {
+            ...update,
+            roleId,
+        };
+        return this.updateUser(userId, updatePayload);
     }
     // Obtener rol por nombre
     async getRoleByName(name) {
@@ -100,7 +177,6 @@ class UserService {
         }
         return this.mapToUser(data);
     }
-    // Actualizar usuario
     async updateUser(userId, updateData) {
         const { data, error } = await this.getSupabase()
             .from('users')
@@ -254,6 +330,10 @@ class UserService {
             email: data.email,
             fullName: data.full_name,
             roleId: data.role_id,
+            role: {
+                id: data?.roles?.id ?? null,
+                name: data?.roles?.name ?? null,
+            },
             twoFactorEnabled: data.two_factor_enabled ?? false,
             createdAt: data.created_at,
             updatedAt: data.updated_at

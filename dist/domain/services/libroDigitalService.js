@@ -5,6 +5,7 @@ const supabase_1 = require("../../lib/supabase");
 const libroDigital_1 = require("../../types/libroDigital");
 const userService_1 = require("./userService");
 const user_1 = require("../../types/user");
+const embeddingHelper_1 = require("../../lib/embeddingHelper");
 class DigitalBookService {
     constructor() {
         this.userService = new userService_1.UserService();
@@ -98,6 +99,9 @@ class DigitalBookService {
         if (error) {
             throw new Error(`Error al crear libro digital: ${error.message}`);
         }
+        (0, embeddingHelper_1.generateBuildingEmbedding)(data.buildingId).catch(err => {
+            console.error('Error generando embeddings:', err);
+        });
         return this.mapToDigitalBook(book);
     }
     async getBookById(id, userAuthId) {
@@ -156,7 +160,11 @@ class DigitalBookService {
         if (error) {
             throw new Error(`Error al actualizar libro digital: ${error.message}`);
         }
-        return this.mapToDigitalBook(book);
+        const mappedBook = this.mapToDigitalBook(book);
+        (0, embeddingHelper_1.generateBuildingEmbedding)(mappedBook.buildingId).catch(err => {
+            console.error('Error generando embeddings:', err);
+        });
+        return mappedBook;
     }
     async updateSection(bookId, sectionType, data, userAuthId) {
         // Todos los usuarios pueden actualizar cualquier sección de cualquier libro digital
@@ -212,6 +220,9 @@ class DigitalBookService {
         if (sectionType === 'sustainability_and_esg') {
             await this.updateCamposAmbientalesInDigitalBook(bookId, data.content);
         }
+        (0, embeddingHelper_1.generateBuildingEmbedding)(book.buildingId).catch(err => {
+            console.error('Error generando embeddings:', err);
+        });
         return this.mapToDigitalBook(updated);
     }
     async deleteBook(id, userAuthId) {
@@ -282,10 +293,10 @@ class DigitalBookService {
      */
     async updateCamposAmbientalesInDigitalBook(bookId, sustainabilityContent) {
         try {
-            // Obtener el libro actual
+            // Obtener el libro actual (necesitamos building_id para regenerar embeddings)
             const { data: book, error: selectError } = await this.getSupabase()
                 .from('digital_books')
-                .select('campos_ambientales')
+                .select('campos_ambientales, building_id')
                 .eq('id', bookId)
                 .single();
             if (selectError) {
@@ -312,6 +323,11 @@ class DigitalBookService {
             }
             else {
                 console.log('✅ Campos ambientales actualizados en libro digital:', bookId);
+                if (book.building_id) {
+                    (0, embeddingHelper_1.generateBuildingEmbedding)(book.building_id).catch(err => {
+                        console.error('Error generando embeddings:', err);
+                    });
+                }
             }
         }
         catch (error) {
