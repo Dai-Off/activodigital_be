@@ -156,18 +156,13 @@ export class NotificationService {
    */
   async getUnreadBuildingNotificationsForUser(
     userId: string,
-    buildingId: string,
     limit: number = 50
   ): Promise<Notification[]> {
     // PASO 1: Obtener las últimas N notificaciones del edificio
     // Traemos un poco más del límite deseado para tener margen tras el filtrado
     const fetchLimit = limit + 20;
 
-    const buildingNotifications = await this.getBuildingNotifications(
-      buildingId,
-      { limit: fetchLimit }
-    );
-
+    const buildingNotifications = await this.getUserNotifications(userId);
     if (buildingNotifications.length === 0) return [];
 
     // PASO 2: Obtener la lista de IDs que el usuario ya leyó
@@ -243,7 +238,6 @@ export class NotificationService {
     filters: NotificationFilters = {}
   ): Promise<Notification[]> {
     // 1. Obtener la lista de IDs de edificios del usuario
-    console.log(userId);
     const rawBuildings: { id: string }[] =
       await buildingService.getBuildingsByUser(userId);
     const buildingIds = rawBuildings.map((building: any) => building.id);
@@ -254,7 +248,6 @@ export class NotificationService {
     let query = this.getSupabase()
       .from("notifications")
       .select("*")
-      // 2. Filtrar por todos los building_ids del usuario
       .in("building_id", buildingIds)
       .order("created_at", { ascending: false });
 
@@ -262,7 +255,6 @@ export class NotificationService {
       query = query.eq("type", filters.type);
     }
 
-    // Aplicar límites si existen
     if (filters.limit) {
       query = query.limit(filters.limit);
     }

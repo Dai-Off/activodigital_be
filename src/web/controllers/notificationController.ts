@@ -17,28 +17,19 @@ export class NotificationController {
     res: Response
   ): Promise<void> => {
     try {
-      const userId = req.user?.id;
+      const userId = req.query.userId as string;
       if (!userId) {
         res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
-
-      const buildingId = req.query.buildingId as string;
-      if (!buildingId) {
-        res.status(400).json({ error: "buildingId es requerido" });
-        return;
-      }
-
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
 
       // Llama al método del servicio que filtra las leídas
       const notifications =
         await this.notificationService.getUnreadBuildingNotificationsForUser(
           userId,
-          buildingId,
           limit
         );
-
       res.status(200).json({
         data: notifications,
         count: notifications.length,
