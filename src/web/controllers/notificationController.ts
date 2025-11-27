@@ -51,7 +51,7 @@ export class NotificationController {
     res: Response
   ): Promise<void> => {
     try {
-      const buildingId = req.user?.id;
+      const buildingId = req.query.buildingId as string;
       if (!buildingId) {
         res.status(400).json({ error: "buildingId es requerido" });
         return;
@@ -62,7 +62,6 @@ export class NotificationController {
         limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
         offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
       };
-
       const notifications =
         await this.notificationService.getBuildingNotifications(
           buildingId,
