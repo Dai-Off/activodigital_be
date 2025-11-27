@@ -12,6 +12,7 @@ export interface Notification {
   title: string;
   expiration: string | null;
   priority: number;
+  created_at: string;
 }
 
 export interface CreateNotificationRequest {

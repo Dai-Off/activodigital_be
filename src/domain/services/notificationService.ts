@@ -158,22 +158,14 @@ export class NotificationService {
     userId: string,
     limit: number = 50
   ): Promise<Notification[]> {
-    // PASO 1: Obtener las últimas N notificaciones del edificio
-    // Traemos un poco más del límite deseado para tener margen tras el filtrado
-    const fetchLimit = limit + 20;
-
     const buildingNotifications = await this.getUserNotifications(userId);
     if (buildingNotifications.length === 0) return [];
 
-    // PASO 2: Obtener la lista de IDs que el usuario ya leyó
     const readIds = await this.getUserReadNotificationIds(userId);
 
-    // PASO 3: Filtrar en memoria
-    // Solo devolvemos las que NO están en el Set de leídos
     const unreadNotifications = buildingNotifications.filter(
       (notification) => !readIds.has(notification.id)
     );
-
     // Ajustamos al límite solicitado por el usuario
     return unreadNotifications.slice(0, limit);
   }
@@ -380,6 +372,7 @@ export class NotificationService {
       title: data.title,
       expiration: data.expiration,
       priority: data.priority,
+      created_at: data.created_at,
     };
   }
 }
