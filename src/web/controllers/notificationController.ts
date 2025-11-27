@@ -51,7 +51,7 @@ export class NotificationController {
     res: Response
   ): Promise<void> => {
     try {
-      const buildingId = req.query.buildingId as string;
+      const buildingId = req.user?.id;
       if (!buildingId) {
         res.status(400).json({ error: "buildingId es requerido" });
         return;
@@ -262,8 +262,7 @@ export class NotificationController {
     try {
       const { id } = req.params;
 
-      const buildingId =
-        (req.query.buildingId as string) || req.body.buildingId;
+      const buildingId = req.user?.id || req.body.buildingId;
 
       if (!id || !buildingId) {
         res
@@ -307,7 +306,7 @@ export class NotificationController {
   ): Promise<void> => {
     try {
       // 1. Validación de buildingId
-      const buildingId = req.query.buildingId as string;
+      const buildingId = req.user?.id;
       if (!buildingId) {
         res
           .status(400)
