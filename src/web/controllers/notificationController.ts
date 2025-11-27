@@ -17,7 +17,7 @@ export class NotificationController {
     res: Response
   ): Promise<void> => {
     try {
-      const userId = req.query.userId as string;
+      const userId = req.user?.id;
       if (!userId) {
         res.status(401).json({ error: "Usuario no autenticado" });
         return;
