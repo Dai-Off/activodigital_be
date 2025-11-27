@@ -199,11 +199,12 @@ export class DigitalBookService {
       throw new Error(`Error al actualizar libro digital: ${error.message}`);
     }
 
-    generateBuildingEmbedding(book.building_id).catch(err => {
+    const mappedBook = this.mapToDigitalBook(book);
+    generateBuildingEmbedding(mappedBook.buildingId).catch(err => {
       console.error('Error generando embeddings:', err);
     });
 
-    return this.mapToDigitalBook(book);
+    return mappedBook;
   }
 
   async updateSection(
@@ -272,7 +273,7 @@ export class DigitalBookService {
       await this.updateCamposAmbientalesInDigitalBook(bookId, data.content);
     }
 
-    generateBuildingEmbedding(book.building_id).catch(err => {
+    generateBuildingEmbedding(book.buildingId).catch(err => {
       console.error('Error generando embeddings:', err);
     });
 
