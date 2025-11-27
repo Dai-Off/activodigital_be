@@ -44,12 +44,15 @@ export interface CreateUserRequest {
   password: string;
   fullName?: string;
   role: UserRole;
+  buildingId?: string;
+  authUserId?: string;
+  userId?: string;
 }
 
 export interface UpdateUserRequest {
   fullName?: string;
   roleId?: string;
-  email?: string
+  email?: string;
 }
 
 export interface AssignTechnicianRequest {

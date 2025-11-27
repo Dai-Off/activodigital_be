@@ -4,6 +4,7 @@ import authRouter from "./auth";
 import edificiosRouter from "./edificios";
 import librosDigitalesRouter from "./librosDigitales";
 import usersRouter from "./users";
+import trazabilityRouter from "./trazability";
 import invitationsRouter from "./invitations";
 import certificatesEnergeticosRouter from "./certificadosEnergeticos";
 import esgRouter from "./esg";
@@ -21,6 +22,7 @@ router.get("/", (_req, res) => {
 router.use("/health", healthRouter);
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);
+router.use("/trazability", trazabilityRouter);
 router.use("/edificios", edificiosRouter);
 router.use("/libros-digitales", librosDigitalesRouter);
 router.use("/invitations", invitationsRouter);

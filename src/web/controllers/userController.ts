@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { UserService } from '../../domain/services/userService';
-import { UserRole, AssignTechnicianRequest, UserWithRole, UpdateUserRequest } from '../../types/user';
+import { AssignTechnicianRequest, UpdateUserRequest } from '../../types/user';
 
 const userService = new UserService();
 
@@ -120,7 +120,7 @@ export const createUser = async (req: Request, res: Response) => {
     if (!email || !role  || !fullName) {
       return res.status(400).json({ error: 'email, fullname y  role son requeridos' });
     }
-    const usuario = await userService.createUser(req.body);
+    const usuario = await userService.createUser({...req.body, userId: req?.user?.id});
     res.status(201).json({ message: 'Usuario creado correctamente', usuario });
   } catch (error: any) {
     console.error('Error al crear usuario:', error);

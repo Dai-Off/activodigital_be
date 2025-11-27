@@ -89,7 +89,9 @@ export class UserService {
   }
 
   async createUser(data: CreateUserRequest & { authUserId: string }): Promise<User> {
-    let userId = data.authUserId;
+    let userId = data?.userId;
+    let authUserIdCreate = data.authUserId;
+    let buildingIDE = data?.buildingId;
 
     const { data: found, error } = await this.getSupabase()
       .from('users')
@@ -114,7 +116,7 @@ export class UserService {
       role: data.role
     };
 
-    if (!userId) {
+    if (!authUserIdCreate) {
       const { data: authData, error: authError } = await this.getSupabase()?.auth?.admin.createUser({
         email: data.email,
         email_confirm: true,
@@ -122,13 +124,16 @@ export class UserService {
       if (authError || !authData?.user) {
         throw new Error(authError?.message || 'Failed to create user');
       }
-      userId = authData.user.id;
+      authUserIdCreate = authData.user.id;
     }
 
-    await this.insertTrazability({ action: ActionsValues.CREAR, description: 'Agrego un usuario en administración', module: 
-      ModuleValues.ELECTRICIDAD ,  buildingId:'0007a31b-98fa-4dba-a05e-b62fad1d2e87', authUserId:  '24a73eb2-d86f-4943-8ed5-03c91afca484'})
+    // ! ejemplo de insertar trazabilidad
+    // await this.insertTrazability({
+    //   action: ActionsValues.CREAR, description: 'Agregó un usuario al sistema', module:
+    //     ModuleValues.ELECTRICIDAD, buildingId: buildingIDE ?? 'd3016ddf-7616-4012-8101-5932b1b5996a', authUserId: userId ?? null
+    // })
 
-    return this.createUserProfile(userId, userData);
+    return this.createUserProfile(authUserIdCreate, userData);
   }
 
   async insertTrazability(data: TrazabilityServiceParams) {

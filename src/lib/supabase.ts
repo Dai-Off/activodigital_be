@@ -77,4 +77,31 @@ export const getSupabaseClientForToken = (token: string): SupabaseClient => {
   });
 };
 
+// ! esta para cuando trabajamos en desarrollo. 
+let serviceRoleClient: SupabaseClient | null = null;
+export const getSupabaseServiceRoleClient = (): SupabaseClient => {
+  if (serviceRoleClient) return serviceRoleClient;
+
+  const url = (process.env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  
+  if (!url) throw new Error('Missing env SUPABASE_URL');
+  if (!serviceRoleKey) {
+    throw new Error('Missing env SUPABASE_SERVICE_ROLE_KEY. Service role key is required to bypass RLS policies.');
+  }
+
+  if (url.startsWith('@')) {
+    console.warn('SUPABASE_URL starts with @, please remove it. Using value as-is may fail.');
+  }
+
+  serviceRoleClient = createClient(url, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  return serviceRoleClient;
+};
+
 

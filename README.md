@@ -179,6 +179,12 @@ Authorization: Bearer <token>
 | GET | `/invitations/my-cfo-assignments` | Mis asignaciones CFO | Sí | CFO |
 | POST | `/invitations/cleanup` | Limpiar invitaciones expiradas | Sí | Administrador |
 
+### Trazabilidad
+| Método | Endpoint | Descripción | Autenticación | Rol |
+|--------|----------|-------------|---------------|-----|
+| GET | `/trazability/list` | Obtener la trazabilidad | Sí | Todos |
+
+
 ### Usuarios
 | Método | Endpoint | Descripción | Autenticación | Rol |
 |--------|----------|-------------|---------------|-----|
