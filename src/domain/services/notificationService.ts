@@ -196,7 +196,6 @@ export class NotificationService {
       );
     }
 
-    // Si no hay nada que borrar, retornamos 0 inmediatamente
     const countToDelete = preCount || 0;
     if (countToDelete === 0) {
       return 0;
@@ -208,7 +207,7 @@ export class NotificationService {
       .from("notifications")
       .delete()
       .eq("building_id", buildingId)
-      .lt("created_at", cutoffDateISO); // Mismos filtros
+      .lt("created_at", cutoffDateISO);
 
     if (deleteError) {
       throw new Error(
@@ -353,13 +352,11 @@ export class NotificationService {
   // 4. ELIMINACIÓN Y UTILIDADES
   // ==========================================
 
-  async deleteNotification(id: string, buildingId: string): Promise<boolean> {
+  async deleteNotification(id: string): Promise<boolean> {
     const { error } = await this.getSupabase()
       .from("notifications")
       .delete()
-      .eq("id", id)
-      .eq("building_id", buildingId);
-
+      .eq("id", id);
     if (error) throw new Error(error.message);
     return true;
   }

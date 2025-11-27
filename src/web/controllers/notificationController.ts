@@ -261,19 +261,14 @@ export class NotificationController {
     try {
       const { id } = req.params;
 
-      const buildingId = req.user?.id || req.body.buildingId;
-
-      if (!id || !buildingId) {
+      if (!id) {
         res
           .status(400)
           .json({ error: "ID de notificación y buildingId requeridos" });
         return;
       }
 
-      const success = await this.notificationService.deleteNotification(
-        id,
-        buildingId
-      );
+      const success = await this.notificationService.deleteNotification(id);
 
       if (success) {
         res.status(200).json({
@@ -305,7 +300,7 @@ export class NotificationController {
   ): Promise<void> => {
     try {
       // 1. Validación de buildingId
-      const buildingId = req.user?.id;
+      const buildingId = req.query.buildingId as string;
       if (!buildingId) {
         res
           .status(400)
@@ -324,7 +319,7 @@ export class NotificationController {
 
       // 4. Respuesta exitosa
       res.status(200).json({
-        message: `${count} notificaciones antiguas eliminadas del edificio ${buildingId}`,
+        message: `${count} notificaciones antiguas eliminadas del edificio `,
         count,
         daysOld,
       });
