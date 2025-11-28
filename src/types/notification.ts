@@ -1,44 +1,29 @@
 export enum NotificationType {
-  AI_PROCESSING_START = 'ai_processing_start',
-  AI_PROCESSING_PROGRESS = 'ai_processing_progress', 
-  AI_PROCESSING_COMPLETE = 'ai_processing_complete',
-  AI_PROCESSING_ERROR = 'ai_processing_error',
-  BOOK_CREATED = 'book_created',
-  BOOK_UPDATED = 'book_updated',
-  GENERAL = 'general'
-}
-
-export enum NotificationStatus {
-  UNREAD = 'unread',
-  READ = 'read'
+  MAINTENANCE = "maintenance",
+  FINANCIAL = "financial",
+  EXPIRATION = "expiration",
+  RENEWAL = "renewal",
 }
 
 export interface Notification {
   id: string;
-  userId: string;
+  buildingId: string;
   type: NotificationType;
   title: string;
-  message: string;
-  status: NotificationStatus;
-  metadata?: Record<string, any>;
-  createdAt: string;
-  readAt?: string;
+  expiration: string | null;
+  priority: number;
+  created_at: string;
 }
 
 export interface CreateNotificationRequest {
-  userId: string;
+  building_id: string;
   type: NotificationType;
   title: string;
-  message: string;
-  metadata?: Record<string, any>;
-}
-
-export interface UpdateNotificationRequest {
-  status?: NotificationStatus;
+  expiration: string | null;
+  priority: number;
 }
 
 export interface NotificationFilters {
-  status?: NotificationStatus;
   type?: NotificationType;
   limit?: number;
   offset?: number;

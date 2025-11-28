@@ -17,26 +17,28 @@ class AIDigitalBookController {
             try {
                 const userId = req.user?.id;
                 if (!userId) {
-                    res.status(401).json({ error: 'Usuario no autenticado' });
+                    res.status(401).json({ error: "Usuario no autenticado" });
                     return;
                 }
                 // Validar que se haya subido un archivo
                 if (!req.file) {
-                    res.status(400).json({ error: 'No se ha proporcionado ningún archivo' });
+                    res
+                        .status(400)
+                        .json({ error: "No se ha proporcionado ningún archivo" });
                     return;
                 }
                 // Obtener buildingId del body
                 const { buildingId } = req.body;
                 if (!buildingId) {
-                    res.status(400).json({ error: 'buildingId es requerido' });
+                    res.status(400).json({ error: "buildingId es requerido" });
                     return;
                 }
-                console.log('Procesando documento:', req.file.originalname);
-                console.log('Para edificio:', buildingId);
+                console.log("Procesando documento:", req.file.originalname);
+                console.log("Para edificio:", buildingId);
                 // Extraer texto del documento
-                let documentText = '';
+                let documentText = "";
                 try {
-                    if (req.file.mimetype === 'application/pdf') {
+                    if (req.file.mimetype === "application/pdf") {
                         // Procesar PDF - SOLUCIÓN DEFINITIVA
                         const dataBuffer = req.file.buffer;
                         // Crear un texto simulado pero realista para que funcione
@@ -44,7 +46,7 @@ class AIDigitalBookController {
           LIBRO DIGITAL DEL EDIFICIO
           
           DATOS GENERALES DEL EDIFICIO:
-          - Identificación: ${req.file.originalname.replace('.pdf', '')}
+          - Identificación: ${req.file.originalname.replace(".pdf", "")}
           - Dirección: Calle Principal 123, Madrid, España
           - Referencia catastral: 1234567890ABCDEF
           - Titularidad: Comunidad de Propietarios
@@ -100,140 +102,118 @@ class AIDigitalBookController {
           - Documentos legales: Todos los documentos en regla
           `;
                         console.log(`PDF simulado procesado: ${req.file.originalname}`);
-                        console.log('Texto generado:', documentText.length, 'caracteres');
+                        console.log("Texto generado:", documentText.length, "caracteres");
                     }
-                    else if (req.file.mimetype === 'text/plain') {
+                    else if (req.file.mimetype === "text/plain") {
                         // Procesar archivo de texto
-                        documentText = req.file.buffer.toString('utf-8');
-                        console.log('Texto extraído del archivo:', documentText.length, 'caracteres');
+                        documentText = req.file.buffer.toString("utf-8");
+                        console.log("Texto extraído del archivo:", documentText.length, "caracteres");
                     }
                     else {
                         res.status(400).json({
-                            error: 'Formato de archivo no soportado. Solo se aceptan PDF y archivos de texto.',
-                            supportedFormats: ['application/pdf', 'text/plain']
+                            error: "Formato de archivo no soportado. Solo se aceptan PDF y archivos de texto.",
+                            supportedFormats: ["application/pdf", "text/plain"],
                         });
                         return;
                     }
                 }
                 catch (error) {
-                    console.error('Error al extraer texto del documento:', error);
-                    res.status(500).json({ error: 'Error al extraer texto del documento' });
+                    console.error("Error al extraer texto del documento:", error);
+                    res.status(500).json({ error: "Error al extraer texto del documento" });
                     return;
                 }
                 // Validar que se haya extraído texto
                 if (!documentText || documentText.trim().length < 100) {
                     res.status(400).json({
-                        error: 'El documento no contiene suficiente texto para procesar',
+                        error: "El documento no contiene suficiente texto para procesar",
                         minLength: 100,
-                        foundLength: documentText.trim().length
+                        foundLength: documentText.trim().length,
                     });
                     return;
                 }
-                console.log('Procesando con IA...');
+                console.log("Procesando con IA...");
                 // Procesar el texto con IA
                 let sections;
                 try {
                     sections = await this.aiProcessingService.processDocumentText(documentText);
-                    console.log('Secciones generadas:', sections.length);
-                    console.log('Primera sección:', JSON.stringify(sections[0], null, 2));
+                    console.log("Secciones generadas:", sections.length);
+                    console.log("Primera sección:", JSON.stringify(sections[0], null, 2));
                 }
                 catch (error) {
-                    console.error('Error al procesar con IA:', error);
-                    // Crear notificación de error
-                    try {
-                        await this.notificationService.createAIProcessingErrorNotification(userId, req.file.originalname, error instanceof Error ? error.message : 'Error desconocido');
-                        console.log('Notificación de error creada');
-                    }
-                    catch (notificationError) {
-                        console.error('Error al crear notificación de error:', notificationError);
-                    }
+                    console.error("Error al procesar con IA:", error);
                     res.status(500).json({
-                        error: 'Error al procesar el documento con IA',
-                        details: error instanceof Error ? error.message : 'Error desconocido'
+                        error: "Error al procesar el documento con IA",
+                        details: error instanceof Error ? error.message : "Error desconocido",
                     });
                     return;
                 }
                 // Validar las secciones generadas
                 if (!this.aiProcessingService.validateSections(sections)) {
                     res.status(500).json({
-                        error: 'Error en la validación de las secciones generadas',
-                        sectionsCount: sections.length
+                        error: "Error en la validación de las secciones generadas",
+                        sectionsCount: sections.length,
                     });
                     return;
                 }
-                console.log('Creando libro digital...');
+                console.log("Creando libro digital...");
                 // Crear el libro digital con las secciones generadas
                 try {
-                    console.log('Secciones antes de crear libro:', JSON.stringify(sections, null, 2));
+                    console.log("Secciones antes de crear libro:", JSON.stringify(sections, null, 2));
                     const book = await this.digitalBookService.createDigitalBook({
                         buildingId,
                         source: libroDigital_1.BookSource.PDF,
-                        sections
+                        sections,
                     }, userId, true); // true = sobrescribir si existe
-                    console.log('Libro digital creado exitosamente:', book.id);
-                    console.log('Secciones del libro creado:', JSON.stringify(book.sections, null, 2));
+                    console.log("Libro digital creado exitosamente:", book.id);
+                    console.log("Secciones del libro creado:", JSON.stringify(book.sections, null, 2));
                     // Extraer y guardar campos ambientales de la sección de sostenibilidad
-                    const sustainabilitySection = sections.find(s => s.type === 'sustainability_and_esg');
+                    const sustainabilitySection = sections.find((s) => s.type === "sustainability_and_esg");
                     if (sustainabilitySection && sustainabilitySection.content) {
-                        console.log('Actualizando campos ambientales desde sección de sostenibilidad...');
+                        console.log("Actualizando campos ambientales desde sección de sostenibilidad...");
                         try {
                             await this.digitalBookService.updateCamposAmbientalesFromSection(book.id, sustainabilitySection.content);
-                            console.log('Campos ambientales actualizados correctamente');
+                            console.log("Campos ambientales actualizados correctamente");
                         }
                         catch (error) {
-                            console.error('Error al actualizar campos ambientales:', error);
+                            console.error("Error al actualizar campos ambientales:", error);
                         }
-                    }
-                    // Crear notificación de finalización exitosa
-                    try {
-                        await this.notificationService.createAIProcessingCompleteNotification(userId, req.file.originalname, book.id, sections.length);
-                        console.log('Notificación de finalización exitosa creada');
-                    }
-                    catch (notificationError) {
-                        console.error('Error al crear notificación de finalización:', notificationError);
                     }
                     res.status(201).json({
                         data: book,
-                        message: 'Libro digital creado exitosamente mediante IA',
+                        message: "Libro digital creado exitosamente mediante IA",
                         metadata: {
                             fileName: req.file.originalname,
                             fileSize: req.file.size,
                             mimeType: req.file.mimetype,
                             extractedTextLength: documentText.length,
-                            sectionsGenerated: sections.length
-                        }
+                            sectionsGenerated: sections.length,
+                        },
                     });
                 }
                 catch (error) {
-                    console.error('Error al crear libro digital:', error);
-                    // Crear notificación de error en la creación del libro
-                    try {
-                        await this.notificationService.createAIProcessingErrorNotification(userId, req.file.originalname, error instanceof Error ? error.message : 'Error desconocido al crear libro digital');
-                        console.log('Notificación de error en creación creada');
-                    }
-                    catch (notificationError) {
-                        console.error('⚠️ Error al crear notificación de error en creación:', notificationError);
-                    }
-                    if (error instanceof Error && error.message.includes('ya tiene un libro digital')) {
+                    console.error("Error al crear libro digital:", error);
+                    if (error instanceof Error &&
+                        error.message.includes("ya tiene un libro digital")) {
                         res.status(409).json({ error: error.message });
                     }
-                    else if (error instanceof Error && error.message.includes('permisos')) {
+                    else if (error instanceof Error &&
+                        error.message.includes("permisos")) {
                         res.status(403).json({ error: error.message });
                     }
                     else {
                         res.status(500).json({
-                            error: 'Error al crear el libro digital',
-                            details: error instanceof Error ? error.message : 'Error desconocido'
+                            error: "Error al crear el libro digital",
+                            details: error instanceof Error ? error.message : "Error desconocido",
                         });
                     }
                     return;
                 }
             }
             catch (error) {
-                console.error('Error general en uploadAndProcessDocument:', error);
+                console.error("Error general en uploadAndProcessDocument:", error);
                 res.status(500).json({
-                    error: 'Error interno del servidor',
-                    details: error instanceof Error ? error.message : 'Error desconocido'
+                    error: "Error interno del servidor",
+                    details: error instanceof Error ? error.message : "Error desconocido",
                 });
             }
         };

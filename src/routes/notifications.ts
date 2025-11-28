@@ -1,6 +1,6 @@
-import { Router } from 'express';
-import { NotificationController } from '../web/controllers/notificationController';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { Router } from "express";
+import { NotificationController } from "../web/controllers/notificationController";
+import { authenticateToken } from "../web/middlewares/authMiddleware";
 
 const router = Router();
 const notificationController = new NotificationController();
@@ -9,45 +9,59 @@ const notificationController = new NotificationController();
 router.use(authenticateToken);
 
 /**
- * @route GET /api/notifications
- * @desc Obtener notificaciones del usuario autenticado
+ * @route GET /notifications/unread
+ * @desc Obtener notificaciones NO LEÍDAS del usuario autenticado (Requiere buildingId)
  * @access Private
  */
-router.get('/', notificationController.getUserNotifications);
+router.get("/unread", notificationController.getUnreadNotifications);
 
 /**
- * @route GET /api/notifications/unread-count
- * @desc Obtener conteo de notificaciones no leídas
+ * @route GET /notifications
+ * @desc Obtener notificaciones de un listado de edificios
  * @access Private
  */
-router.get('/unread-count', notificationController.getUnreadCount);
+router.get("/", notificationController.getUserNotificationsByBuilding);
 
 /**
- * @route PUT /api/notifications/:id/read
+ * @route GET /notifications
+ * @desc Obtener TODAS las notificaciones de un edificio (Feed completo, Requiere buildingId)
+ * @access Private
+ */
+router.get("/building", notificationController.getBuildingNotifications);
+
+/**
+ * @route POST /notifications
+ * @desc Crear una nueva notificación
+ * @access Private
+ */
+router.post("/", notificationController.createUserNotifications);
+
+/**
+ * @route PUT /notifications/:id/read
  * @desc Marcar una notificación como leída
  * @access Private
  */
-router.put('/:id/read', notificationController.markAsRead);
+router.put("/:id/read", notificationController.markAsRead);
 
 /**
- * @route PUT /api/notifications/mark-all-read
- * @desc Marcar todas las notificaciones como leídas
+ * @route PUT /notifications/markAll
+ * @desc Marcar todas la notificaciones de un usuario como leídas
  * @access Private
  */
-router.put('/mark-all-read', notificationController.markAllAsRead);
+router.put("/markAll", notificationController.markAllAsRead);
 
 /**
- * @route DELETE /api/notifications/:id
- * @desc Eliminar una notificación
+ * @route DELETE /notifications/cleanup
+ * @desc Eliminar notificaciones antiguas (más de 30 días o lo especificado por query param 'days')
  * @access Private
  */
-router.delete('/:id', notificationController.deleteNotification);
+router.delete("/cleanup", notificationController.deleteOldNotifications);
 
 /**
- * @route DELETE /api/notifications/cleanup
- * @desc Eliminar notificaciones antiguas (más de 30 días)
+ * @route DELETE /notifications/:id
+ * @desc Eliminar una notificación específica
  * @access Private
  */
-router.delete('/cleanup', notificationController.deleteOldNotifications);
+router.delete("/:id", notificationController.deleteNotification);
 
 export default router;

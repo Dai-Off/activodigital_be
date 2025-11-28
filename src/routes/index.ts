@@ -12,7 +12,6 @@ import dashboardRouter from "./dashboard";
 import notificationsRouter from "./notifications";
 import financialSnapshotsRouter from "./financialSnapshots";
 import catastroApi from "./catastroApi";
-
 const router = Router();
 
 router.get("/", (_req, res) => {

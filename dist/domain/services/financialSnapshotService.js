@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinancialSnapshotService = void 0;
 const supabase_1 = require("../../lib/supabase");
+const embeddingHelper_1 = require("../../lib/embeddingHelper");
 class FinancialSnapshotService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
@@ -56,6 +57,9 @@ class FinancialSnapshotService {
         if (error) {
             throw new Error(`Error al crear/actualizar financial snapshot: ${error.message}`);
         }
+        (0, embeddingHelper_1.generateBuildingEmbedding)(snapshot.building_id).catch(err => {
+            console.error('Error generando embeddings:', err);
+        });
         return this.mapToFinancialSnapshot(snapshot);
     }
     async getFinancialSnapshotsByBuilding(buildingId, userAuthId) {
@@ -148,6 +152,9 @@ class FinancialSnapshotService {
             }
             throw new Error(`Error al actualizar financial snapshot: ${error.message}`);
         }
+        (0, embeddingHelper_1.generateBuildingEmbedding)(snapshot.building_id).catch(err => {
+            console.error('Error generando embeddings:', err);
+        });
         return this.mapToFinancialSnapshot(snapshot);
     }
     async deleteFinancialSnapshot(id, userAuthId) {
