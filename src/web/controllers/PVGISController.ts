@@ -82,7 +82,6 @@ export const GetTypicalMeteorologicalYear = async (
 ) => {
   const lat = req.query.lat as string;
   const lon = req.query.lon as string;
-
   if (!lat || !lon) {
     return res
       .status(400)
@@ -108,8 +107,6 @@ export const GetMonthlyRadiation = async (req: Request, res: Response) => {
   const lon = req.query.lon as string;
   const horirrad = req.query.horirrad as "0" | "1" | undefined;
   const optrad = req.query.optrad as "0" | "1" | undefined;
-
-  // Validación de parámetros obligatorios
   if (!lat || !lon) {
     return res
       .status(400)

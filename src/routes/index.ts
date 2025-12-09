@@ -13,6 +13,8 @@ import notificationsRouter from "./notifications";
 import financialSnapshotsRouter from "./financialSnapshots";
 import catastroApi from "./catastroApi";
 import PVGISApi from "./PVGISApi";
+import MITECOApi from "./MITECOApi";
+
 const router = Router();
 
 router.get("/", (_req, res) => {
@@ -32,6 +34,7 @@ router.use("/dashboard", dashboardRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/financial-snapshots", financialSnapshotsRouter);
 router.use("/catastroApi", catastroApi);
-router.use("PVGISApi", PVGISApi);
+router.use("/PVGISApi", PVGISApi);
+router.use("/MITECOApi", MITECOApi);
 
 export default router;

@@ -88,7 +88,7 @@ export class PVGISApiService {
       }
 
       const response = await fetch(url.toString(), this.options);
-
+      console.log(response);
       if (!response.ok) {
         throw new Error(`Error HTTP: ${response.status}`);
       }
@@ -116,14 +116,8 @@ export class PVGISApiService {
       // Nota: TMY no necesita outputformat=json, pero lo incluimos por consistencia.
       url.searchParams.append("outputformat", "json");
       url.searchParams.append("browser", "0");
-
       const response = await fetch(url.toString(), this.options);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      const data: any = await response.json();
+      const data = await response.json();
       // La respuesta TMY JSON es una estructura con datos por hora.
       return data;
     } catch (error) {
@@ -165,7 +159,6 @@ export class PVGISApiService {
       if (!response.ok) {
         throw new Error(`Error HTTP: ${response.status}`);
       }
-
       const data: any = await response.json();
       return data;
     } catch (error) {
