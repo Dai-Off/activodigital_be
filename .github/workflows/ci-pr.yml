@@ -1,0 +1,37 @@
+name: CI PR
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'      # o la versión que uses
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        # Si no tienes lint, borra este paso o marca:
+        # continue-on-error: true
+
+      - name: Tests
+        run: npm test
+        # o npm test -- --watch=false, según tu config
+
+      - name: Build
+        run: npm run build
