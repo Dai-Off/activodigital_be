@@ -10,10 +10,22 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para hacer merge
+
+      - name: Actualizar con rama base
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin ${{ github.base_ref }}
+          git merge origin/${{ github.base_ref }} || exit 1
 
       - name: Setup Node
         uses: actions/setup-node@v4
