@@ -26,8 +26,8 @@ jobs:
 
       - name: Lint
         run: npm run lint
-        # Si no tienes lint, borra este paso o marca:
-        # continue-on-error: true
+        continue-on-error: true
+        # TODO: Agregar script de lint en package.json cuando se configure ESLint
 
       - name: Tests
         run: npm test
