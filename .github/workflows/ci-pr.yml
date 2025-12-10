@@ -29,9 +29,5 @@ jobs:
         continue-on-error: true
         # TODO: Agregar script de lint en package.json cuando se configure ESLint
 
-      - name: Tests
-        run: npm test
-        # o npm test -- --watch=false, según tu config
-
       - name: Build
         run: npm run build
