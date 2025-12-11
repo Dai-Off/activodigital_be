@@ -4,6 +4,7 @@ const express_1 = require("express");
 const edificioController_1 = require("../web/controllers/edificioController");
 const buildingMetricsController_1 = require("../web/controllers/buildingMetricsController");
 const buildingScenariosController_1 = require("../web/controllers/buildingScenariosController");
+const buildingUnitsController_1 = require("../web/controllers/buildingUnitsController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
 const router = (0, express_1.Router)();
 const buildingController = new edificioController_1.BuildingController();
@@ -31,6 +32,11 @@ router.post('/:id/scenarios/sensitivity', buildingScenariosController.calculateS
 // CRUD básico de edificios (continuación)
 router.get('/:id', buildingController.getBuilding);
 router.put('/:id', buildingController.updateBuilding);
+// Gestión de unidades
+router.get('/:id/units', buildingUnitsController_1.listUnits);
+router.post('/:id/units', buildingUnitsController_1.upsertUnits);
+router.post('/:id/units/from-catastro', buildingUnitsController_1.importUnitsFromCatastro);
+router.delete('/:id/units/:unitId', buildingUnitsController_1.deleteUnit);
 // Endpoints para gestión de imágenes
 router.post('/:id/images', buildingController.uploadImages);
 router.delete('/:id/images/:imageId', buildingController.deleteImage);

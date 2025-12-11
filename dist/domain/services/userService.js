@@ -3,7 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserService = void 0;
 const supabase_1 = require("../../lib/supabase");
 const user_1 = require("../../types/user");
+const TrazabilityService_1 = require("../trazability/TrazabilityService");
 class UserService {
+    constructor() {
+        this.trazabilityService = new TrazabilityService_1.TrazabilityService();
+    }
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
     }
@@ -68,7 +72,9 @@ class UserService {
         return data.map((r) => this.mapToUser(r));
     }
     async createUser(data) {
-        let userId = data.authUserId;
+        let userId = data?.userId;
+        let authUserIdCreate = data.authUserId;
+        let buildingIDE = data?.buildingId;
         const { data: found, error } = await this.getSupabase()
             .from('users')
             .select('id')
@@ -90,7 +96,7 @@ class UserService {
             fullName: data.fullName,
             role: data.role
         };
-        if (!userId) {
+        if (!authUserIdCreate) {
             const { data: authData, error: authError } = await this.getSupabase()?.auth?.admin.createUser({
                 email: data.email,
                 email_confirm: true,
@@ -98,9 +104,17 @@ class UserService {
             if (authError || !authData?.user) {
                 throw new Error(authError?.message || 'Failed to create user');
             }
-            userId = authData.user.id;
+            authUserIdCreate = authData.user.id;
         }
-        return this.createUserProfile(userId, userData);
+        // ! ejemplo de insertar trazabilidad
+        // await this.insertTrazability({
+        //   action: ActionsValues.CREAR, description: 'Agregó un usuario al sistema', module:
+        //     ModuleValues.ELECTRICIDAD, buildingId: buildingIDE ?? 'd3016ddf-7616-4012-8101-5932b1b5996a', authUserId: userId ?? null
+        // })
+        return this.createUserProfile(authUserIdCreate, userData);
+    }
+    async insertTrazability(data) {
+        await this.trazabilityService.registerTrazability(data);
     }
     async editUser(userId, update) {
         if (update.email) {
