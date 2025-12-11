@@ -16,14 +16,9 @@ class NotificationController {
                     res.status(401).json({ error: "Usuario no autenticado" });
                     return;
                 }
-                const buildingId = req.query.buildingId;
-                if (!buildingId) {
-                    res.status(400).json({ error: "buildingId es requerido" });
-                    return;
-                }
                 const limit = req.query.limit ? parseInt(req.query.limit) : 50;
                 // Llama al método del servicio que filtra las leídas
-                const notifications = await this.notificationService.getUnreadBuildingNotificationsForUser(userId, buildingId, limit);
+                const notifications = await this.notificationService.getUnreadBuildingNotificationsForUser(userId, limit);
                 res.status(200).json({
                     data: notifications,
                     count: notifications.length,
@@ -211,14 +206,13 @@ class NotificationController {
         this.deleteNotification = async (req, res) => {
             try {
                 const { id } = req.params;
-                const buildingId = req.query.buildingId || req.body.buildingId;
-                if (!id || !buildingId) {
+                if (!id) {
                     res
                         .status(400)
                         .json({ error: "ID de notificación y buildingId requeridos" });
                     return;
                 }
-                const success = await this.notificationService.deleteNotification(id, buildingId);
+                const success = await this.notificationService.deleteNotification(id);
                 if (success) {
                     res.status(200).json({
                         message: "Notificación eliminada exitosamente",
@@ -260,7 +254,7 @@ class NotificationController {
                 const count = await this.notificationService.deleteOldNotifications(buildingId, daysOld);
                 // 4. Respuesta exitosa
                 res.status(200).json({
-                    message: `${count} notificaciones antiguas eliminadas del edificio ${buildingId}`,
+                    message: `${count} notificaciones antiguas eliminadas del edificio `,
                     count,
                     daysOld,
                 });
