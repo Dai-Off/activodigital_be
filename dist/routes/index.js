@@ -9,6 +9,7 @@ const auth_1 = __importDefault(require("./auth"));
 const edificios_1 = __importDefault(require("./edificios"));
 const librosDigitales_1 = __importDefault(require("./librosDigitales"));
 const users_1 = __importDefault(require("./users"));
+const trazability_1 = __importDefault(require("./trazability"));
 const invitations_1 = __importDefault(require("./invitations"));
 const certificadosEnergeticos_1 = __importDefault(require("./certificadosEnergeticos"));
 const esg_1 = __importDefault(require("./esg"));
@@ -23,6 +24,7 @@ router.get("/", (_req, res) => {
 router.use("/health", health_1.default);
 router.use("/auth", auth_1.default);
 router.use("/users", users_1.default);
+router.use("/trazability", trazability_1.default);
 router.use("/edificios", edificios_1.default);
 router.use("/libros-digitales", librosDigitales_1.default);
 router.use("/invitations", invitations_1.default);
