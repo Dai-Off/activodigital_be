@@ -15,6 +15,7 @@ import rentsRouter from "./rents";
 import catastroApi from "./catastroApi";
 import PVGISApi from "./PVGISApi";
 import MITECOApi from "./MITECOApi";
+import insurance from "./insurance";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use("/rents", rentsRouter);
 router.use("/catastroApi", catastroApi);
 router.use("/PVGISApi", PVGISApi);
 router.use("/MITECOApi", MITECOApi);
+router.use("/insurances", insurance);
 
 export default router;
