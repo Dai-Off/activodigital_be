@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { BuildingController } from '../web/controllers/edificioController';
 import { BuildingMetricsController } from '../web/controllers/buildingMetricsController';
 import { BuildingScenariosController } from '../web/controllers/buildingScenariosController';
+import {
+  importUnitsFromCatastro,
+  listUnits,
+  upsertUnits,
+  deleteUnit,
+} from '../web/controllers/buildingUnitsController';
 import { authenticateToken } from '../web/middlewares/authMiddleware';
 
 const router = Router();
@@ -35,6 +41,12 @@ router.post('/:id/scenarios/sensitivity', buildingScenariosController.calculateS
 // CRUD básico de edificios (continuación)
 router.get('/:id', buildingController.getBuilding);
 router.put('/:id', buildingController.updateBuilding);
+
+// Gestión de unidades
+router.get('/:id/units', listUnits);
+router.post('/:id/units', upsertUnits);
+router.post('/:id/units/from-catastro', importUnitsFromCatastro);
+router.delete('/:id/units/:unitId', deleteUnit);
 
 // Endpoints para gestión de imágenes
 router.post('/:id/images', buildingController.uploadImages);

@@ -16,7 +16,10 @@ const esg_1 = __importDefault(require("./esg"));
 const dashboard_1 = __importDefault(require("./dashboard"));
 const notifications_1 = __importDefault(require("./notifications"));
 const financialSnapshots_1 = __importDefault(require("./financialSnapshots"));
+const rents_1 = __importDefault(require("./rents"));
 const catastroApi_1 = __importDefault(require("./catastroApi"));
+const PVGISApi_1 = __importDefault(require("./PVGISApi"));
+const MITECOApi_1 = __importDefault(require("./MITECOApi"));
 const router = (0, express_1.Router)();
 router.get("/", (_req, res) => {
     res.json({ message: "¡Bienvenido a la API de Activo Digital Backend!" });
@@ -33,6 +36,9 @@ router.use("/esg", esg_1.default);
 router.use("/dashboard", dashboard_1.default);
 router.use("/notifications", notifications_1.default);
 router.use("/financial-snapshots", financialSnapshots_1.default);
+router.use("/rents", rents_1.default);
 router.use("/catastroApi", catastroApi_1.default);
+router.use("/PVGISApi", PVGISApi_1.default);
+router.use("/MITECOApi", MITECOApi_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map
