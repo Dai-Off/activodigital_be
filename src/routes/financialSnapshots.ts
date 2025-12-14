@@ -10,6 +10,8 @@ router.use(authenticateToken);
 
 // CRUD de financial snapshots
 router.post('/', financialSnapshotController.createFinancialSnapshot);
+router.get('/', financialSnapshotController.getAllFinancialSnapshots);
+router.get('/summary', financialSnapshotController.getAllFinancialSnapshotsSummary);
 router.get('/building/:buildingId', financialSnapshotController.getFinancialSnapshots);
 router.get('/:id', financialSnapshotController.getFinancialSnapshot);
 router.put('/:id', financialSnapshotController.updateFinancialSnapshot);
