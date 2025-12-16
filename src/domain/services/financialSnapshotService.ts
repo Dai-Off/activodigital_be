@@ -1,7 +1,7 @@
 import { getSupabaseClient } from '../../lib/supabase';
-import { 
-  FinancialSnapshot, 
-  CreateFinancialSnapshotRequest, 
+import {
+  FinancialSnapshot,
+  CreateFinancialSnapshotRequest,
   UpdateFinancialSnapshotRequest
 } from '../../types/financialSnapshot';
 import { generateBuildingEmbedding } from '../../lib/embeddingHelper';
@@ -17,7 +17,7 @@ export class FinancialSnapshotService {
     if (concentracion > 1) {
       concentracion = concentracion / 100;
     }
-    
+
     let mora = data.mora_pct_12m;
     if (mora !== null && mora !== undefined && mora > 1) {
       mora = mora / 100;
@@ -93,6 +93,24 @@ export class FinancialSnapshotService {
     return snapshots.map(s => this.mapToFinancialSnapshot(s));
   }
 
+  async getAllFinancialSnapshotsBuilding(): Promise<FinancialSnapshot[]> {
+    const { data: snapshots, error } = await this.getSupabase()
+      .from('financial_snapshots')
+      .select('*, buildings(name, typology, address, images )')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error al obtener financial snapshots: ${error.message}`);
+    }
+
+    // Si no hay snapshots, devolver array vacío
+    if (!snapshots || snapshots.length === 0) {
+      return [];
+    }
+
+    return snapshots.map(s => this.mapToFinancialSnapshot(s));
+  }
+
   async getFinancialSnapshotById(id: string, userAuthId: string): Promise<FinancialSnapshot | null> {
     const { data: snapshot, error } = await this.getSupabase()
       .from('financial_snapshots')
@@ -112,7 +130,7 @@ export class FinancialSnapshotService {
 
   async updateFinancialSnapshot(id: string, data: UpdateFinancialSnapshotRequest, userAuthId: string): Promise<FinancialSnapshot | null> {
     const updateData: any = {};
-    
+
     if (data.period_start !== undefined) updateData.period_start = data.period_start;
     if (data.period_end !== undefined) updateData.period_end = data.period_end;
     if (data.currency !== undefined) updateData.currency = data.currency;
@@ -171,6 +189,7 @@ export class FinancialSnapshotService {
   }
 
   private mapToFinancialSnapshot(dbRow: any): FinancialSnapshot {
+
     return {
       id: dbRow.id,
       building_id: dbRow.building_id,
@@ -198,6 +217,28 @@ export class FinancialSnapshotService {
       lead_time_rehab_semanas: dbRow.estimated_rehab_duration_weeks,
       // Supabase devuelve JSONB ya como objeto, no necesita JSON.parse()
       meta: dbRow.meta || undefined,
+      activo: dbRow?.buildings?.name,
+      direccion: dbRow?.buildings?.address,
+      topologia: dbRow?.buildings?.typology,
+      images: (dbRow?.buildings?.images || []).map((img: any) => ({
+        id: img.id,
+        url: img.url,
+        title: img.title,
+        filename: img.filename || img.title,
+        isMain: img.isMain,
+        uploadedAt: img.uploadedAt || new Date().toISOString()
+      })),
+
+      estado_actual: dbRow?.current_status,
+      potencial: { letra: dbRow?.potencial_status_letter, variacion: dbRow?.potential_variation },
+      tir: { valor: dbRow?.tir_value, plazo: dbRow?.tir_term },
+      cash_on_cash: { valor: dbRow?.cash_on_cash_value, multiplicador: dbRow?.cash_on_cash_multiplicador },
+      capex: { total: dbRow?.capex_total, descripcion: dbRow?.capex_description, estimated: dbRow?.estimated_rehab_capex_eur },
+      subvencion: { valor: dbRow?.subvention_value, porcentaje: dbRow?.subvention_porcent },
+      green_premium: { valor: dbRow?.green_premium_value, roi: dbRow?.green_premium_roi },
+      plazo: dbRow?.term,
+      taxonomia: { porcentaje: dbRow?.taxonomy },
+      estado: { etiqueta: dbRow?.status_tag, score: dbRow?.status_score },
       created_at: dbRow.created_at,
       updated_at: dbRow.updated_at,
     };
