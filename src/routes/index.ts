@@ -17,6 +17,7 @@ import PVGISApi from "./PVGISApi";
 import MITECOApi from "./MITECOApi";
 import insurance from "./insurance";
 import calendar from "./calendar";
+import idealistaScraper from "./idealistaScraper";
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use("/PVGISApi", PVGISApi);
 router.use("/MITECOApi", MITECOApi);
 router.use("/insurances", insurance);
 router.use("/calendar", calendar);
+router.use("/idealistascraper", idealistaScraper);
 
 export default router;
