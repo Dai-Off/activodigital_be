@@ -16,6 +16,7 @@ import catastroApi from "./catastroApi";
 import PVGISApi from "./PVGISApi";
 import MITECOApi from "./MITECOApi";
 import insurance from "./insurance";
+import calendar from "./calendar";
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use("/catastroApi", catastroApi);
 router.use("/PVGISApi", PVGISApi);
 router.use("/MITECOApi", MITECOApi);
 router.use("/insurances", insurance);
+router.use("/calendar", calendar);
 
 export default router;
