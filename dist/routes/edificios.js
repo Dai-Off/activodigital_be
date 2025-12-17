@@ -4,12 +4,16 @@ const express_1 = require("express");
 const edificioController_1 = require("../web/controllers/edificioController");
 const buildingMetricsController_1 = require("../web/controllers/buildingMetricsController");
 const buildingScenariosController_1 = require("../web/controllers/buildingScenariosController");
+const technicalAuditController_1 = require("../web/controllers/technicalAuditController");
+const financialAuditController_1 = require("../web/controllers/financialAuditController");
 const buildingUnitsController_1 = require("../web/controllers/buildingUnitsController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
 const router = (0, express_1.Router)();
 const buildingController = new edificioController_1.BuildingController();
 const buildingMetricsController = new buildingMetricsController_1.BuildingMetricsController();
 const buildingScenariosController = new buildingScenariosController_1.BuildingScenariosController();
+const technicalAuditController = new technicalAuditController_1.TechnicalAuditController();
+const financialAuditController = new financialAuditController_1.FinancialAuditController();
 // Todas las rutas requieren autenticación
 router.use(authMiddleware_1.authenticateToken);
 // CRUD básico de edificios
@@ -23,6 +27,9 @@ router.get('/:id/noi', buildingMetricsController.getNOI);
 router.get('/:id/dscr', buildingMetricsController.getDSCR);
 router.get('/:id/opex-ratio', buildingMetricsController.getOpexRatio);
 router.get('/:id/value-gap', buildingMetricsController.getValueGap);
+// Endpoints de auditoría (GET) - deben ir antes de /:id para evitar conflictos
+router.get('/:id/audits/technical', technicalAuditController.getTechnicalAudit);
+router.get('/:id/audits/financial', financialAuditController.getFinancialAudit);
 // Endpoints de escenarios financieros (POST)
 router.post('/:id/scenarios/rehab/simulate', buildingScenariosController.simulateRehab);
 router.post('/:id/scenarios/cashflow/run', buildingScenariosController.runCashflow);

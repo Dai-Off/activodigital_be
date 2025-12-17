@@ -3,6 +3,7 @@ import { BuildingController } from '../web/controllers/edificioController';
 import { BuildingMetricsController } from '../web/controllers/buildingMetricsController';
 import { BuildingScenariosController } from '../web/controllers/buildingScenariosController';
 import { TechnicalAuditController } from '../web/controllers/technicalAuditController';
+import { FinancialAuditController } from '../web/controllers/financialAuditController';
 import {
   importUnitsFromCatastro,
   listUnits,
@@ -16,6 +17,7 @@ const buildingController = new BuildingController();
 const buildingMetricsController = new BuildingMetricsController();
 const buildingScenariosController = new BuildingScenariosController();
 const technicalAuditController = new TechnicalAuditController();
+const financialAuditController = new FinancialAuditController();
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
@@ -33,8 +35,9 @@ router.get('/:id/dscr', buildingMetricsController.getDSCR);
 router.get('/:id/opex-ratio', buildingMetricsController.getOpexRatio);
 router.get('/:id/value-gap', buildingMetricsController.getValueGap);
 
-// Endpoints de auditoría técnica (GET) - deben ir antes de /:id para evitar conflictos
+// Endpoints de auditoría (GET) - deben ir antes de /:id para evitar conflictos
 router.get('/:id/audits/technical', technicalAuditController.getTechnicalAudit);
+router.get('/:id/audits/financial', financialAuditController.getFinancialAudit);
 
 // Endpoints de escenarios financieros (POST)
 router.post('/:id/scenarios/rehab/simulate', buildingScenariosController.simulateRehab);

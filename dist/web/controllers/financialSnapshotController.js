@@ -2,6 +2,40 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinancialSnapshotController = void 0;
 const financialSnapshotService_1 = require("../../domain/services/financialSnapshotService");
+const calculateSummary = (snapshots) => {
+    const total_activos = snapshots.length;
+    let bankReady = 0;
+    const countReadys = snapshots?.filter(dt => dt?.estado?.etiqueta === "Bank-Ready");
+    bankReady = countReadys.length;
+    const tirValues = [];
+    const summary = snapshots.reduce((acc, snapshot) => {
+        const currentCapexTotal = snapshot.capex?.total ?? 0;
+        if (typeof currentCapexTotal === 'number') {
+            acc.capex_total += currentCapexTotal;
+        }
+        const currentValorCreado = snapshot.green_premium?.valor ?? 0;
+        if (typeof currentValorCreado === 'number') {
+            acc.valor_creado += currentValorCreado;
+        }
+        const currentTirValor = snapshot.tir?.valor;
+        if (typeof currentTirValor === 'number') {
+            tirValues.push(currentTirValor);
+        }
+        return acc;
+    }, {
+        total_activos: total_activos,
+        capex_total: 0,
+        valor_creado: 0,
+        tir_promedio: 0
+    }); // Se usa un cast para inicializar con null
+    if (tirValues.length > 0) {
+        const sumTir = tirValues.reduce((sum, value) => sum + value, 0);
+        let rawTirPromedio = (sumTir / tirValues.length);
+        const formattedTirPromedio = parseFloat(rawTirPromedio.toFixed(2));
+        summary.tir_promedio = formattedTirPromedio;
+    }
+    return { ...summary, total_activos, bankReady };
+};
 class FinancialSnapshotController {
     constructor() {
         this.createFinancialSnapshot = async (req, res) => {
@@ -42,6 +76,38 @@ class FinancialSnapshotController {
             }
             catch (error) {
                 console.error('Error al obtener financial snapshots:', error);
+                res.status(500).json({ error: 'Error interno del servidor' });
+            }
+        };
+        this.getAllFinancialSnapshots = async (req, res) => {
+            try {
+                const userId = req.user?.id;
+                if (!userId) {
+                    res.status(401).json({ error: 'Usuario no autenticado' });
+                    return;
+                }
+                const snapshots = await this.getService().getAllFinancialSnapshotsBuilding();
+                res.json({ data: snapshots });
+            }
+            catch (error) {
+                console.error('Error al obtener financial snapshots:', error);
+                res.status(500).json({ error: 'Error interno del servidor' });
+            }
+        };
+        this.getAllFinancialSnapshotsSummary = async (req, res) => {
+            try {
+                const userId = req.user?.id;
+                if (!userId) {
+                    res.status(401).json({ error: 'Usuario no autenticado' });
+                    return;
+                }
+                const snapshots = await this.getService().getAllFinancialSnapshotsBuilding();
+                const summary = calculateSummary(snapshots);
+                // 3. Devolver el resumen
+                res.json({ data: summary });
+            }
+            catch (error) {
+                console.error('Error al obtener financial snapshots summary:', error);
                 res.status(500).json({ error: 'Error interno del servidor' });
             }
         };
