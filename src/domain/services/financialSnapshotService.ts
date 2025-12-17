@@ -1,17 +1,20 @@
-import { getSupabaseClient } from '../../lib/supabase';
+import { getSupabaseClient } from "../../lib/supabase";
 import {
   FinancialSnapshot,
   CreateFinancialSnapshotRequest,
-  UpdateFinancialSnapshotRequest
-} from '../../types/financialSnapshot';
-import { generateBuildingEmbedding } from '../../lib/embeddingHelper';
+  UpdateFinancialSnapshotRequest,
+} from "../../types/financialSnapshot";
+import { generateBuildingEmbedding } from "../../lib/embeddingHelper";
 
 export class FinancialSnapshotService {
   getSupabase() {
     return getSupabaseClient();
   }
 
-  async createFinancialSnapshot(data: CreateFinancialSnapshotRequest, userAuthId: string): Promise<FinancialSnapshot> {
+  async createFinancialSnapshot(
+    data: CreateFinancialSnapshotRequest,
+    userAuthId: string
+  ): Promise<FinancialSnapshot> {
     // Normalizar ratios a 0-1 si vienen como 0-100
     let concentracion = data.concentracion_top1_pct_noi;
     if (concentracion > 1) {
@@ -51,35 +54,43 @@ export class FinancialSnapshotService {
       meta: data.meta ?? null,
     };
 
-    console.log('Insertando/actualizando snapshot con datos:', JSON.stringify(snapData, null, 2));
+    console.log(
+      "Insertando/actualizando snapshot con datos:",
+      JSON.stringify(snapData, null, 2)
+    );
 
     // Intentar hacer UPSERT (actualizar si existe, insertar si no)
     const { data: snapshot, error } = await this.getSupabase()
-      .from('financial_snapshots')
+      .from("financial_snapshots")
       .upsert(snapData, {
-        onConflict: 'building_id,period_start,period_end',
-        ignoreDuplicates: false
+        onConflict: "building_id,period_start,period_end",
+        ignoreDuplicates: false,
       })
       .select()
       .single();
 
     if (error) {
-      throw new Error(`Error al crear/actualizar financial snapshot: ${error.message}`);
+      throw new Error(
+        `Error al crear/actualizar financial snapshot: ${error.message}`
+      );
     }
 
-    generateBuildingEmbedding(snapshot.building_id).catch(err => {
-      console.error('Error generando embeddings:', err);
+    generateBuildingEmbedding(snapshot.building_id).catch((err) => {
+      console.error("Error generando embeddings:", err);
     });
 
     return this.mapToFinancialSnapshot(snapshot);
   }
 
-  async getFinancialSnapshotsByBuilding(buildingId: string, userAuthId: string): Promise<FinancialSnapshot[]> {
+  async getFinancialSnapshotsByBuilding(
+    buildingId: string,
+    userAuthId: string
+  ): Promise<FinancialSnapshot[]> {
     const { data: snapshots, error } = await this.getSupabase()
-      .from('financial_snapshots')
-      .select('*')
-      .eq('building_id', buildingId)
-      .order('created_at', { ascending: false });
+      .from("financial_snapshots")
+      .select("*")
+      .eq("building_id", buildingId)
+      .order("created_at", { ascending: false });
 
     if (error) {
       throw new Error(`Error al obtener financial snapshots: ${error.message}`);
@@ -90,14 +101,14 @@ export class FinancialSnapshotService {
       return [];
     }
 
-    return snapshots.map(s => this.mapToFinancialSnapshot(s));
+    return snapshots.map((s) => this.mapToFinancialSnapshot(s));
   }
 
   async getAllFinancialSnapshotsBuilding(): Promise<FinancialSnapshot[]> {
     const { data: snapshots, error } = await this.getSupabase()
-      .from('financial_snapshots')
-      .select('*, buildings(name, typology, address, images )')
-      .order('created_at', { ascending: false });
+      .from("financial_snapshots")
+      .select("*, buildings(name, typology, address, images )")
+      .order("created_at", { ascending: false });
 
     if (error) {
       throw new Error(`Error al obtener financial snapshots: ${error.message}`);
@@ -108,18 +119,21 @@ export class FinancialSnapshotService {
       return [];
     }
 
-    return snapshots.map(s => this.mapToFinancialSnapshot(s));
+    return snapshots.map((s) => this.mapToFinancialSnapshot(s));
   }
 
-  async getFinancialSnapshotById(id: string, userAuthId: string): Promise<FinancialSnapshot | null> {
+  async getFinancialSnapshotById(
+    id: string,
+    userAuthId: string
+  ): Promise<FinancialSnapshot | null> {
     const { data: snapshot, error } = await this.getSupabase()
-      .from('financial_snapshots')
-      .select('*')
-      .eq('id', id)
+      .from("financial_snapshots")
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null;
       }
       throw new Error(`Error al obtener financial snapshot: ${error.message}`);
@@ -128,50 +142,76 @@ export class FinancialSnapshotService {
     return this.mapToFinancialSnapshot(snapshot);
   }
 
-  async updateFinancialSnapshot(id: string, data: UpdateFinancialSnapshotRequest, userAuthId: string): Promise<FinancialSnapshot | null> {
+  async updateFinancialSnapshot(
+    id: string,
+    data: UpdateFinancialSnapshotRequest,
+    userAuthId: string
+  ): Promise<FinancialSnapshot | null> {
     const updateData: any = {};
 
-    if (data.period_start !== undefined) updateData.period_start = data.period_start;
+    if (data.period_start !== undefined)
+      updateData.period_start = data.period_start;
     if (data.period_end !== undefined) updateData.period_end = data.period_end;
     if (data.currency !== undefined) updateData.currency = data.currency;
-    if (data.ingresos_brutos_anuales_eur !== undefined) updateData.gross_annual_revenue_eur = data.ingresos_brutos_anuales_eur;
-    if (data.otros_ingresos_anuales_eur !== undefined) updateData.other_annual_revenue_eur = data.otros_ingresos_anuales_eur;
+    if (data.ingresos_brutos_anuales_eur !== undefined)
+      updateData.gross_annual_revenue_eur = data.ingresos_brutos_anuales_eur;
+    if (data.otros_ingresos_anuales_eur !== undefined)
+      updateData.other_annual_revenue_eur = data.otros_ingresos_anuales_eur;
     if (data.walt_meses !== undefined) updateData.walt_months = data.walt_meses;
-    if (data.concentracion_top1_pct_noi !== undefined) updateData.top_tenant_concentration_pct = data.concentracion_top1_pct_noi;
-    if (data.indexacion_ok !== undefined) updateData.has_indexation_clause = data.indexacion_ok;
-    if (data.mora_pct_12m !== undefined) updateData.delinquency_rate_12m = data.mora_pct_12m;
-    if (data.opex_total_anual_eur !== undefined) updateData.total_annual_opex_eur = data.opex_total_anual_eur;
-    if (data.opex_energia_anual_eur !== undefined) updateData.annual_energy_opex_eur = data.opex_energia_anual_eur;
-    if (data.opex_mantenimiento_anual_eur !== undefined) updateData.annual_maintenance_opex_eur = data.opex_mantenimiento_anual_eur;
-    if (data.opex_seguros_anual_eur !== undefined) updateData.annual_insurance_opex_eur = data.opex_seguros_anual_eur;
-    if (data.opex_otros_anual_eur !== undefined) updateData.annual_other_opex_eur = data.opex_otros_anual_eur;
+    if (data.concentracion_top1_pct_noi !== undefined)
+      updateData.top_tenant_concentration_pct = data.concentracion_top1_pct_noi;
+    if (data.indexacion_ok !== undefined)
+      updateData.has_indexation_clause = data.indexacion_ok;
+    if (data.mora_pct_12m !== undefined)
+      updateData.delinquency_rate_12m = data.mora_pct_12m;
+    if (data.opex_total_anual_eur !== undefined)
+      updateData.total_annual_opex_eur = data.opex_total_anual_eur;
+    if (data.opex_energia_anual_eur !== undefined)
+      updateData.annual_energy_opex_eur = data.opex_energia_anual_eur;
+    if (data.opex_mantenimiento_anual_eur !== undefined)
+      updateData.annual_maintenance_opex_eur =
+        data.opex_mantenimiento_anual_eur;
+    if (data.opex_seguros_anual_eur !== undefined)
+      updateData.annual_insurance_opex_eur = data.opex_seguros_anual_eur;
+    if (data.opex_otros_anual_eur !== undefined)
+      updateData.annual_other_opex_eur = data.opex_otros_anual_eur;
     if (data.dscr !== undefined) updateData.dscr = data.dscr;
-    if (data.servicio_deuda_anual_eur !== undefined) updateData.annual_debt_service_eur = data.servicio_deuda_anual_eur;
-    if (data.penalidad_prepago_alta !== undefined) updateData.has_high_prepayment_penalty = data.penalidad_prepago_alta;
-    if (data.principal_pendiente_eur !== undefined) updateData.outstanding_principal_eur = data.principal_pendiente_eur;
-    if (data.capex_rehab_estimado_eur !== undefined) updateData.estimated_rehab_capex_eur = data.capex_rehab_estimado_eur;
-    if (data.ahorro_energia_pct_estimado !== undefined) updateData.estimated_energy_savings_pct = data.ahorro_energia_pct_estimado;
-    if (data.uplift_precio_pct_estimado !== undefined) updateData.estimated_price_uplift_pct = data.uplift_precio_pct_estimado;
-    if (data.lead_time_rehab_semanas !== undefined) updateData.estimated_rehab_duration_weeks = data.lead_time_rehab_semanas;
+    if (data.servicio_deuda_anual_eur !== undefined)
+      updateData.annual_debt_service_eur = data.servicio_deuda_anual_eur;
+    if (data.penalidad_prepago_alta !== undefined)
+      updateData.has_high_prepayment_penalty = data.penalidad_prepago_alta;
+    if (data.principal_pendiente_eur !== undefined)
+      updateData.outstanding_principal_eur = data.principal_pendiente_eur;
+    if (data.capex_rehab_estimado_eur !== undefined)
+      updateData.estimated_rehab_capex_eur = data.capex_rehab_estimado_eur;
+    if (data.ahorro_energia_pct_estimado !== undefined)
+      updateData.estimated_energy_savings_pct =
+        data.ahorro_energia_pct_estimado;
+    if (data.uplift_precio_pct_estimado !== undefined)
+      updateData.estimated_price_uplift_pct = data.uplift_precio_pct_estimado;
+    if (data.lead_time_rehab_semanas !== undefined)
+      updateData.estimated_rehab_duration_weeks = data.lead_time_rehab_semanas;
     // Supabase maneja JSONB automáticamente, no necesita JSON.stringify()
     if (data.meta !== undefined) updateData.meta = data.meta;
 
     const { data: snapshot, error } = await this.getSupabase()
-      .from('financial_snapshots')
+      .from("financial_snapshots")
       .update(updateData)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null;
       }
-      throw new Error(`Error al actualizar financial snapshot: ${error.message}`);
+      throw new Error(
+        `Error al actualizar financial snapshot: ${error.message}`
+      );
     }
 
-    generateBuildingEmbedding(snapshot.building_id).catch(err => {
-      console.error('Error generando embeddings:', err);
+    generateBuildingEmbedding(snapshot.building_id).catch((err) => {
+      console.error("Error generando embeddings:", err);
     });
 
     return this.mapToFinancialSnapshot(snapshot);
@@ -179,9 +219,9 @@ export class FinancialSnapshotService {
 
   async deleteFinancialSnapshot(id: string, userAuthId: string): Promise<void> {
     const { error } = await this.getSupabase()
-      .from('financial_snapshots')
+      .from("financial_snapshots")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) {
       throw new Error(`Error al eliminar financial snapshot: ${error.message}`);
@@ -189,7 +229,6 @@ export class FinancialSnapshotService {
   }
 
   private mapToFinancialSnapshot(dbRow: any): FinancialSnapshot {
-
     return {
       id: dbRow.id,
       building_id: dbRow.building_id,
@@ -197,23 +236,45 @@ export class FinancialSnapshotService {
       period_end: dbRow.period_end,
       currency: dbRow.currency,
       ingresos_brutos_anuales_eur: parseFloat(dbRow.gross_annual_revenue_eur),
-      otros_ingresos_anuales_eur: dbRow.other_annual_revenue_eur ? parseFloat(dbRow.other_annual_revenue_eur) : null,
+      otros_ingresos_anuales_eur: dbRow.other_annual_revenue_eur
+        ? parseFloat(dbRow.other_annual_revenue_eur)
+        : null,
       walt_meses: dbRow.walt_months,
-      concentracion_top1_pct_noi: parseFloat(dbRow.top_tenant_concentration_pct),
+      concentracion_top1_pct_noi: parseFloat(
+        dbRow.top_tenant_concentration_pct
+      ),
       indexacion_ok: dbRow.has_indexation_clause,
-      mora_pct_12m: dbRow.delinquency_rate_12m ? parseFloat(dbRow.delinquency_rate_12m) : null,
+      mora_pct_12m: dbRow.delinquency_rate_12m
+        ? parseFloat(dbRow.delinquency_rate_12m)
+        : null,
       opex_total_anual_eur: parseFloat(dbRow.total_annual_opex_eur),
       opex_energia_anual_eur: parseFloat(dbRow.annual_energy_opex_eur),
-      opex_mantenimiento_anual_eur: dbRow.annual_maintenance_opex_eur ? parseFloat(dbRow.annual_maintenance_opex_eur) : null,
-      opex_seguros_anual_eur: dbRow.annual_insurance_opex_eur ? parseFloat(dbRow.annual_insurance_opex_eur) : null,
-      opex_otros_anual_eur: dbRow.annual_other_opex_eur ? parseFloat(dbRow.annual_other_opex_eur) : null,
+      opex_mantenimiento_anual_eur: dbRow.annual_maintenance_opex_eur
+        ? parseFloat(dbRow.annual_maintenance_opex_eur)
+        : null,
+      opex_seguros_anual_eur: dbRow.annual_insurance_opex_eur
+        ? parseFloat(dbRow.annual_insurance_opex_eur)
+        : null,
+      opex_otros_anual_eur: dbRow.annual_other_opex_eur
+        ? parseFloat(dbRow.annual_other_opex_eur)
+        : null,
       dscr: dbRow.dscr ? parseFloat(dbRow.dscr) : null,
-      servicio_deuda_anual_eur: dbRow.annual_debt_service_eur ? parseFloat(dbRow.annual_debt_service_eur) : null,
+      servicio_deuda_anual_eur: dbRow.annual_debt_service_eur
+        ? parseFloat(dbRow.annual_debt_service_eur)
+        : null,
       penalidad_prepago_alta: dbRow.has_high_prepayment_penalty,
-      principal_pendiente_eur: dbRow.outstanding_principal_eur ? parseFloat(dbRow.outstanding_principal_eur) : null,
-      capex_rehab_estimado_eur: dbRow.estimated_rehab_capex_eur ? parseFloat(dbRow.estimated_rehab_capex_eur) : null,
-      ahorro_energia_pct_estimado: dbRow.estimated_energy_savings_pct ? parseFloat(dbRow.estimated_energy_savings_pct) : null,
-      uplift_precio_pct_estimado: dbRow.estimated_price_uplift_pct ? parseFloat(dbRow.estimated_price_uplift_pct) : null,
+      principal_pendiente_eur: dbRow.outstanding_principal_eur
+        ? parseFloat(dbRow.outstanding_principal_eur)
+        : null,
+      capex_rehab_estimado_eur: dbRow.estimated_rehab_capex_eur
+        ? parseFloat(dbRow.estimated_rehab_capex_eur)
+        : null,
+      ahorro_energia_pct_estimado: dbRow.estimated_energy_savings_pct
+        ? parseFloat(dbRow.estimated_energy_savings_pct)
+        : null,
+      uplift_precio_pct_estimado: dbRow.estimated_price_uplift_pct
+        ? parseFloat(dbRow.estimated_price_uplift_pct)
+        : null,
       lead_time_rehab_semanas: dbRow.estimated_rehab_duration_weeks,
       // Supabase devuelve JSONB ya como objeto, no necesita JSON.parse()
       meta: dbRow.meta || undefined,
@@ -226,16 +287,32 @@ export class FinancialSnapshotService {
         title: img.title,
         filename: img.filename || img.title,
         isMain: img.isMain,
-        uploadedAt: img.uploadedAt || new Date().toISOString()
+        uploadedAt: img.uploadedAt || new Date().toISOString(),
       })),
 
       estado_actual: dbRow?.current_status,
-      potencial: { letra: dbRow?.potencial_status_letter, variacion: dbRow?.potential_variation },
+      potencial: {
+        letra: dbRow?.potencial_status_letter,
+        variacion: dbRow?.potential_variation,
+      },
       tir: { valor: dbRow?.tir_value, plazo: dbRow?.tir_term },
-      cash_on_cash: { valor: dbRow?.cash_on_cash_value, multiplicador: dbRow?.cash_on_cash_multiplicador },
-      capex: { total: dbRow?.capex_total, descripcion: dbRow?.capex_description, estimated: dbRow?.estimated_rehab_capex_eur },
-      subvencion: { valor: dbRow?.subvention_value, porcentaje: dbRow?.subvention_porcent },
-      green_premium: { valor: dbRow?.green_premium_value, roi: dbRow?.green_premium_roi },
+      cash_on_cash: {
+        valor: dbRow?.cash_on_cash_value,
+        multiplicador: dbRow?.cash_on_cash_multiplicador,
+      },
+      capex: {
+        total: dbRow?.capex_total,
+        descripcion: dbRow?.capex_description,
+        estimated: dbRow?.estimated_rehab_capex_eur,
+      },
+      subvencion: {
+        valor: dbRow?.subvention_value,
+        porcentaje: dbRow?.subvention_porcent,
+      },
+      green_premium: {
+        valor: dbRow?.green_premium_value,
+        roi: dbRow?.green_premium_roi,
+      },
       plazo: dbRow?.term,
       taxonomia: { porcentaje: dbRow?.taxonomy },
       estado: { etiqueta: dbRow?.status_tag, score: dbRow?.status_score },
@@ -244,4 +321,3 @@ export class FinancialSnapshotService {
     };
   }
 }
-
