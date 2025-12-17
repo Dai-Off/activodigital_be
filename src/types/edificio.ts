@@ -49,6 +49,39 @@ export interface Building {
   userId?: string; // Mantener por compatibilidad temporal
 }
 
+export interface BuildingUnit {
+  id: string;
+  buildingId: string;
+  name: string | null;
+  identifier?: string | null;
+  floor?: string | null;
+  areaM2?: number | null;
+  useType?: string | null;
+  status?: string | null;
+  rent?: number | null;
+  tenant?: string | null;
+  rooms?: number | null;
+  baths?: number | null;
+  rawData?: any;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateBuildingUnitRequest {
+  id?: string;
+  name: string | null;
+  identifier?: string | null;
+  floor?: string | null;
+  areaM2?: number | null;
+  useType?: string | null;
+  status?: string | null;
+  rent?: number | null;
+  tenant?: string | null;
+  rooms?: number | null;
+  baths?: number | null;
+  rawData?: any;
+}
+
 // DTOs para requests
 export interface CreateBuildingRequest {
   name: string;

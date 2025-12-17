@@ -118,17 +118,11 @@ class NotificationService {
      * LÓGICA PRINCIPAL: Obtiene las notificaciones NO LEÍDAS de un edificio.
      * Realiza el filtrado en el servicio (cliente) sin stored procedures.
      */
-    async getUnreadBuildingNotificationsForUser(userId, buildingId, limit = 50) {
-        // PASO 1: Obtener las últimas N notificaciones del edificio
-        // Traemos un poco más del límite deseado para tener margen tras el filtrado
-        const fetchLimit = limit + 20;
-        const buildingNotifications = await this.getBuildingNotifications(buildingId, { limit: fetchLimit });
+    async getUnreadBuildingNotificationsForUser(userId, limit = 50) {
+        const buildingNotifications = await this.getUserNotifications(userId);
         if (buildingNotifications.length === 0)
             return [];
-        // PASO 2: Obtener la lista de IDs que el usuario ya leyó
         const readIds = await this.getUserReadNotificationIds(userId);
-        // PASO 3: Filtrar en memoria
-        // Solo devolvemos las que NO están en el Set de leídos
         const unreadNotifications = buildingNotifications.filter((notification) => !readIds.has(notification.id));
         // Ajustamos al límite solicitado por el usuario
         return unreadNotifications.slice(0, limit);
@@ -151,7 +145,6 @@ class NotificationService {
         if (countError) {
             throw new Error(`Error (conteo previo) al eliminar notificaciones: ${countError.message}`);
         }
-        // Si no hay nada que borrar, retornamos 0 inmediatamente
         const countToDelete = preCount || 0;
         if (countToDelete === 0) {
             return 0;
@@ -162,7 +155,7 @@ class NotificationService {
             .from("notifications")
             .delete()
             .eq("building_id", buildingId)
-            .lt("created_at", cutoffDateISO); // Mismos filtros
+            .lt("created_at", cutoffDateISO);
         if (deleteError) {
             throw new Error(`Error (eliminación) al eliminar notificaciones: ${deleteError.message}`);
         }
@@ -176,7 +169,6 @@ class NotificationService {
      */
     async getUserNotifications(userId, filters = {}) {
         // 1. Obtener la lista de IDs de edificios del usuario
-        console.log(userId);
         const rawBuildings = await buildingService.getBuildingsByUser(userId);
         const buildingIds = rawBuildings.map((building) => building.id);
         if (buildingIds.length === 0) {
@@ -185,13 +177,11 @@ class NotificationService {
         let query = this.getSupabase()
             .from("notifications")
             .select("*")
-            // 2. Filtrar por todos los building_ids del usuario
             .in("building_id", buildingIds)
             .order("created_at", { ascending: false });
         if (filters.type) {
             query = query.eq("type", filters.type);
         }
-        // Aplicar límites si existen
         if (filters.limit) {
             query = query.limit(filters.limit);
         }
@@ -274,12 +264,11 @@ class NotificationService {
     // ==========================================
     // 4. ELIMINACIÓN Y UTILIDADES
     // ==========================================
-    async deleteNotification(id, buildingId) {
+    async deleteNotification(id) {
         const { error } = await this.getSupabase()
             .from("notifications")
             .delete()
-            .eq("id", id)
-            .eq("building_id", buildingId);
+            .eq("id", id);
         if (error)
             throw new Error(error.message);
         return true;
@@ -292,6 +281,7 @@ class NotificationService {
             title: data.title,
             expiration: data.expiration,
             priority: data.priority,
+            created_at: data.created_at,
         };
     }
 }

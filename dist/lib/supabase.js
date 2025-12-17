@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSupabaseClientForToken = exports.getSupabaseAnonClient = exports.getSupabaseAdminClient = exports.getSupabaseClient = void 0;
+exports.getSupabaseServiceRoleClient = exports.getSupabaseClientForToken = exports.getSupabaseAnonClient = exports.getSupabaseAdminClient = exports.getSupabaseClient = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 // Singleton client for server-side usage. Prefers SERVICE role if available,
 // falls back to ANON for read-only/basic access.
@@ -76,4 +76,28 @@ const getSupabaseClientForToken = (token) => {
     });
 };
 exports.getSupabaseClientForToken = getSupabaseClientForToken;
+// ! esta para cuando trabajamos en desarrollo. 
+let serviceRoleClient = null;
+const getSupabaseServiceRoleClient = () => {
+    if (serviceRoleClient)
+        return serviceRoleClient;
+    const url = (process.env.SUPABASE_URL || '').trim();
+    const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+    if (!url)
+        throw new Error('Missing env SUPABASE_URL');
+    if (!serviceRoleKey) {
+        throw new Error('Missing env SUPABASE_SERVICE_ROLE_KEY. Service role key is required to bypass RLS policies.');
+    }
+    if (url.startsWith('@')) {
+        console.warn('SUPABASE_URL starts with @, please remove it. Using value as-is may fail.');
+    }
+    serviceRoleClient = (0, supabase_js_1.createClient)(url, serviceRoleKey, {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+        },
+    });
+    return serviceRoleClient;
+};
+exports.getSupabaseServiceRoleClient = getSupabaseServiceRoleClient;
 //# sourceMappingURL=supabase.js.map

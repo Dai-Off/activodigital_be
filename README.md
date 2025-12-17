@@ -32,15 +32,16 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - **Local:** `http://localhost:3000`
 - **Producción:** `https://activodigital-be.fly.dev`
 
-## 📚 Documentación
+## Documentación
 
-- **⚡ [Quick Start Guide](docs/quick-start.md)** - Setup rápido en 5 minutos
-- **🚀 [Guía del Desarrollador](docs/developer-guide.md)** - Guía completa para desarrolladores
-- **🔧 [Guía Técnica de Invitaciones](docs/invitations-technical-guide.md)** - Documentación técnica detallada del sistema de invitaciones
-- **📖 [API Reference](docs/api-examples.md)** - Referencia completa de la API
-- **🌱 [ESG API](docs/esg-api.md)** - Cálculo ESG (endpoint, payload, reglas y ejemplos)
-- **📊 [Dashboard API](docs/dashboard-api.md)** - Métricas y estadísticas del dashboard
-- **🤖 [AI Digital Book API](docs/ai-digital-book-api.md)** - Procesamiento automático de PDFs con IA
+- **[Quick Start Guide](docs/quick-start.md)** - Setup rápido en 5 minutos
+- **[Guía del Desarrollador](docs/developer-guide.md)** - Guía completa para desarrolladores
+- **[Guía Técnica de Invitaciones](docs/invitations-technical-guide.md)** - Documentación técnica detallada del sistema de invitaciones
+- **[API Reference](docs/api-examples.md)** - Referencia completa de la API
+- **[ESG API](docs/esg-api.md)** - Cálculo ESG (endpoint, payload, reglas y ejemplos)
+- **[Dashboard API](docs/dashboard-api.md)** - Métricas y estadísticas del dashboard
+- **[Technical Audit API](docs/technical-audit-api.md)** - Auditoría técnica completa de edificios
+- **[AI Digital Book API](docs/ai-digital-book-api.md)** - Procesamiento automático de PDFs con IA
 
 ## Setup Local
 

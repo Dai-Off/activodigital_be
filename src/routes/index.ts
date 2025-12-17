@@ -11,7 +11,14 @@ import esgRouter from "./esg";
 import dashboardRouter from "./dashboard";
 import notificationsRouter from "./notifications";
 import financialSnapshotsRouter from "./financialSnapshots";
+import rentsRouter from "./rents";
 import catastroApi from "./catastroApi";
+import PVGISApi from "./PVGISApi";
+import MITECOApi from "./MITECOApi";
+import insurance from "./insurance";
+import calendar from "./calendar";
+import idealistaScraper from "./idealistaScraper";
+
 const router = Router();
 
 router.get("/", (_req, res) => {
@@ -30,6 +37,12 @@ router.use("/esg", esgRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/financial-snapshots", financialSnapshotsRouter);
+router.use("/rents", rentsRouter);
 router.use("/catastroApi", catastroApi);
+router.use("/PVGISApi", PVGISApi);
+router.use("/MITECOApi", MITECOApi);
+router.use("/insurances", insurance);
+router.use("/calendar", calendar);
+router.use("/idealistascraper", idealistaScraper);
 
 export default router;

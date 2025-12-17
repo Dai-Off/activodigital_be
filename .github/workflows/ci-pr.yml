@@ -1,0 +1,45 @@
+name: CI PR
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para hacer merge
+
+      - name: Actualizar con rama base
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin ${{ github.base_ref }}
+          git merge origin/${{ github.base_ref }} || exit 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'      # o la versión que uses
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+        # TODO: Agregar script de lint en package.json cuando se configure ESLint
+
+      - name: Build
+        run: npm run build
