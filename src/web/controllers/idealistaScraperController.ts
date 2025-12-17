@@ -5,37 +5,29 @@ import { ScrapeIdealistaRequest } from "../../types/idealistaScraper";
 export class ApifyController {
   private apifyService = new ApifyService();
 
-  /**
-   * Endpoint para iniciar un scraping de Idealista bajo demanda.
-   * POST /api/apify/idealista
-   */
   scrapeIdealista = async (req: Request, res: Response): Promise<void> => {
     try {
-      // Casteamos el body
       const body = req.body as ScrapeIdealistaRequest;
 
-      // Validación básica
-      if (!body.searchUrl) {
+      if (!body.locationName) {
         res.status(400).json({
-          error: "Falta el campo obligatorio 'searchUrl'",
+          error:
+            "El campo 'locationName' es obligatorio para realizar la búsqueda.",
         });
         return;
       }
 
-      // Validar que sea una URL de idealista (opcional pero recomendado)
-      if (!body.searchUrl.includes("idealista.com")) {
-        res.status(400).json({
-          error: "La URL proporcionada no parece ser de Idealista",
-        });
-        return;
-      }
-
-      // Llamada al servicio
       const result = await this.apifyService.scrapeIdealistaProperties(body);
 
       res.status(200).json({
-        message: "Scraping completado exitosamente",
-        data: result,
+        message: "Scraping y análisis completado exitosamente",
+        data: {
+          location: body.locationName,
+          totalItems: result.totalItems,
+          averagePrice: result.averagePrice,
+          averagePricePerSqm: result.averagePricePerSqm,
+          items: result.items,
+        },
       });
     } catch (error) {
       console.error("Error al ejecutar scraping:", error);
