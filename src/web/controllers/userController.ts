@@ -53,14 +53,14 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Usuario no autenticado" });
     }
 
-    const { fullName } = req.body;
+    const { fullName, status } = req.body;
 
     const user = await userService.getUserByAuthId(userId);
     if (!user) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
-    const updatedUser = await userService.updateUser(user.id, { fullName });
+    const updatedUser = await userService.updateUser(user.id, { fullName, status });
     res.json(updatedUser);
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
@@ -143,11 +143,12 @@ export const editUser = async (req: Request, res: Response) => {
     if (!userId) {
       return res.status(400).json({ error: "userId requerido en parámetro" });
     }
-    const { fullName, roleId, email }: UpdateUserRequest = req.body;
+    const { fullName, roleId, email, status }: UpdateUserRequest = req.body;
     const usuario = await userService.editUser(userId, {
       fullName,
       roleId,
       email,
+      status
     });
     res.status(200).json({ message: "Usuario editado correctamente", usuario });
   } catch (error: any) {

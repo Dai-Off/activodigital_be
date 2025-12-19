@@ -15,6 +15,24 @@ export class CalendarService {
    * Obtiene los eventos de un edificio.
    * Soporta filtros por rango de fechas (ideal para vista mensual).
    */
+  async getAllBuildingEvents(
+  ): Promise<BuildingEvent[]> {
+    let query = this.getSupabase()
+      .from("building_events")
+      .select("*, buildings(name)")
+      .order("event_date", { ascending: true }); // Ordenar por fecha próxima
+
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(
+        `Error al obtener eventos del calendario: ${error.message}`
+      );
+    }
+
+    return data.map((item: any) => this.mapToEvent(item));
+  }
   async getBuildingEvents(
     buildingId: string,
     filters: EventFilters = {}
@@ -123,12 +141,14 @@ export class CalendarService {
     return {
       id: data.id,
       buildingId: data.building_id,
+      buildingName: data?.buildings?.name,
       title: data.title,
       description: data.description,
       eventDate: data.event_date,
       category: data.category,
       priority: data.priority,
       status: data.status,
+      execution: data?.execution_event,
       relatedAsset: data.related_asset,
       createdAt: data.created_at,
     };

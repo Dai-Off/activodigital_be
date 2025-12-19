@@ -230,6 +230,7 @@ export class UserService {
       .from('users')
       .update({
         full_name: updateData.fullName,
+        status: updateData.status,
         role_id: updateData.roleId
       })
       .eq('id', userId)
@@ -416,6 +417,7 @@ export class UserService {
         id: data?.roles?.id ?? null,
         name: data?.roles?.name ?? null,
       },
+      status: data.status ?? false,
       twoFactorEnabled: data.two_factor_enabled ?? false,
       createdAt: data.created_at,
       updatedAt: data.updated_at

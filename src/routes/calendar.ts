@@ -8,6 +8,12 @@ const calendarController = new CalendarController();
 router.use(authenticateToken);
 
 /**
+ * @route GET /calendar/all
+ * @desc Obtener eventos de todos los edificios
+ */
+router.get("/all", calendarController.getAllEvents);
+
+/**
  * @route GET /calendar
  * @desc Obtener eventos del calendario de un edificio
  * query: buildingId (required), startDate, endDate, category
@@ -22,7 +28,7 @@ router.post("/", calendarController.createEvent);
 
 /**
  * @route PUT /calendar/:id
- * @desc Actualizar evento (cambiar estado, fecha, etc)
+ * @desc Actualizar evento (cambiar estado, fecha, etc) 
  */
 router.put("/:id", calendarController.updateEvent);
 
