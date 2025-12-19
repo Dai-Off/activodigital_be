@@ -10,6 +10,28 @@ export class CalendarController {
   private calendarService = new CalendarService();
 
   /**
+   * GET /api/calendar/all
+   * Obtiene todos los eventos
+   */
+  getAllEvents = async (req: Request, res: Response): Promise<void> => {
+    try {
+
+      const events = await this.calendarService.getAllBuildingEvents();
+
+      res.status(200).json({
+        data: events,
+        count: events.length,
+      });
+    } catch (error) {
+      console.error("Error al obtener eventos:", error);
+      res.status(500).json({
+        error: "Error interno del servidor",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  /**
    * GET /api/calendar
    * Obtiene eventos. Soporta ?buildingId=...&month=2025-12
    */
