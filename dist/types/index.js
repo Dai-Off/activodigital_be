@@ -23,4 +23,6 @@ __exportStar(require("./dashboard"), exports);
 __exportStar(require("./notification"), exports);
 __exportStar(require("./financialSnapshot"), exports);
 __exportStar(require("./financialAudit"), exports);
+__exportStar(require("./monthlyCosts"), exports);
+__exportStar(require("./serviceInvoice"), exports);
 //# sourceMappingURL=index.js.map

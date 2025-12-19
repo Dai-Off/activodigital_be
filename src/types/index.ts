@@ -7,3 +7,5 @@ export * from './dashboard';
 export * from './notification';
 export * from './financialSnapshot';
 export * from './financialAudit';
+export * from './monthlyCosts';
+export * from './serviceInvoice';
