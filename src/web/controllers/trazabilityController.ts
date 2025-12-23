@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { TrazabilityService } from '../../domain/trazability/TrazabilityService';
-
-const trazabilityService = new TrazabilityService();
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
 
 export const listTrazabilityControler = async (req: Request, res: Response) => {
     try {

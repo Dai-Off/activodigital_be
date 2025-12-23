@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { ServiceInvoiceService } from '../../domain/services/serviceInvoiceService';
 import { CreateServiceInvoiceRequest, UpdateServiceInvoiceRequest, ServiceType } from '../../types/serviceInvoice';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
 export class ServiceInvoiceController {
   private getService() {
@@ -35,6 +37,8 @@ export class ServiceInvoiceController {
         res.status(400).json({ error: 'amount_eur debe ser >= 0' });
         return;
       }
+
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: ActionsValues['CREAR'], module: ModuleValues.DOCUMENTOS, description: "Crear factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
 
       const invoice = await this.getService().createServiceInvoice(data, userId);
       res.status(201).json({ data: invoice });
@@ -133,6 +137,8 @@ export class ServiceInvoiceController {
         return;
       }
 
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.building_id, action: ActionsValues['ACTUALIZAR DATOS FINANCIEROS'], module: ModuleValues.DOCUMENTOS, description: "Actualizar factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.json({ data: invoice });
     } catch (error) {
       console.error('Error al actualizar factura de servicio:', error);
@@ -151,6 +157,9 @@ export class ServiceInvoiceController {
       }
 
       await this.getService().deleteServiceInvoice(id, userId);
+      const invoice = await this.getService().getServiceInvoiceById(id, userId);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.building_id || null, action: ActionsValues['ELIMINAR'], module: ModuleValues.DOCUMENTOS, description: "Eliminar factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.status(204).send();
     } catch (error) {
       console.error('Error al eliminar factura de servicio:', error);
