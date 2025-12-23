@@ -27,48 +27,26 @@ router.get("/", (_req, res) => {
   res.json({ message: "¡Bienvenido a la API de Activo Digital Backend!" });
 });
 
-// ! no necesita
 router.use("/health", healthRouter);
-// ! no necesita
 router.use("/auth", authRouter);
-// *?completo
 router.use("/users", usersRouter);
-//TODO modulo
 router.use("/trazability", trazabilityRouter);
-// *? completo
 router.use("/edificios", edificiosRouter);
-// ? completo 
 router.use("/libros-digitales", librosDigitalesRouter);
-// ? completa
 router.use("/invitations", invitationsRouter);
-// ? completa
 router.use("/certificados-energeticos", certificatesEnergeticosRouter);
-// !no necesita
 router.use("/esg", esgRouter);
-// ! no necesita
 router.use("/dashboard", dashboardRouter);
-// !no necesita
 router.use("/notifications", notificationsRouter);
-// ? necesita
 router.use("/financial-snapshots", financialSnapshotsRouter);
-// !no necesita
 router.use("/service-expenses", monthlyCostsRouter);
-// ? necesita
 router.use("/service-invoices", serviceInvoicesRouter);
-// ? necesita
 router.use("/rents", rentsRouter);
-// ! no necesita
 router.use("/catastroApi", catastroApi);
-// !no necesita
 router.use("/PVGISApi", PVGISApi);
-// !no necesita
 router.use("/MITECOApi", MITECOApi);
-// ? necesita
 router.use("/insurances", insurance);
-// ? necesita
 router.use("/calendar", calendar);
-// !no necesita
 router.use("/idealistascraper", idealistaScraper);
-
 
 export default router;
