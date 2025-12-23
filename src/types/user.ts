@@ -21,6 +21,7 @@ export interface User {
   roleId: string;
   role?: Role; // Populated when needed
   twoFactorEnabled?: boolean;
+  status?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -53,6 +54,7 @@ export interface UpdateUserRequest {
   fullName?: string;
   roleId?: string;
   email?: string;
+  status: boolean;
 }
 
 export interface AssignTechnicianRequest {

@@ -4,6 +4,8 @@ import {
   CreateRentInvoiceRequest,
   UpdateRentInvoiceRequest,
 } from '../../types/rent';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
 export class RentController {
   private getService() {
@@ -28,6 +30,7 @@ export class RentController {
       }
 
       const invoice = await this.getService().createRentInvoice(data, userId);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.buildingId, action: ActionsValues['CREAR'], module: ModuleValues.DOCUMENTOS, description: "Subir factura de Renta" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.status(201).json({ data: invoice });
     } catch (error: any) {
       console.error('Error al crear factura:', error);
@@ -128,7 +131,7 @@ export class RentController {
         res.status(404).json({ error: 'Factura no encontrada' });
         return;
       }
-
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.buildingId, action: ActionsValues['ACTUALIZAR DATOS FINANCIEROS'], module: ModuleValues.DOCUMENTOS, description: "Actualizar factura de Renta" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: invoice });
     } catch (error: any) {
       console.error('Error al actualizar factura:', error);
@@ -147,6 +150,8 @@ export class RentController {
       }
 
       await this.getService().deleteRentInvoice(id, userId);
+      const invoice = await this.getService().getRentInvoiceById(id, userId);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.buildingId || null, action: ActionsValues['ELIMINAR'], module: ModuleValues.DOCUMENTOS, description: "Eliminar factura de Renta" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.status(200).json({ message: 'Factura eliminada correctamente' });
     } catch (error: any) {
       console.error('Error al eliminar factura:', error);

@@ -184,3 +184,5 @@ export class TrazabilityService {
     }
 
 }
+
+export const trazabilityService = new TrazabilityService()

@@ -7,6 +7,8 @@ import {
   IrrRequest,
   SensitivityRequest
 } from '../../types/financialMetrics';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
 export class BuildingScenariosController {
   private getService() {
@@ -35,10 +37,11 @@ export class BuildingScenariosController {
       }
 
       const result = await this.getService().simulateRehab(buildingId, userId, request);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: buildingId, action: ActionsValues['GENERAR INFORMES'], module: ModuleValues.EDIFICIOS, description: "Genero simulación de rehabilitación" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: result });
     } catch (error) {
       console.error('Error al simular rehabilitación:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Error interno del servidor',
         message: error instanceof Error ? error.message : 'Error desconocido'
       });
@@ -72,10 +75,11 @@ export class BuildingScenariosController {
       }
 
       const result = await this.getService().runCashflow(buildingId, userId, request);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: ActionsValues['GENERAR INFORMES'], module: ModuleValues.EDIFICIOS, description: "Genero flujos de caja" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: result });
     } catch (error) {
       console.error('Error al generar flujos de caja:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Error interno del servidor',
         message: error instanceof Error ? error.message : 'Error desconocido'
       });
@@ -114,10 +118,11 @@ export class BuildingScenariosController {
       }
 
       const result = await this.getService().calculateNPV(buildingId, userId, request);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: ActionsValues['GENERAR INFORMES'], module: ModuleValues.EDIFICIOS, description: "Generar calculo NPV" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: result });
     } catch (error) {
       console.error('Error al calcular NPV:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Error interno del servidor',
         message: error instanceof Error ? error.message : 'Error desconocido'
       });
@@ -151,10 +156,11 @@ export class BuildingScenariosController {
       }
 
       const result = await this.getService().calculateIRR(buildingId, userId, request);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: ActionsValues['GENERAR INFORMES'], module: ModuleValues.EDIFICIOS, description: "Generar calculo IRR" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: result });
     } catch (error) {
       console.error('Error al calcular IRR:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Error interno del servidor',
         message: error instanceof Error ? error.message : 'Error desconocido'
       });
@@ -193,10 +199,11 @@ export class BuildingScenariosController {
       }
 
       const result = await this.getService().calculateSensitivity(buildingId, userId, request);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: ActionsValues['GENERAR INFORMES'], module: ModuleValues.EDIFICIOS, description: "Genero calculo sensibilidad" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: result });
     } catch (error) {
       console.error('Error al calcular sensibilidad:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Error interno del servidor',
         message: error instanceof Error ? error.message : 'Error desconocido'
       });

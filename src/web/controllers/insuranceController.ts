@@ -5,6 +5,8 @@ import {
   UpdateInsuranceRequest,
   InsuranceFilters,
 } from "../../types/insurance";
+import { trazabilityService } from "../../domain/trazability/TrazabilityService";
+import { ActionsValues, ModuleValues } from "../../domain/trazability/interfaceTrazability";
 
 export class InsuranceController {
   private insuranceService = new InsuranceService();
@@ -103,6 +105,7 @@ export class InsuranceController {
       // El servicio se encarga de mapear a snake_case
       const newPolicy = await this.insuranceService.createInsurance(body);
 
+      trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: body?.buildingId, action: ActionsValues['CREAR'], module: ModuleValues.EDIFICIOS, description: "Subir póliza de seguro" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.status(201).json({
         message: "La póliza de seguro se ha creado con éxito",
         data: newPolicy,
@@ -134,6 +137,8 @@ export class InsuranceController {
         body
       );
 
+      trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: updatedPolicy?.buildingId, action: ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: ModuleValues.EDIFICIOS, description: "Actualizar póliza de seguro" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.status(200).json({
         message: "Póliza actualizada exitosamente",
         data: updatedPolicy,
@@ -164,6 +169,9 @@ export class InsuranceController {
       const success = await this.insuranceService.deleteInsurance(id);
 
       if (success) {
+        const policy = await this.insuranceService.getInsuranceById(id);
+        trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: policy?.buildingId || null, action: ActionsValues['ELIMINAR'], module: ModuleValues.EDIFICIOS, description: "Eliminar póliza de seguro" }).catch(err => console.error("Fallo trazabilidad:", err));
+
         res.status(200).json({
           message: "Póliza eliminada exitosamente",
           success: true,
