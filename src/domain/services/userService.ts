@@ -8,11 +8,10 @@ import {
   UserWithRole,
   BuildingTechnicianAssignment
 } from '../../types/user';
-import { ActionsValues, ModuleValues, TrazabilityServiceParams } from '../trazability/interfaceTrazability';
-import { TrazabilityService } from '../trazability/TrazabilityService';
+import { TrazabilityServiceParams } from '../trazability/interfaceTrazability';
+import { trazabilityService } from '../trazability/TrazabilityService';
 
 export class UserService {
-  private trazabilityService = new TrazabilityService()
   private getSupabase() {
     return getSupabaseClient();
   }
@@ -137,7 +136,7 @@ export class UserService {
   }
 
   async insertTrazability(data: TrazabilityServiceParams) {
-    await this.trazabilityService.registerTrazability(data);
+    await trazabilityService.registerTrazability(data);
   }
 
   async editUser(userId: string, update: UpdateUserRequest & { email?: string }): Promise<User> {
