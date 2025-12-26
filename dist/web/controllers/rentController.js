@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RentController = void 0;
 const rentService_1 = require("../../domain/services/rentService");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class RentController {
     constructor() {
         // ========== FACTURAS (con pago incluido) ==========
@@ -18,6 +20,7 @@ class RentController {
                     return;
                 }
                 const invoice = await this.getService().createRentInvoice(data, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.buildingId, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Subir factura de Renta" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(201).json({ data: invoice });
             }
             catch (error) {
@@ -104,6 +107,7 @@ class RentController {
                     res.status(404).json({ error: 'Factura no encontrada' });
                     return;
                 }
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR DATOS FINANCIEROS'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Actualizar factura de Renta" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: invoice });
             }
             catch (error) {
@@ -120,6 +124,8 @@ class RentController {
                     return;
                 }
                 await this.getService().deleteRentInvoice(id, userId);
+                const invoice = await this.getService().getRentInvoiceById(id, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.buildingId || null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Eliminar factura de Renta" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(200).json({ message: 'Factura eliminada correctamente' });
             }
             catch (error) {

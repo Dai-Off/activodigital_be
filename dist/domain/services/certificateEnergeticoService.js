@@ -369,6 +369,20 @@ class CertificateEnergeticoService {
             certificates: certificates.map(c => this.mapDbToEnergyCertificate(c))
         };
     }
+    async getEnergyCertificatesByCertificatedId(certificateId) {
+        const supabase = this.getSupabase();
+        const { data, error: sessionError } = await supabase
+            .from('energy_certificates')
+            .select('building_id')
+            .eq('id', certificateId)
+            .single();
+        if (sessionError) {
+            throw new Error(`Error obteniendo certificados: ${sessionError.message}`);
+        }
+        return {
+            buildingId: data?.building_id
+        };
+    }
     /**
      * Obtener certificados energéticos de todos los edificios del usuario
      */

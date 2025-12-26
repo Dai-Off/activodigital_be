@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InsuranceController = void 0;
 const insuranceService_1 = require("../../domain/services/insuranceService");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class InsuranceController {
     constructor() {
         this.insuranceService = new insuranceService_1.InsuranceService();
@@ -81,6 +83,7 @@ class InsuranceController {
                 }
                 // El servicio se encarga de mapear a snake_case
                 const newPolicy = await this.insuranceService.createInsurance(body);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: body?.buildingId, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Subir póliza de seguro" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(201).json({
                     message: "La póliza de seguro se ha creado con éxito",
                     data: newPolicy,
@@ -106,6 +109,7 @@ class InsuranceController {
                     return;
                 }
                 const updatedPolicy = await this.insuranceService.updateInsurance(id, body);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: updatedPolicy?.buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Actualizar póliza de seguro" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(200).json({
                     message: "Póliza actualizada exitosamente",
                     data: updatedPolicy,
@@ -132,6 +136,8 @@ class InsuranceController {
                 // Opcional: Podrías verificar permisos del usuario sobre el edificio aquí antes de borrar
                 const success = await this.insuranceService.deleteInsurance(id);
                 if (success) {
+                    const policy = await this.insuranceService.getInsuranceById(id);
+                    TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: policy?.buildingId || null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Eliminar póliza de seguro" }).catch(err => console.error("Fallo trazabilidad:", err));
                     res.status(200).json({
                         message: "Póliza eliminada exitosamente",
                         success: true,

@@ -3,81 +3,97 @@ import {
   ScrapeIdealistaRequest,
   IdealistaProperty,
   ApifyRunResponse,
+  IgolaizolaLocation,
 } from "../../types/idealistaScraper";
+import locationsData from "../IdealistaIdLocations/ubicaciones.json";
 
-/**
- * Servicio centralizado para operaciones con Apify (Scraping).
- */
 export class ApifyService {
-  // Se recomienda poner el token en variables de entorno: process.env.APIFY_TOKEN
   private apifyToken = process.env.APIFY_TOKEN;
-  private actorId = "REcGj6dyoIJ9Z7aE6"; // ID del Actor de Idealista
+  private actorId = "REcGj6dyoIJ9Z7aE6";
+  private locations: IgolaizolaLocation[] =
+    locationsData as IgolaizolaLocation[];
 
   private getApifyClient() {
-    return new ApifyClient({
-      token: this.apifyToken,
-    });
+    return new ApifyClient({ token: this.apifyToken });
   }
 
-  // ==========================================
-  // 1. SCRAPING (EXECUTION)
-  // ==========================================
+  private findLocationId(name: string): string {
+    const normalize = (text: string) =>
+      text
+        .toLowerCase()
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 
-  /**
-   * Ejecuta el scraper de Idealista y devuelve los resultados procesados.
-   */
+    const term = normalize(name);
+
+    const found = this.locations.find((loc) => normalize(loc.name) === term);
+
+    if (!found) {
+      throw new Error(
+        `La ubicación '${name}' no existe en el catálogo oficial.`
+      );
+    }
+
+    return found.id;
+  }
+
+  private calculateAverage(items: IdealistaProperty[]): number {
+    const prices = items.filter((i) => i.price > 0).map((i) => i.price);
+    return prices.length > 0
+      ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
+      : 0;
+  }
+
+  private calculateAverageSqm(items: IdealistaProperty[]): number {
+    const validItems = items.filter(
+      (item) => item.price > 0 && item.area && item.area > 0
+    );
+
+    if (validItems.length === 0) return 0;
+
+    const sumSqmPrices = validItems.reduce((acc, item) => {
+      return acc + item.price / item.area!;
+    }, 0);
+
+    return Math.round(sumSqmPrices / validItems.length);
+  }
+
   async scrapeIdealistaProperties(
     data: ScrapeIdealistaRequest
   ): Promise<ApifyRunResponse> {
     const client = this.getApifyClient();
 
-    // 1. Preparamos el Input para el Actor
-    // Nota: Los campos del input dependen de la documentación del Actor específico
+    if (!data.locationName) {
+      throw new Error("El campo 'locationName' es obligatorio.");
+    }
+
+    const locationId = this.findLocationId(data.locationName);
+
     const actorInput = {
-      startUrls: [{ url: data.searchUrl }],
+      location: locationId,
       maxItems: data.maxItems || 20,
-      // Otros filtros o configuraciones del scraper pueden ir aquí
     };
 
     try {
-      // 2. Iniciamos el Actor y esperamos a que termine (Call)
-      // Si el proceso es muy largo, podrías usar .start() y luego webhooks,
-      // pero .call() es síncrono para el código (espera la respuesta).
       const run = await client.actor(this.actorId).call(actorInput);
+      if (!run) throw new Error("Fallo en la ejecución del Actor.");
 
-      if (!run) {
-        throw new Error(
-          "La ejecución del Actor falló o no devolvió resultados."
-        );
-      }
-
-      // 3. Obtenemos los resultados del Dataset generado
       const { items } = await client.dataset(run.defaultDatasetId).listItems();
-
-      // 4. Mapeamos los resultados crudos a nuestra interfaz interna
-      const mappedItems: IdealistaProperty[] = items.map((item: any) =>
-        this.mapToIdealistaProperty(item)
-      );
+      const mappedItems = items.map((item: any) => this.mapToProperty(item));
 
       return {
         totalItems: mappedItems.length,
         items: mappedItems,
+        averagePrice: this.calculateAverage(mappedItems),
+        averagePricePerSqm: this.calculateAverageSqm(mappedItems),
       };
     } catch (error: any) {
-      throw new Error(`Error en el servicio de Apify: ${error.message}`);
+      throw new Error(`Apify Error: ${error.message}`);
     }
   }
 
-  // ==========================================
-  // 2. UTILIDADES Y MAPEO
-  // ==========================================
-
-  /**
-   * Transforma los datos crudos del scraper al tipo de la aplicación.
-   * Esto es útil porque los scrapers suelen devolver JSONs muy sucios.
-   */
-  private mapToIdealistaProperty(data: any): IdealistaProperty {
-    // Ajusta estas claves según lo que realmente devuelva el JSON del actor
+  private mapToProperty(data: any): IdealistaProperty {
     return {
       url: data.url,
       title: data.title || data.elementTitle,
