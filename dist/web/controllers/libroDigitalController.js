@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DigitalBookController = void 0;
 const libroDigitalService_1 = require("../../domain/services/libroDigitalService");
 const libroDigital_1 = require("../../types/libroDigital");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class DigitalBookController {
     constructor() {
         this.createDigitalBook = async (req, res) => {
@@ -19,6 +21,7 @@ class DigitalBookController {
                     return;
                 }
                 const book = await this.getDigitalBookService().createDigitalBook(data, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data.buildingId, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Cargar libro digital (manualmente)" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(201).json({ data: book });
             }
             catch (error) {
@@ -89,6 +92,7 @@ class DigitalBookController {
                     return;
                 }
                 const book = await this.getDigitalBookService().updateSection(id, sectionTypeParam, data, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: book?.buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Modificar libro digital" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: book });
             }
             catch (error) {

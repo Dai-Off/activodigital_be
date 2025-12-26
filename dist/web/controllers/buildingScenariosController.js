@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuildingScenariosController = void 0;
 const financialMetricsService_1 = require("../../domain/services/financialMetricsService");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class BuildingScenariosController {
     constructor() {
         /**
@@ -23,6 +25,7 @@ class BuildingScenariosController {
                     return;
                 }
                 const result = await this.getService().simulateRehab(buildingId, userId, request);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: buildingId, action: interfaceTrazability_1.ActionsValues['GENERAR INFORMES'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Genero simulación de rehabilitación" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: result });
             }
             catch (error) {
@@ -56,6 +59,7 @@ class BuildingScenariosController {
                     return;
                 }
                 const result = await this.getService().runCashflow(buildingId, userId, request);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: interfaceTrazability_1.ActionsValues['GENERAR INFORMES'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Genero flujos de caja" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: result });
             }
             catch (error) {
@@ -93,6 +97,7 @@ class BuildingScenariosController {
                     return;
                 }
                 const result = await this.getService().calculateNPV(buildingId, userId, request);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: interfaceTrazability_1.ActionsValues['GENERAR INFORMES'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Generar calculo NPV" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: result });
             }
             catch (error) {
@@ -126,6 +131,7 @@ class BuildingScenariosController {
                     return;
                 }
                 const result = await this.getService().calculateIRR(buildingId, userId, request);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: interfaceTrazability_1.ActionsValues['GENERAR INFORMES'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Generar calculo IRR" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: result });
             }
             catch (error) {
@@ -163,6 +169,7 @@ class BuildingScenariosController {
                     return;
                 }
                 const result = await this.getService().calculateSensitivity(buildingId, userId, request);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: interfaceTrazability_1.ActionsValues['GENERAR INFORMES'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Genero calculo sensibilidad" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: result });
             }
             catch (error) {

@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InvitationController = void 0;
 const invitationService_1 = require("../../domain/services/invitationService");
 const user_1 = require("../../types/user");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class InvitationController {
     constructor() {
         this.invitationService = new invitationService_1.InvitationService();
@@ -33,6 +35,7 @@ class InvitationController {
                 role,
                 buildingId
             }, userAuthId);
+            TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.CALENDARIO, description: "Crear invitación" }).catch(err => console.error("Fallo trazabilidad:", err));
             res.status(201).json({
                 success: true,
                 message: 'Invitación enviada exitosamente',
@@ -145,6 +148,7 @@ class InvitationController {
                 return;
             }
             await this.invitationService.cancelInvitation(id, userAuthId);
+            TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userAuthId, buildingId: null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.CALENDARIO, description: "Cancelar invitación" }).catch(err => console.error("Fallo trazabilidad:", err));
             res.json({
                 success: true,
                 message: 'Invitación cancelada exitosamente'
@@ -239,6 +243,7 @@ class InvitationController {
             //   return;
             // }
             const cleanedCount = await this.invitationService.cleanupExpiredInvitations();
+            TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userAuthId, buildingId: null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.CALENDARIO, description: "Invitación marcada como expirada" }).catch(err => console.error("Fallo trazabilidad:", err));
             res.json({
                 success: true,
                 message: `${cleanedCount} invitaciones expiradas fueron marcadas como expiradas`
