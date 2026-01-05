@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { ServiceInvoiceController } from '../web/controllers/serviceInvoiceController';
 import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const serviceInvoiceController = new ServiceInvoiceController();
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
+router.use(requestLogger);
 
 // CRUD de service invoices
 router.post('/', serviceInvoiceController.createServiceInvoice);

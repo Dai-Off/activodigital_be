@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { RentController } from '../web/controllers/rentController';
 import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const rentController = new RentController();
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
+router.use(requestLogger);
 
 // ========== RESUMEN MENSUAL ==========
 // GET /rents/building/:buildingId/summary/:month

@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { InvitationController } from '../web/controllers/invitationController';
 import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const invitationController = new InvitationController();
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
+router.use(requestLogger);
 
 // Crear una nueva invitación
 router.post('/', invitationController.createInvitation.bind(invitationController));

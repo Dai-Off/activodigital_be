@@ -3,6 +3,7 @@ import { DigitalBookController } from '../web/controllers/libroDigitalController
 import { AIDigitalBookController } from '../web/controllers/aiDigitalBookController';
 import { authenticateToken } from '../web/middlewares/authMiddleware';
 import { upload } from '../web/middlewares/uploadMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const digitalBookController = new DigitalBookController();
@@ -10,6 +11,7 @@ const aiDigitalBookController = new AIDigitalBookController();
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
+router.use(requestLogger);
 
 // NUEVO: Crear libro digital mediante IA procesando un documento
 // Timeout extendido para procesamiento con IA (hasta 90 segundos)

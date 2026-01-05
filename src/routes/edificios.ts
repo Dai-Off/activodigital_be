@@ -11,6 +11,7 @@ import {
   deleteUnit,
 } from '../web/controllers/buildingUnitsController';
 import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const buildingController = new BuildingController();
@@ -18,6 +19,8 @@ const buildingMetricsController = new BuildingMetricsController();
 const buildingScenariosController = new BuildingScenariosController();
 const technicalAuditController = new TechnicalAuditController();
 const financialAuditController = new FinancialAuditController();
+
+router.use(requestLogger);
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);

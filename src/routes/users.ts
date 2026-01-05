@@ -11,7 +11,12 @@ import {
   editUser
 } from '../web/controllers/userController';
 
+import { requestLogger } from '../web/middlewares/requestLogger';
+
 const router = Router();
+
+// Logger middleware - loguea todas las peticiones a este router
+router.use(requestLogger);
 
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
