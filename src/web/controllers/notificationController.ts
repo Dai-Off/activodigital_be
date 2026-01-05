@@ -4,6 +4,10 @@ import {
   NotificationFilters,
   NotificationType,
 } from "../../types/notification";
+import {
+  NotificationBus,
+  NotificationEvents,
+} from "../../domain/events/notificationBus";
 
 export class NotificationController {
   private notificationService = new NotificationService();
@@ -23,15 +27,18 @@ export class NotificationController {
         return;
       }
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const buildingId = req.query.buildingId as string | undefined;
 
       // Llama al método del servicio que filtra las leídas
+      // Ahora pasamos buildingId (opcional) y aplicamos el limite sobre el resultado
       const notifications =
         await this.notificationService.getUnreadBuildingNotificationsForUser(
           userId,
-          limit
+          buildingId
         );
+
       res.status(200).json({
-        data: notifications,
+        data: notifications.slice(0, limit),
         count: notifications.length,
       });
     } catch (error) {
@@ -116,7 +123,14 @@ export class NotificationController {
         notificationData.priority = req.body.priority;
       }
 
-      await this.notificationService.createNotification(notificationData);
+      // Usamos el Bus para la creación asíncrona
+      // import { NotificationBus, NotificationEvents } from "../../domain/events/notificationBus"; // Asegúrate de importar esto arriba
+      NotificationBus.getInstance().emit(
+        NotificationEvents.NOTIFICATION_CREATED,
+        notificationData
+      );
+
+      // await this.notificationService.createNotification(notificationData);
       res.status(200).json({
         message: "La notificación se ha creado con éxito",
       });

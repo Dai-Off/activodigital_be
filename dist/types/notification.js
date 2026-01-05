@@ -7,5 +7,6 @@ var NotificationType;
     NotificationType["FINANCIAL"] = "financial";
     NotificationType["EXPIRATION"] = "expiration";
     NotificationType["RENEWAL"] = "renewal";
+    NotificationType["BUILDING_ASSIGNMENT"] = "building_assignment";
 })(NotificationType || (exports.NotificationType = NotificationType = {}));
 //# sourceMappingURL=notification.js.map

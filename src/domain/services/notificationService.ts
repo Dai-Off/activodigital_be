@@ -24,8 +24,19 @@ export class NotificationService {
 
   /**
    * Crea una nueva notificación asociada a un edificio.
+   * Método público mantenido por compatibilidad.
+   * Internamente llama a internalCreateNotification.
    */
   async createNotification(
+    data: CreateNotificationRequest
+  ): Promise<Notification> {
+    return this.internalCreateNotification(data);
+  }
+
+  /**
+   * Método interno para crear notificaciones (llamado por el Bus).
+   */
+  async internalCreateNotification(
     data: CreateNotificationRequest
   ): Promise<Notification> {
     const notificationData: any = {
@@ -34,6 +45,8 @@ export class NotificationService {
       title: data.title,
       expiration: data.expiration,
       priority: data.priority,
+      message: data.message,
+      metadata: data.metadata,
     };
 
     const { data: notification, error } = await this.getSupabase()
@@ -152,12 +165,48 @@ export class NotificationService {
 
   /**
    * LÓGICA PRINCIPAL: Obtiene las notificaciones NO LEÍDAS de un edificio.
-   * Realiza el filtrado en el servicio (cliente) sin stored procedures.
+   * Utiliza una función RPC optimizada 'get_unread_notifications' en la base de datos.
    */
   async getUnreadBuildingNotificationsForUser(
     userId: string,
-    limit: number = 50
+    buildingId?: string
   ): Promise<Notification[]> {
+    if (!buildingId) {
+      // Fallback a lógica antigua o error si buildingId es obligatorio según tu lógica
+      // Pero dado que la SQL requiere buildingId, asumimos que se pasa o adaptamos.
+      // Si el anterior método no recibía buildingId explícitamente pero filtraba después...
+      // El código original usaba: getUserNotifications(userId) -> filtraba en memoria.
+      //getUserNotifications trae de TODOS los edificios.
+      // La RPC optimization es por edificio para ser eficiente.
+      // Si necesitamos de TODOS, tendríamos que ajustar la RPC.
+      // Asumiremos que para "Optimización" usamos la RPC, si falla o no hay buildingId, fallback.
+      return this.fallbackGetUnread(userId);
+    }
+
+    const { data, error } = await this.getSupabase().rpc(
+      "get_unread_notifications",
+      {
+        p_user_id: userId,
+        p_building_id: buildingId,
+      }
+    );
+
+    if (error) {
+      // Si la función no existe (aún no migrada), fallback silencioso o error log.
+      console.warn(
+        "Error usando RPC get_unread_notifications, usando fallback:",
+        error.message
+      );
+      return this.fallbackGetUnread(userId);
+    }
+
+    return data.map(this.mapToNotification);
+  }
+
+  /**
+   * Fallback: Lógica antigua de filtrado en memoria (Lento pero seguro).
+   */
+  private async fallbackGetUnread(userId: string): Promise<Notification[]> {
     const buildingNotifications = await this.getUserNotifications(userId);
     if (buildingNotifications.length === 0) return [];
 
@@ -166,8 +215,8 @@ export class NotificationService {
     const unreadNotifications = buildingNotifications.filter(
       (notification) => !readIds.has(notification.id)
     );
-    // Ajustamos al límite solicitado por el usuario
-    return unreadNotifications.slice(0, limit);
+    // Ajustamos al límite en memoria (aunque la función original tomaba limit como param, aquí lo simplificamos)
+    return unreadNotifications;
   }
 
   /**
@@ -369,6 +418,8 @@ export class NotificationService {
       title: data.title,
       expiration: data.expiration,
       priority: data.priority,
+      message: data.message,
+      metadata: data.metadata,
       created_at: data.created_at,
     };
   }

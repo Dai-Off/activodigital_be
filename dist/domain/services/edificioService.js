@@ -40,6 +40,8 @@ const userService_1 = require("./userService");
 const invitationService_1 = require("./invitationService");
 const user_1 = require("../../types/user");
 const embeddingHelper_1 = require("../../lib/embeddingHelper");
+const notification_1 = require("../../types/notification");
+const notificationBus_1 = require("../events/notificationBus");
 class BuildingService {
     constructor() {
         this.userService = new userService_1.UserService();
@@ -52,7 +54,7 @@ class BuildingService {
         // Obtener usuario
         const user = await this.userService.getUserByAuthId(userAuthId);
         if (!user) {
-            throw new Error('Usuario no encontrado');
+            throw new Error("Usuario no encontrado");
         }
         const buildingData = {
             name: data.name,
@@ -74,10 +76,10 @@ class BuildingService {
             // Campos financieros con valores por defecto
             rehabilitation_cost: data.rehabilitationCost || 0,
             potential_value: data.potentialValue || 0,
-            square_meters: data.squareMeters
+            square_meters: data.squareMeters,
         };
         const { data: building, error } = await this.getSupabase()
-            .from('buildings')
+            .from("buildings")
             .insert(buildingData)
             .select()
             .single();
@@ -92,10 +94,10 @@ class BuildingService {
             catch (error) {
                 // Si falla la asignación/invitación, eliminar el edificio creado
                 await this.getSupabase()
-                    .from('buildings')
+                    .from("buildings")
                     .delete()
-                    .eq('id', building.id);
-                throw new Error(`Error al asignar técnico: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+                    .eq("id", building.id);
+                throw new Error(`Error al asignar técnico: ${error instanceof Error ? error.message : "Error desconocido"}`);
             }
         }
         // Si se especificó un email de CFO, enviar invitación
@@ -105,7 +107,7 @@ class BuildingService {
             }
             catch (error) {
                 // Si falla la invitación CFO, no eliminar el edificio (es menos crítico)
-                throw new Error(`Error al invitar CFO: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+                throw new Error(`Error al invitar CFO: ${error instanceof Error ? error.message : "Error desconocido"}`);
             }
         }
         // Si se especificó un email de propietario, enviar invitación
@@ -115,23 +117,23 @@ class BuildingService {
             }
             catch (error) {
                 // Si falla la invitación del propietario, no eliminar el edificio (es menos crítico)
-                throw new Error(`Error al invitar propietario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+                throw new Error(`Error al invitar propietario: ${error instanceof Error ? error.message : "Error desconocido"}`);
             }
         }
-        (0, embeddingHelper_1.generateBuildingEmbedding)(building.id).catch(err => {
-            console.error('Error generando embeddings:', err);
+        (0, embeddingHelper_1.generateBuildingEmbedding)(building.id).catch((err) => {
+            console.error("Error generando embeddings:", err);
         });
         return this.mapToBuilding(building);
     }
     async getBuildingById(id, userAuthId) {
         // Todos los usuarios pueden ver cualquier edificio
         const { data, error } = await this.getSupabase()
-            .from('buildings')
-            .select('*')
-            .eq('id', id)
+            .from("buildings")
+            .select("*")
+            .eq("id", id)
             .single();
         if (error) {
-            if (error.code === 'PGRST116') {
+            if (error.code === "PGRST116") {
                 return null; // No encontrado
             }
             throw new Error(`Error al obtener edificio: ${error.message}`);
@@ -141,13 +143,13 @@ class BuildingService {
     async getBuildingsByUser(userAuthId) {
         const user = await this.userService.getUserByAuthId(userAuthId);
         if (!user) {
-            throw new Error('Usuario no encontrado');
+            throw new Error("Usuario no encontrado");
         }
         // Todos los usuarios pueden ver todos los edificios
         const { data, error } = await this.getSupabase()
-            .from('buildings')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .from("buildings")
+            .select("*")
+            .order("created_at", { ascending: false });
         if (error) {
             throw new Error(`Error al obtener edificios: ${error.message}`);
         }
@@ -193,25 +195,25 @@ class BuildingService {
         if (data.squareMeters !== undefined)
             updateData.square_meters = data.squareMeters;
         const { data: building, error } = await this.getSupabase()
-            .from('buildings')
+            .from("buildings")
             .update(updateData)
-            .eq('id', id)
+            .eq("id", id)
             .select()
             .single();
         if (error) {
             throw new Error(`Error al actualizar edificio: ${error.message}`);
         }
-        (0, embeddingHelper_1.generateBuildingEmbedding)(id).catch(err => {
-            console.error('Error generando embeddings:', err);
+        (0, embeddingHelper_1.generateBuildingEmbedding)(id).catch((err) => {
+            console.error("Error generando embeddings:", err);
         });
         return this.mapToBuilding(building);
     }
     async deleteBuilding(id, userAuthId) {
         // Todos los usuarios pueden eliminar cualquier edificio
         const { error } = await this.getSupabase()
-            .from('buildings')
+            .from("buildings")
             .delete()
-            .eq('id', id);
+            .eq("id", id);
         if (error) {
             throw new Error(`Error al eliminar edificio: ${error.message}`);
         }
@@ -223,7 +225,7 @@ class BuildingService {
         // Primero obtenemos el edificio actual
         const building = await this.getBuildingById(buildingId, userAuthId);
         if (!building) {
-            throw new Error('Edificio no encontrado');
+            throw new Error("Edificio no encontrado");
         }
         // Agregamos la nueva imagen
         const newImages = [...building.images, image];
@@ -233,22 +235,22 @@ class BuildingService {
         // Primero obtenemos el edificio actual
         const building = await this.getBuildingById(buildingId, userAuthId);
         if (!building) {
-            throw new Error('Edificio no encontrado');
+            throw new Error("Edificio no encontrado");
         }
         // Removemos la imagen
-        const newImages = building.images.filter(img => img.id !== imageId);
+        const newImages = building.images.filter((img) => img.id !== imageId);
         return this.updateBuilding(buildingId, { images: newImages }, userAuthId);
     }
     async setMainImage(buildingId, imageId, userAuthId) {
         // Primero obtenemos el edificio actual
         const building = await this.getBuildingById(buildingId, userAuthId);
         if (!building) {
-            throw new Error('Edificio no encontrado');
+            throw new Error("Edificio no encontrado");
         }
         // Actualizamos las imágenes para que solo una sea principal
-        const newImages = building.images.map(img => ({
+        const newImages = building.images.map((img) => ({
             ...img,
-            isMain: img.id === imageId
+            isMain: img.id === imageId,
         }));
         return this.updateBuilding(buildingId, { images: newImages }, userAuthId);
     }
@@ -256,9 +258,9 @@ class BuildingService {
     async hasDigitalBook(buildingId, userAuthId) {
         // Todos los usuarios pueden verificar si un edificio tiene libro digital
         const { data, error } = await this.getSupabase()
-            .from('digital_books')
-            .select('id')
-            .eq('building_id', buildingId)
+            .from("digital_books")
+            .select("id")
+            .eq("building_id", buildingId)
             .single();
         return !error && !!data;
     }
@@ -266,17 +268,17 @@ class BuildingService {
     async getBuildingWithBook(buildingId, userAuthId) {
         const building = await this.getBuildingById(buildingId, userAuthId);
         if (!building) {
-            throw new Error('Edificio no encontrado');
+            throw new Error("Edificio no encontrado");
         }
         // Obtener el libro digital asociado
         const { data: book } = await this.getSupabase()
-            .from('digital_books')
-            .select('*')
-            .eq('building_id', buildingId)
+            .from("digital_books")
+            .select("*")
+            .eq("building_id", buildingId)
             .single();
         return {
             ...building,
-            digitalBook: book || null
+            digitalBook: book || null,
         };
     }
     // Métodos auxiliares para verificar permisos
@@ -326,8 +328,8 @@ class BuildingService {
                 }
             }
             else {
-                console.log('❌ User exists but is not a technician');
-                throw new Error('El usuario existe pero no es un técnico');
+                console.log("❌ User exists but is not a technician");
+                throw new Error("El usuario existe pero no es un técnico");
             }
         }
         else {
@@ -336,7 +338,7 @@ class BuildingService {
             await this.invitationService.createInvitation({
                 email: technicianEmail,
                 role: user_1.UserRole.TECNICO,
-                buildingId: buildingId
+                buildingId: buildingId,
             }, userAuthId);
             console.log(`✅ INVITACIÓN DE REGISTRO creada exitosamente`);
         }
@@ -353,7 +355,7 @@ class BuildingService {
                 await this.assignCfoToBuilding(buildingId, existingCfo.id, userAuthId);
             }
             else {
-                throw new Error('El usuario existe pero no es un CFO');
+                throw new Error("El usuario existe pero no es un CFO");
             }
         }
         else {
@@ -361,7 +363,7 @@ class BuildingService {
             await this.invitationService.createInvitation({
                 email: cfoEmail,
                 role: user_1.UserRole.CFO,
-                buildingId: buildingId
+                buildingId: buildingId,
             }, userAuthId);
         }
     }
@@ -398,8 +400,8 @@ class BuildingService {
                 }
             }
             else {
-                console.log('❌ User exists but is not a propietario');
-                throw new Error('El usuario existe pero no es un propietario');
+                console.log("❌ User exists but is not a propietario");
+                throw new Error("El usuario existe pero no es un propietario");
             }
         }
         else {
@@ -408,7 +410,7 @@ class BuildingService {
             await this.invitationService.createInvitation({
                 email: propietarioEmail,
                 role: user_1.UserRole.PROPIETARIO,
-                buildingId: buildingId
+                buildingId: buildingId,
             }, userAuthId);
             console.log(`✅ INVITACIÓN DE REGISTRO creada exitosamente`);
         }
@@ -418,7 +420,7 @@ class BuildingService {
      */
     async getBuildingOwner(buildingId) {
         const { data, error } = await this.getSupabase()
-            .from('buildings')
+            .from("buildings")
             .select(`
         id,
         owner:users!owner_id(
@@ -429,10 +431,10 @@ class BuildingService {
           role_id
         )
       `)
-            .eq('id', buildingId)
+            .eq("id", buildingId)
             .single();
         if (error || !data) {
-            throw new Error('Edificio no encontrado');
+            throw new Error("Edificio no encontrado");
         }
         return data.owner;
     }
@@ -444,11 +446,11 @@ class BuildingService {
         if (!user)
             return false;
         const { data, error } = await this.getSupabase()
-            .from('building_cfo_assignments')
-            .select('id')
-            .eq('building_id', buildingId)
-            .eq('cfo_id', user.id)
-            .eq('status', 'active')
+            .from("building_cfo_assignments")
+            .select("id")
+            .eq("building_id", buildingId)
+            .eq("cfo_id", user.id)
+            .eq("status", "active")
             .single();
         return !error && !!data;
     }
@@ -457,11 +459,11 @@ class BuildingService {
         if (!user)
             return false;
         const { data, error } = await this.getSupabase()
-            .from('building_propietario_assignments')
-            .select('id')
-            .eq('building_id', buildingId)
-            .eq('propietario_id', user.id)
-            .eq('status', 'active')
+            .from("building_propietario_assignments")
+            .select("id")
+            .eq("building_id", buildingId)
+            .eq("propietario_id", user.id)
+            .eq("status", "active")
             .single();
         return !error && !!data;
     }
@@ -471,34 +473,34 @@ class BuildingService {
     async assignTechnicianToBuilding(buildingId, technicianAuthId, assignedByUserId) {
         const technician = await this.userService.getUserByAuthId(technicianAuthId);
         if (!technician) {
-            throw new Error('Técnico no encontrado');
+            throw new Error("Técnico no encontrado");
         }
         if (technician.role.name !== user_1.UserRole.TECNICO) {
-            throw new Error('El usuario no es un técnico');
+            throw new Error("El usuario no es un técnico");
         }
         // Verificar que el técnico no esté ya asignado a este edificio
         const existingAssignment = await this.getSupabase()
-            .from('building_technician_assignments')
-            .select('id')
-            .eq('building_id', buildingId)
-            .eq('technician_id', technician.id)
-            .eq('status', 'active')
+            .from("building_technician_assignments")
+            .select("id")
+            .eq("building_id", buildingId)
+            .eq("technician_id", technician.id)
+            .eq("status", "active")
             .single();
         if (existingAssignment.data) {
-            throw new Error('El técnico ya está asignado a este edificio');
+            throw new Error("El técnico ya está asignado a este edificio");
         }
         const assignedByUser = await this.userService.getUserByAuthId(assignedByUserId);
         if (!assignedByUser) {
-            throw new Error('Usuario asignador no encontrado');
+            throw new Error("Usuario asignador no encontrado");
         }
         const assignmentData = {
             building_id: buildingId,
             technician_id: technician.id,
             assigned_by: assignedByUser.id,
-            status: 'active'
+            status: "active",
         };
         const { error } = await this.getSupabase()
-            .from('building_technician_assignments')
+            .from("building_technician_assignments")
             .insert(assignmentData);
         if (error) {
             throw new Error(`Error al asignar técnico: ${error.message}`);
@@ -510,16 +512,16 @@ class BuildingService {
     async assignCfoToBuilding(buildingId, cfoId, assignedByUserId) {
         const assignedByUser = await this.userService.getUserByAuthId(assignedByUserId);
         if (!assignedByUser) {
-            throw new Error('Usuario asignador no encontrado');
+            throw new Error("Usuario asignador no encontrado");
         }
         const assignmentData = {
             building_id: buildingId,
             cfo_id: cfoId,
             assigned_by: assignedByUser.id,
-            status: 'active'
+            status: "active",
         };
         const { error } = await this.getSupabase()
-            .from('building_cfo_assignments')
+            .from("building_cfo_assignments")
             .insert(assignmentData);
         if (error) {
             throw new Error(`Error al asignar CFO: ${error.message}`);
@@ -531,28 +533,28 @@ class BuildingService {
     async assignPropietarioToBuilding(buildingId, propietarioId, assignedByUserId) {
         const assignedByUser = await this.userService.getUserByAuthId(assignedByUserId);
         if (!assignedByUser) {
-            throw new Error('Usuario asignador no encontrado');
+            throw new Error("Usuario asignador no encontrado");
         }
         // Verificar que el propietario no esté ya asignado a este edificio
         const existingAssignment = await this.getSupabase()
-            .from('building_propietario_assignments')
-            .select('id')
-            .eq('building_id', buildingId)
-            .eq('propietario_id', propietarioId)
-            .eq('status', 'active')
+            .from("building_propietario_assignments")
+            .select("id")
+            .eq("building_id", buildingId)
+            .eq("propietario_id", propietarioId)
+            .eq("status", "active")
             .single();
         if (existingAssignment.data) {
-            console.log('⚠️ El propietario ya está asignado a este edificio');
+            console.log("⚠️ El propietario ya está asignado a este edificio");
             return; // No lanzar error, simplemente no hacer nada
         }
         const assignmentData = {
             building_id: buildingId,
             propietario_id: propietarioId,
             assigned_by: assignedByUser.id,
-            status: 'active'
+            status: "active",
         };
         const { error } = await this.getSupabase()
-            .from('building_propietario_assignments')
+            .from("building_propietario_assignments")
             .insert(assignmentData);
         if (error) {
             throw new Error(`Error al asignar propietario: ${error.message}`);
@@ -563,54 +565,64 @@ class BuildingService {
      */
     async sendAssignmentNotificationEmail(user, building, assignedByUser) {
         try {
-            const emailService = new (await Promise.resolve().then(() => __importStar(require('./emailService')))).EmailService();
+            const emailService = new (await Promise.resolve().then(() => __importStar(require("./emailService")))).EmailService();
             // Usar el método de notificación de asignación
             await emailService.sendAssignmentNotificationEmail(user, building, assignedByUser);
             // También crear una notificación en la base de datos
             await this.createAssignmentNotification(user, building, assignedByUser);
         }
         catch (error) {
-            console.error('Error enviando notificación de asignación:', error);
+            console.error("Error enviando notificación de asignación:", error);
             // No lanzar error para no interrumpir el flujo principal
         }
     }
     /**
-     * Crea una notificación en la base de datos para el usuario asignado
+     * Crea una notificación en la base de datos para el usuario asignado usando el NotificationBus (Asincrónico)
      */
     async createAssignmentNotification(user, building, assignedByUser) {
         try {
-            const { getSupabaseClient } = await Promise.resolve().then(() => __importStar(require('../../lib/supabase')));
-            const supabase = getSupabaseClient();
-            const roleName = user.role?.name || 'usuario';
-            const roleLabel = roleName === 'tecnico' ? 'Técnico' :
-                roleName === 'cfo' ? 'CFO' :
-                    roleName === 'propietario' ? 'Propietario' : 'Usuario';
-            await supabase
-                .from('notifications')
-                .insert({
-                user_id: user.userId,
-                type: 'building_assignment',
+            const roleName = user.role?.name || "usuario";
+            const roleLabel = roleName === "tecnico"
+                ? "Técnico"
+                : roleName === "cfo"
+                    ? "CFO"
+                    : roleName === "propietario"
+                        ? "Propietario"
+                        : "Usuario";
+            // Emitimos el evento al Bus en lugar de insertar directamente en la BD
+            notificationBus_1.NotificationBus.getInstance().emit(notificationBus_1.NotificationEvents.NOTIFICATION_CREATED, {
+                building_id: building.id,
+                type: notification_1.NotificationType.BUILDING_ASSIGNMENT,
                 title: `Asignación a edificio "${building.name}"`,
                 message: `Has sido asignado como ${roleLabel} al edificio "${building.name}" por ${assignedByUser.fullName}.`,
+                expiration: null,
+                priority: 1,
                 metadata: {
+                    user_id: user.userId, // El Bus debe saber a quién va dirigida si la lógica lo requiere
                     building_id: building.id,
                     building_name: building.name,
                     assigned_by: assignedByUser.fullName,
-                    role: roleName
-                }
+                    role: roleName,
+                },
             });
         }
         catch (error) {
-            console.error('Error creando notificación:', error);
+            console.error("Error al emitir notificación de asignación:", error);
         }
     }
     /**
      * Valida las asignaciones de técnico y CFO antes de crear el edificio
      */
     async validateUserAssignments(technicianEmail, cfoEmail, propietarioEmail, userAuthId) {
-        const technicianValidation = { isValid: true, errors: {} };
+        const technicianValidation = {
+            isValid: true,
+            errors: {},
+        };
         const cfoValidation = { isValid: true, errors: {} };
-        const propietarioValidation = { isValid: true, errors: {} };
+        const propietarioValidation = {
+            isValid: true,
+            errors: {},
+        };
         // Validar técnico si se proporciona
         if (technicianEmail) {
             const technicianResult = await this.validateTechnicianEmail(technicianEmail, cfoEmail, propietarioEmail);
@@ -635,12 +647,14 @@ class BuildingService {
                 propietarioValidation.errors.propietario = propietarioResult.error;
             }
         }
-        const overallValid = technicianValidation.isValid && cfoValidation.isValid && propietarioValidation.isValid;
+        const overallValid = technicianValidation.isValid &&
+            cfoValidation.isValid &&
+            propietarioValidation.isValid;
         return {
             technicianValidation,
             cfoValidation,
             propietarioValidation,
-            overallValid
+            overallValid,
         };
     }
     /**
@@ -654,13 +668,13 @@ class BuildingService {
             if (existingUser.role.name === user_1.UserRole.PROPIETARIO) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario propietario. Los propietarios no pueden ser asignados como técnicos.'
+                    error: "Este email corresponde a un usuario propietario. Los propietarios no pueden ser asignados como técnicos.",
                 };
             }
             if (existingUser.role.name === user_1.UserRole.CFO) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario CFO. Un usuario no puede tener roles múltiples (CFO y técnico).'
+                    error: "Este email corresponde a un usuario CFO. Un usuario no puede tener roles múltiples (CFO y técnico).",
                 };
             }
             if (existingUser.role.name === user_1.UserRole.TECNICO) {
@@ -670,7 +684,7 @@ class BuildingService {
             if (existingUser.role.name === user_1.UserRole.ADMINISTRADOR) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como técnicos.'
+                    error: "Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como técnicos.",
                 };
             }
         }
@@ -685,14 +699,14 @@ class BuildingService {
         if (technicianEmail && cfoEmail === technicianEmail) {
             return {
                 isValid: false,
-                error: 'El CFO y el técnico no pueden ser la misma persona.'
+                error: "El CFO y el técnico no pueden ser la misma persona.",
             };
         }
         // Verificar si es el mismo email que el propietario
         if (propietarioEmail && cfoEmail === propietarioEmail) {
             return {
                 isValid: false,
-                error: 'El CFO y el propietario no pueden ser la misma persona.'
+                error: "El CFO y el propietario no pueden ser la misma persona.",
             };
         }
         // Verificar si el email ya existe
@@ -702,13 +716,13 @@ class BuildingService {
             if (existingUser.role.name === user_1.UserRole.PROPIETARIO) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario propietario. Los propietarios no pueden ser asignados como CFO.'
+                    error: "Este email corresponde a un usuario propietario. Los propietarios no pueden ser asignados como CFO.",
                 };
             }
             if (existingUser.role.name === user_1.UserRole.TECNICO) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario técnico. Un usuario no puede tener roles múltiples (técnico y CFO).'
+                    error: "Este email corresponde a un usuario técnico. Un usuario no puede tener roles múltiples (técnico y CFO).",
                 };
             }
             if (existingUser.role.name === user_1.UserRole.CFO) {
@@ -718,7 +732,7 @@ class BuildingService {
             if (existingUser.role.name === user_1.UserRole.ADMINISTRADOR) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como CFO.'
+                    error: "Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como CFO.",
                 };
             }
         }
@@ -733,14 +747,14 @@ class BuildingService {
         if (technicianEmail && propietarioEmail === technicianEmail) {
             return {
                 isValid: false,
-                error: 'El propietario y el técnico no pueden ser la misma persona.'
+                error: "El propietario y el técnico no pueden ser la misma persona.",
             };
         }
         // Verificar si es el mismo email que el CFO
         if (cfoEmail && propietarioEmail === cfoEmail) {
             return {
                 isValid: false,
-                error: 'El propietario y el CFO no pueden ser la misma persona.'
+                error: "El propietario y el CFO no pueden ser la misma persona.",
             };
         }
         // Verificar si el email ya existe
@@ -750,19 +764,19 @@ class BuildingService {
             if (existingUser.role.name === user_1.UserRole.TECNICO) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario técnico. Los técnicos no pueden ser asignados como propietarios.'
+                    error: "Este email corresponde a un usuario técnico. Los técnicos no pueden ser asignados como propietarios.",
                 };
             }
             if (existingUser.role.name === user_1.UserRole.CFO) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario CFO. Los CFOs no pueden ser asignados como propietarios.'
+                    error: "Este email corresponde a un usuario CFO. Los CFOs no pueden ser asignados como propietarios.",
                 };
             }
             if (existingUser.role.name === user_1.UserRole.ADMINISTRADOR) {
                 return {
                     isValid: false,
-                    error: 'Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como propietarios.'
+                    error: "Este email corresponde a un usuario administrador. Los administradores no pueden ser asignados como propietarios.",
                 };
             }
             if (existingUser.role.name === user_1.UserRole.PROPIETARIO) {
@@ -791,7 +805,7 @@ class BuildingService {
                 title: img.title,
                 filename: img.filename || img.title,
                 isMain: img.isMain,
-                uploadedAt: img.uploadedAt || new Date().toISOString()
+                uploadedAt: img.uploadedAt || new Date().toISOString(),
             })),
             status: data.status,
             price: data.price,
@@ -804,7 +818,7 @@ class BuildingService {
             squareMeters: data.square_meters,
             createdAt: data.created_at,
             updatedAt: data.updated_at,
-            userId: data.user_id // Mantener por compatibilidad
+            userId: data.user_id, // Mantener por compatibilidad
         };
     }
 }
