@@ -40,6 +40,7 @@ export class NotificationService {
     data: CreateNotificationRequest
   ): Promise<Notification> {
     const notificationData: any = {
+      user_id: data.user_id,
       building_id: data.building_id,
       type: data.type,
       title: data.title,
@@ -413,6 +414,7 @@ export class NotificationService {
   private mapToNotification(data: any): Notification {
     return {
       id: data.id,
+      userId: data.user_id,
       buildingId: data.building_id,
       type: data.type,
       title: data.title,

@@ -8,6 +8,7 @@ export enum NotificationType {
 
 export interface Notification {
   id: string;
+  userId?: string;
   buildingId: string;
   type: NotificationType;
   title: string;
@@ -19,6 +20,7 @@ export interface Notification {
 }
 
 export interface CreateNotificationRequest {
+  user_id?: string;
   building_id: string;
   type: NotificationType;
   title: string;
