@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { UserService } from '../../domain/services/userService';
 import { AssignTechnicianRequest, UpdateUserRequest } from '../../types/user';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
 
 const userService = new UserService();
 
@@ -109,6 +111,7 @@ export const assignTechnicianToBuilding = async (
       userId
     );
 
+    trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId, action: ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: ModuleValues.USUARIOS, description: "Asignó un nuevo técnico" }).catch(err => console.error("Fallo trazabilidad:", err));
     res.json(assignment);
   } catch (error) {
     console.error("Error al asignar técnico:", error);
@@ -127,7 +130,9 @@ export const createUser = async (req: Request, res: Response) => {
         .status(400)
         .json({ error: "email, fullname y  role son requeridos" });
     }
+    
     const usuario = await userService.createUser({...req.body, userId: req?.user?.id});
+    trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: null, action: ActionsValues.CREAR, module: ModuleValues.USUARIOS, description: "Creo un nuevo usuario" }).catch(err => console.error("Fallo trazabilidad:", err));
     res.status(201).json({ message: 'Usuario creado correctamente', usuario });
   } catch (error: any) {
     console.error("Error al crear usuario:", error);
@@ -150,6 +155,7 @@ export const editUser = async (req: Request, res: Response) => {
       email,
       status
     });
+    trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: null, action: ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: ModuleValues.USUARIOS, description: `Actualizó el usuario de ${usuario?.fullName}` }).catch(err => console.error("Fallo trazabilidad:", err));
     res.status(200).json({ message: "Usuario editado correctamente", usuario });
   } catch (error: any) {
     console.error("Error al editar usuario:", error);

@@ -10,6 +10,17 @@ class CalendarService {
      * Obtiene los eventos de un edificio.
      * Soporta filtros por rango de fechas (ideal para vista mensual).
      */
+    async getAllBuildingEvents() {
+        let query = this.getSupabase()
+            .from("building_events")
+            .select("*, buildings(name)")
+            .order("event_date", { ascending: true }); // Ordenar por fecha próxima
+        const { data, error } = await query;
+        if (error) {
+            throw new Error(`Error al obtener eventos del calendario: ${error.message}`);
+        }
+        return data.map((item) => this.mapToEvent(item));
+    }
     async getBuildingEvents(buildingId, filters = {}) {
         let query = this.getSupabase()
             .from("building_events")
@@ -102,17 +113,31 @@ class CalendarService {
             throw new Error(`Error al eliminar evento: ${error.message}`);
         return true;
     }
+    async getEvent(id) {
+        let { data: dataBuild, error } = await this.getSupabase()
+            .from("building_events")
+            .select("building_id")
+            .eq("id", id)
+            .single();
+        if (error)
+            throw new Error(`Error al eliminar evento: ${error.message}`);
+        return {
+            buildingId: dataBuild?.building_id
+        };
+    }
     // Mapper privado
     mapToEvent(data) {
         return {
             id: data.id,
             buildingId: data.building_id,
+            buildingName: data?.buildings?.name,
             title: data.title,
             description: data.description,
             eventDate: data.event_date,
             category: data.category,
             priority: data.priority,
             status: data.status,
+            execution: data?.execution_event,
             relatedAsset: data.related_asset,
             createdAt: data.created_at,
         };

@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceInvoiceController = void 0;
 const serviceInvoiceService_1 = require("../../domain/services/serviceInvoiceService");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class ServiceInvoiceController {
     constructor() {
         this.createServiceInvoice = async (req, res) => {
@@ -28,6 +30,7 @@ class ServiceInvoiceController {
                     res.status(400).json({ error: 'amount_eur debe ser >= 0' });
                     return;
                 }
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Crear factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
                 const invoice = await this.getService().createServiceInvoice(data, userId);
                 res.status(201).json({ data: invoice });
             }
@@ -106,6 +109,7 @@ class ServiceInvoiceController {
                     res.status(404).json({ error: 'Factura de servicio no encontrada' });
                     return;
                 }
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.building_id, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR DATOS FINANCIEROS'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Actualizar factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: invoice });
             }
             catch (error) {
@@ -122,6 +126,8 @@ class ServiceInvoiceController {
                     return;
                 }
                 await this.getService().deleteServiceInvoice(id, userId);
+                const invoice = await this.getService().getServiceInvoiceById(id, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: invoice?.building_id || null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Eliminar factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(204).send();
             }
             catch (error) {

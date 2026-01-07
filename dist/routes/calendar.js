@@ -7,6 +7,11 @@ const router = (0, express_1.Router)();
 const calendarController = new calendarController_1.CalendarController();
 router.use(authMiddleware_1.authenticateToken);
 /**
+ * @route GET /calendar/all
+ * @desc Obtener eventos de todos los edificios
+ */
+router.get("/all", calendarController.getAllEvents);
+/**
  * @route GET /calendar
  * @desc Obtener eventos del calendario de un edificio
  * query: buildingId (required), startDate, endDate, category

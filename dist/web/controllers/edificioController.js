@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuildingController = void 0;
 const edificioService_1 = require("../../domain/services/edificioService");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class BuildingController {
     constructor() {
         this.createBuilding = async (req, res) => {
@@ -18,6 +20,7 @@ class BuildingController {
                     return;
                 }
                 const building = await this.getBuildingService().createBuilding(data, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: building?.id, action: interfaceTrazability_1.ActionsValues.CREAR, module: interfaceTrazability_1.ModuleValues.UBICACIONES, description: "Creo un nuevo edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(201).json({ data: building });
             }
             catch (error) {
@@ -70,6 +73,7 @@ class BuildingController {
                 const { id } = req.params;
                 const data = req.body;
                 const building = await this.getBuildingService().updateBuilding(id, data, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Actualizar datos de edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: building });
             }
             catch (error) {
@@ -107,6 +111,7 @@ class BuildingController {
                 for (const image of images) {
                     building = await this.getBuildingService().addImage(id, image, userId);
                 }
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Actualizar imágenes de edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: building });
             }
             catch (error) {
@@ -123,6 +128,7 @@ class BuildingController {
                 }
                 const { id, imageId } = req.params;
                 const building = await this.getBuildingService().removeImage(id, imageId, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Elimino imágenes de edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: building });
             }
             catch (error) {
@@ -144,6 +150,7 @@ class BuildingController {
                     return;
                 }
                 const building = await this.getBuildingService().setMainImage(id, imageId, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Definir imagen principal" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: building });
             }
             catch (error) {

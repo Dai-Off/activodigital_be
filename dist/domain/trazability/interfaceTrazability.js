@@ -27,7 +27,7 @@ var ActionsValues;
     ActionsValues["GENERAR INFORMES"] = "GENERAR INFORMES";
     ActionsValues["PROGRAMAR EVENTOS"] = "PROGRAMAR EVENTOS";
     ActionsValues["ALERTAS"] = "ALERTAS";
-    ActionsValues["ACTUALIZAR LIBRE DEL EDIFICIO"] = "ACTUALIZAR LIBRE DEL EDIFICIO";
+    ActionsValues["ACTUALIZAR LIBRO DEL EDIFICIO"] = "ACTUALIZAR LIBRO DEL EDIFICIO";
     ActionsValues["APROBAR PRESUPUESTO"] = "APROBAR PRESUPUESTO";
     ActionsValues["ACTUALIZAR DATOS FINANCIEROS"] = "ACTUALIZAR DATOS FINANCIEROS";
     ActionsValues["COMPLETAR INSPECCION ELECTRICA"] = "COMPLETAR INSPECCION ELECTRICA";
@@ -44,5 +44,6 @@ var ModuleValues;
     ModuleValues["INFORME"] = "INFORME";
     ModuleValues["USUARIOS"] = "USUARIOS";
     ModuleValues["UBICACIONES"] = "UBICACIONES";
+    ModuleValues["EDIFICIOS"] = "EDIFICIOS";
 })(ModuleValues || (exports.ModuleValues = ModuleValues = {}));
 //# sourceMappingURL=interfaceTrazability.js.map

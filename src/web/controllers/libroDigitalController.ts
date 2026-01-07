@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { DigitalBookService } from '../../domain/services/libroDigitalService';
 import { CreateDigitalBookRequest, UpdateDigitalBookRequest, UpdateSectionRequest, SectionType } from '../../types/libroDigital';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
 export class DigitalBookController {
   private getDigitalBookService() {
@@ -16,7 +18,7 @@ export class DigitalBookController {
       }
 
       const data: CreateDigitalBookRequest = req.body;
-      
+
       // Validación básica
       if (!data.buildingId || !data.source) {
         res.status(400).json({ error: 'Faltan campos requeridos' });
@@ -24,6 +26,7 @@ export class DigitalBookController {
       }
 
       const book = await this.getDigitalBookService().createDigitalBook(data, userId);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data.buildingId, action: ActionsValues['CREAR'], module: ModuleValues.EDIFICIOS, description: "Cargar libro digital (manualmente)" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.status(201).json({ data: book });
     } catch (error) {
       console.error('Error al crear libro digital:', error);
@@ -47,7 +50,7 @@ export class DigitalBookController {
 
       const { buildingId } = req.params;
       const book = await this.getDigitalBookService().getBookByBuildingId(buildingId, userId);
-      
+
       if (!book) {
         res.status(404).json({ error: 'Libro digital no encontrado para este edificio' });
         return;
@@ -103,11 +106,12 @@ export class DigitalBookController {
       }
 
       const book = await this.getDigitalBookService().updateSection(
-        id, 
-        sectionTypeParam as SectionType, 
-        data, 
+        id,
+        sectionTypeParam as SectionType,
+        data,
         userId
       );
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: book?.buildingId, action: ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: ModuleValues.EDIFICIOS, description: "Modificar libro digital" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: book });
     } catch (error) {
       console.error('Error al actualizar sección:', error);

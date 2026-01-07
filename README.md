@@ -42,6 +42,7 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 - **[Dashboard API](docs/dashboard-api.md)** - Métricas y estadísticas del dashboard
 - **[Technical Audit API](docs/technical-audit-api.md)** - Auditoría técnica completa de edificios
 - **[AI Digital Book API](docs/ai-digital-book-api.md)** - Procesamiento automático de PDFs con IA
+- **[Logging](docs/logs.md)** - Implementación de logging
 
 ## Setup Local
 
@@ -50,8 +51,8 @@ Backend en Node.js + Express + TypeScript con Supabase para la gestión completa
 npm install
 ```
 
-### 2. Variables de entorno
-Crear archivo `.env` en la raíz del proyecto:
+### 2. Variables de entorno (desarrollo y test)
+Crear archivo `.env` y `.env.test` en la raíz del proyecto:
 ```dotenv
 PORT=3000
 NODE_ENV=development

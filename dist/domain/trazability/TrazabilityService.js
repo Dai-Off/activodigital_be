@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TrazabilityService = void 0;
+exports.trazabilityService = exports.TrazabilityService = void 0;
 const supabase_1 = require("../../lib/supabase");
 class TrazabilityService {
     getSupabase() {
@@ -146,4 +146,5 @@ class TrazabilityService {
     }
 }
 exports.TrazabilityService = TrazabilityService;
+exports.trazabilityService = new TrazabilityService();
 //# sourceMappingURL=TrazabilityService.js.map

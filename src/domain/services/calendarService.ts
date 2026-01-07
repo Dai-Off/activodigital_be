@@ -135,6 +135,19 @@ export class CalendarService {
     if (error) throw new Error(`Error al eliminar evento: ${error.message}`);
     return true;
   }
+  async getEvent(id: string): Promise<{ buildingId: string }> {
+
+    let { data: dataBuild, error } = await this.getSupabase()
+      .from("building_events")
+      .select("building_id")
+      .eq("id", id)
+      .single()
+
+    if (error) throw new Error(`Error al eliminar evento: ${error.message}`);
+    return {
+      buildingId: dataBuild?.building_id
+    };
+  }
 
   // Mapper privado
   private mapToEvent(data: any): BuildingEvent {

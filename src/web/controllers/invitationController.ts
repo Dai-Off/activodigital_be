@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import { InvitationService } from '../../domain/services/invitationService';
-import { 
-  CreateInvitationRequest, 
-  AcceptInvitationRequest,
-  UserRole 
+import {
+  CreateInvitationRequest,
+  UserRole
 } from '../../types/user';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
 export class InvitationController {
   private invitationService = new InvitationService();
@@ -40,6 +41,8 @@ export class InvitationController {
         buildingId
       }, userAuthId);
 
+      trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId, action: ActionsValues['CREAR'], module: ModuleValues.CALENDARIO, description: "Crear invitación" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.status(201).json({
         success: true,
         message: 'Invitación enviada exitosamente',
@@ -51,6 +54,8 @@ export class InvitationController {
           expiresAt: invitation.expiresAt
         }
       });
+
+
     } catch (error) {
       console.error('Error en createInvitation:', error);
       const message = error instanceof Error ? error.message : 'Error interno del servidor';
@@ -165,6 +170,8 @@ export class InvitationController {
 
       await this.invitationService.cancelInvitation(id, userAuthId);
 
+      trazabilityService.registerTrazability({ authUserId: userAuthId, buildingId: null, action: ActionsValues['ELIMINAR'], module: ModuleValues.CALENDARIO, description: "Cancelar invitación" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.json({
         success: true,
         message: 'Invitación cancelada exitosamente'
@@ -270,6 +277,8 @@ export class InvitationController {
 
       const cleanedCount = await this.invitationService.cleanupExpiredInvitations();
 
+      trazabilityService.registerTrazability({ authUserId: userAuthId, buildingId: null, action: ActionsValues['ELIMINAR'], module: ModuleValues.CALENDARIO, description: "Invitación marcada como expirada" }).catch(err => console.error("Fallo trazabilidad:", err));
+      
       res.json({
         success: true,
         message: `${cleanedCount} invitaciones expiradas fueron marcadas como expiradas`

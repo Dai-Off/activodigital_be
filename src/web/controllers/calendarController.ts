@@ -5,6 +5,8 @@ import {
   UpdateEventRequest,
   EventFilters,
 } from "../../types/calendar";
+import { trazabilityService } from "../../domain/trazability/TrazabilityService";
+import { ActionsValues, ModuleValues } from "../../domain/trazability/interfaceTrazability";
 
 export class CalendarController {
   private calendarService = new CalendarService();
@@ -90,6 +92,8 @@ export class CalendarController {
 
       const newEvent = await this.calendarService.createEvent(body);
 
+      trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: body?.buildingId, action: ActionsValues['CREAR'], module: ModuleValues.CALENDARIO, description: "Crear evento" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.status(201).json({
         message: "Evento programado con éxito",
         data: newEvent,
@@ -114,6 +118,8 @@ export class CalendarController {
 
       const updatedEvent = await this.calendarService.updateEvent(id, body);
 
+      trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: updatedEvent?.buildingId, action: ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: ModuleValues.CALENDARIO, description: "Actualizar evento" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.status(200).json({
         message: "Evento actualizado",
         data: updatedEvent,
@@ -133,7 +139,11 @@ export class CalendarController {
   deleteEvent = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
+      const data = await this.calendarService.getEvent(id);
       await this.calendarService.deleteEvent(id);
+      
+      trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: data?.buildingId, action: ActionsValues['ELIMINAR'], module: ModuleValues.CALENDARIO, description: "Eliminar evento" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.status(200).json({ message: "Evento eliminado", success: true });
     } catch (error) {
       console.error("Error al eliminar evento:", error);

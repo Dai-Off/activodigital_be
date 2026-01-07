@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CertificateEnergeticoController = void 0;
 const certificateEnergeticoService_1 = require("../../domain/services/certificateEnergeticoService");
 const certificateEnergetico_1 = require("../../types/certificateEnergetico");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class CertificateEnergeticoController {
     constructor() {
         /**
@@ -28,6 +30,7 @@ class CertificateEnergeticoController {
                     documents: [] // Sin documentos inicialmente
                 };
                 const session = await this.getCertificateService().createEnergyCertificateSession(simpleRequest, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Creo sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: session });
             }
             catch (error) {
@@ -61,6 +64,7 @@ class CertificateEnergeticoController {
                     return;
                 }
                 const session = await this.getCertificateService().createEnergyCertificateSession(data, userId, token);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.buildingId, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Creo sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(201).json({ data: session });
             }
             catch (error) {
@@ -90,6 +94,7 @@ class CertificateEnergeticoController {
                 const sessionId = req.params.sessionId;
                 const data = req.body;
                 const session = await this.getCertificateService().updateEnergyCertificateSession(sessionId, data, userId, token);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: session.buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "actualizar sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: session });
             }
             catch (error) {
@@ -123,6 +128,7 @@ class CertificateEnergeticoController {
                     finalData
                 };
                 const certificate = await this.getCertificateService().confirmEnergyCertificate(certificateRequest, userId, token);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: certificate?.buildingId, action: interfaceTrazability_1.ActionsValues['APROBAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Creo sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(201).json({ data: certificate });
             }
             catch (error) {
@@ -188,6 +194,8 @@ class CertificateEnergeticoController {
                 }
                 const sessionId = req.params.sessionId;
                 await this.getCertificateService().deleteEnergyCertificateSession(sessionId, userId);
+                const data = await this.getCertificateService().getSessionDocuments(sessionId, userId) || null;
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data[0]?.buildingId, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Eliminó sección Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(204).send();
             }
             catch (error) {
@@ -210,6 +218,8 @@ class CertificateEnergeticoController {
                 }
                 const certificateId = req.params.certificateId;
                 await this.getCertificateService().deleteEnergyCertificate(certificateId, userId);
+                const data = await this.getCertificateService().getEnergyCertificatesByCertificatedId(certificateId) || null;
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.buildingId, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Eliminó sección Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(204).send();
             }
             catch (error) {
@@ -241,6 +251,7 @@ class CertificateEnergeticoController {
                     extractedData
                 };
                 const session = await this.getCertificateService().updateEnergyCertificateSession(sessionId, updateData, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: session?.buildingId, action: interfaceTrazability_1.ActionsValues['GENERAR INFORMES'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Procesar certificado con datos de IA" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: session });
             }
             catch (error) {

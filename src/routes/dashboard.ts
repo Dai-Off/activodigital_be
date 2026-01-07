@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { DashboardController } from '../web/controllers/dashboardController';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requireAuth } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const dashboardController = new DashboardController();
@@ -10,6 +11,8 @@ const dashboardController = new DashboardController();
  * Obtiene las estadísticas del dashboard para el usuario autenticado
  * Requiere autenticación
  */
-router.get('/stats', authenticateToken, dashboardController.getStats);
+router.use(requireAuth);
+router.use(requestLogger);
+router.get('/stats', dashboardController.getStats);
 
 export default router;

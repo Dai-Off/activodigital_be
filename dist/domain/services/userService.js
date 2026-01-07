@@ -5,9 +5,6 @@ const supabase_1 = require("../../lib/supabase");
 const user_1 = require("../../types/user");
 const TrazabilityService_1 = require("../trazability/TrazabilityService");
 class UserService {
-    constructor() {
-        this.trazabilityService = new TrazabilityService_1.TrazabilityService();
-    }
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
     }
@@ -114,7 +111,7 @@ class UserService {
         return this.createUserProfile(authUserIdCreate, userData);
     }
     async insertTrazability(data) {
-        await this.trazabilityService.registerTrazability(data);
+        await TrazabilityService_1.trazabilityService.registerTrazability(data);
     }
     async editUser(userId, update) {
         if (update.email) {
@@ -196,6 +193,7 @@ class UserService {
             .from('users')
             .update({
             full_name: updateData.fullName,
+            status: updateData.status,
             role_id: updateData.roleId
         })
             .eq('id', userId)
@@ -348,6 +346,7 @@ class UserService {
                 id: data?.roles?.id ?? null,
                 name: data?.roles?.name ?? null,
             },
+            status: data.status ?? false,
             twoFactorEnabled: data.two_factor_enabled ?? false,
             createdAt: data.created_at,
             updatedAt: data.updated_at

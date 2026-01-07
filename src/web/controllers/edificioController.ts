@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { BuildingService } from '../../domain/services/edificioService';
-import { CreateBuildingRequest, UpdateBuildingRequest, BuildingStatus, UploadImagesRequest, SetMainImageRequest, ValidateAssignmentsResponse } from '../../types/edificio';
+import { CreateBuildingRequest, UpdateBuildingRequest, UploadImagesRequest, SetMainImageRequest } from '../../types/edificio';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
 export class BuildingController {
   private getBuildingService() {
@@ -16,7 +18,7 @@ export class BuildingController {
       }
 
       const data: CreateBuildingRequest = req.body;
-      
+
       // Validación básica
       if (!data.name || !data.address || !data.typology) {
         res.status(400).json({ error: 'Faltan campos requeridos' });
@@ -24,11 +26,13 @@ export class BuildingController {
       }
 
       const building = await this.getBuildingService().createBuilding(data, userId);
+
+      trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: building?.id, action: ActionsValues.CREAR, module: ModuleValues.UBICACIONES, description: "Creo un nuevo edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.status(201).json({ data: building });
     } catch (error) {
       console.error('Error al crear edificio:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
-    }
+    } 
   };
 
   getBuildings = async (req: Request, res: Response): Promise<void> => {
@@ -57,7 +61,7 @@ export class BuildingController {
 
       const { id } = req.params;
       const building = await this.getBuildingService().getBuildingById(id, userId);
-      
+
       if (!building) {
         res.status(404).json({ error: 'Edificio no encontrado' });
         return;
@@ -82,6 +86,7 @@ export class BuildingController {
       const data: UpdateBuildingRequest = req.body;
 
       const building = await this.getBuildingService().updateBuilding(id, data, userId);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: ModuleValues.EDIFICIOS, description: "Actualizar datos de edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: building });
     } catch (error) {
       console.error('Error al actualizar edificio:', error);
@@ -125,6 +130,8 @@ export class BuildingController {
         building = await this.getBuildingService().addImage(id, image, userId);
       }
 
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: ModuleValues.EDIFICIOS, description: "Actualizar imágenes de edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.json({ data: building });
     } catch (error) {
       console.error('Error al subir imágenes:', error);
@@ -143,6 +150,8 @@ export class BuildingController {
       const { id, imageId } = req.params;
 
       const building = await this.getBuildingService().removeImage(id, imageId, userId);
+
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: ActionsValues['ELIMINAR'], module: ModuleValues.EDIFICIOS, description: "Elimino imágenes de edificio" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: building });
     } catch (error) {
       console.error('Error al eliminar imagen:', error);
@@ -167,6 +176,7 @@ export class BuildingController {
       }
 
       const building = await this.getBuildingService().setMainImage(id, imageId, userId);
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: id, action: ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: ModuleValues.EDIFICIOS, description: "Definir imagen principal" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: building });
     } catch (error) {
       console.error('Error al establecer imagen principal:', error);
@@ -191,7 +201,7 @@ export class BuildingController {
       }
 
       const validationResults = await this.getBuildingService().validateUserAssignments(
-        technicianEmail, 
+        technicianEmail,
         cfoEmail,
         propietarioEmail,
         userId

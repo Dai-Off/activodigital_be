@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { FinancialSnapshotService } from '../../domain/services/financialSnapshotService';
 import { CreateFinancialSnapshotRequest, FinancialSnapshot, FinancialSnapshotSummary, UpdateFinancialSnapshotRequest } from '../../types/financialSnapshot';
+import { trazabilityService } from '../../domain/trazability/TrazabilityService';
+import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
 
 const calculateSummary = (snapshots: FinancialSnapshot[]): FinancialSnapshotSummary => {
@@ -41,7 +43,7 @@ const calculateSummary = (snapshots: FinancialSnapshot[]): FinancialSnapshotSumm
   if (tirValues.length > 0) {
     const sumTir = tirValues.reduce((sum, value) => sum + value, 0);
 
-    let rawTirPromedio: number  = (sumTir / tirValues.length);
+    let rawTirPromedio: number = (sumTir / tirValues.length);
     const formattedTirPromedio = parseFloat(rawTirPromedio.toFixed(2));
 
     summary.tir_promedio = formattedTirPromedio;
@@ -73,6 +75,8 @@ export class FinancialSnapshotController {
       }
 
       const snapshot = await this.getService().createFinancialSnapshot(data, userId);
+
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: ActionsValues['GENERAR INFORMES'], module: ModuleValues.DOCUMENTOS, description: "Crear financial snapshot" }).catch(err => console.error("Fallo trazabilidad:", err));
       res.status(201).json({ data: snapshot });
     } catch (error) {
       console.error('Error al crear financial snapshot:', error);
@@ -183,6 +187,8 @@ export class FinancialSnapshotController {
         return;
       }
 
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: snapshot?.building_id, action: ActionsValues['ACTUALIZAR DATOS FINANCIEROS'], module: ModuleValues.DOCUMENTOS, description: "Actualizar financial snapshot" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.json({ data: snapshot });
     } catch (error) {
       console.error('Error al actualizar financial snapshot:', error);
@@ -201,6 +207,10 @@ export class FinancialSnapshotController {
       }
 
       await this.getService().deleteFinancialSnapshot(id, userId);
+      const snapshot = await this.getService().getFinancialSnapshotById(id, userId);
+
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: snapshot?.building_id || null, action: ActionsValues['ELIMINAR'], module: ModuleValues.DOCUMENTOS, description: "Eliminar financial snapshot" }).catch(err => console.error("Fallo trazabilidad:", err));
+
       res.status(204).send();
     } catch (error) {
       console.error('Error al eliminar financial snapshot:', error);

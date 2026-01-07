@@ -3,6 +3,8 @@ import { AIProcessingService } from "../../domain/services/aiProcessingService";
 import { DigitalBookService } from "../../domain/services/libroDigitalService";
 import { NotificationService } from "../../domain/services/notificationService";
 import { BookSource } from "../../types/libroDigital";
+import { trazabilityService } from "../../domain/trazability/TrazabilityService";
+import { ActionsValues, ModuleValues } from "../../domain/trazability/interfaceTrazability";
 
 export class AIDigitalBookController {
   private aiProcessingService = new AIProcessingService();
@@ -249,6 +251,7 @@ export class AIDigitalBookController {
         }
         return;
       }
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: ActionsValues['CREAR'], module: ModuleValues.EDIFICIOS, description: "Cargar libro digital (automáticamente)" }).catch(err => console.error("Fallo trazabilidad:", err));
     } catch (error) {
       console.error("Error general en uploadAndProcessDocument:", error);
       res.status(500).json({

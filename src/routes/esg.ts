@@ -1,11 +1,13 @@
 import { Router } from 'express';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requireAuth } from '../web/middlewares/authMiddleware';
 import { EsgController } from '../web/controllers/esgController';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const controller = new EsgController();
 
-router.use(authenticateToken);
+router.use(requireAuth);
+router.use(requestLogger);
 
 // POST /esg/calculate - Calcula y guarda el ESG
 router.post('/calculate', controller.calculate);

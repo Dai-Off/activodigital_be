@@ -186,3 +186,8 @@ export interface GetEnergyCertificatesResponse {
   sessions: EnergyCertificateSession[];
   certificates: EnergyCertificate[];
 }
+
+export interface GetEnergyCertificatesResponse {
+  sessions: EnergyCertificateSession[];
+  certificates: EnergyCertificate[];
+}

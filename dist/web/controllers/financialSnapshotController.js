@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinancialSnapshotController = void 0;
 const financialSnapshotService_1 = require("../../domain/services/financialSnapshotService");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 const calculateSummary = (snapshots) => {
     const total_activos = snapshots.length;
     let bankReady = 0;
@@ -52,6 +54,7 @@ class FinancialSnapshotController {
                     return;
                 }
                 const snapshot = await this.getService().createFinancialSnapshot(data, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: interfaceTrazability_1.ActionsValues['GENERAR INFORMES'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Crear financial snapshot" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(201).json({ data: snapshot });
             }
             catch (error) {
@@ -145,6 +148,7 @@ class FinancialSnapshotController {
                     res.status(404).json({ error: 'Financial snapshot no encontrado' });
                     return;
                 }
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: snapshot?.building_id, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR DATOS FINANCIEROS'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Actualizar financial snapshot" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: snapshot });
             }
             catch (error) {
@@ -161,6 +165,8 @@ class FinancialSnapshotController {
                     return;
                 }
                 await this.getService().deleteFinancialSnapshot(id, userId);
+                const snapshot = await this.getService().getFinancialSnapshotById(id, userId);
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: snapshot?.building_id || null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Eliminar financial snapshot" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(204).send();
             }
             catch (error) {

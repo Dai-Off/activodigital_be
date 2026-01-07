@@ -1,5 +1,5 @@
 import { getSupabaseClient, getSupabaseClientForToken } from '../../lib/supabase';
-import { 
+import {
   EnergyCertificateDocument,
   EnergyCertificateSession,
   EnergyCertificate,
@@ -66,7 +66,7 @@ export class CertificateEnergeticoService {
    * Crear sesión de certificado energético con documentos
    */
   async createEnergyCertificateSession(
-    data: CreateEnergyCertificateSessionRequest, 
+    data: CreateEnergyCertificateSessionRequest,
     userAuthId: string,
     token?: string
   ): Promise<EnergyCertificateSession> {
@@ -74,7 +74,7 @@ export class CertificateEnergeticoService {
 
     // Crear documentos primero
     const documentIds: string[] = [];
-    
+
     for (const docData of data.documents) {
       const { data: doc, error: docError } = await supabase
         .from('energy_certificate_documents')
@@ -92,7 +92,7 @@ export class CertificateEnergeticoService {
       if (docError) {
         throw new Error(`Error creando documento: ${docError.message}`);
       }
-      
+
       documentIds.push(doc.id);
     }
 
@@ -180,7 +180,7 @@ export class CertificateEnergeticoService {
    */
   private async getPrimaryDocumentUrl(sessionId: string): Promise<string | null> {
     const supabase = this.getSupabase();
-    
+
     // Primero obtener los IDs de documentos de la sesión
     const { data: session, error: sessionError } = await supabase
       .from('energy_certificate_sessions')
@@ -230,7 +230,7 @@ export class CertificateEnergeticoService {
     // Validar que los datos requeridos estén presentes
     const requiredFields = ['rating', 'primaryEnergyKwhPerM2Year', 'emissionsKgCo2PerM2Year', 'certificateNumber', 'issuerName', 'issueDate', 'expiryDate'];
     const missingFields = requiredFields.filter(field => !data.finalData[field as keyof typeof data.finalData]);
-    
+
     if (missingFields.length > 0) {
       throw new Error(`Faltan campos requeridos: ${missingFields.join(', ')}`);
     }
@@ -290,7 +290,7 @@ export class CertificateEnergeticoService {
     // Actualizar estado de la sesión a confirmado
     await supabase
       .from('energy_certificate_sessions')
-      .update({ 
+      .update({
         status: AIExtractionStatus.CONFIRMED,
         edited_data: data.finalData,
         reviewer_user_id: session.user_id
@@ -398,6 +398,26 @@ export class CertificateEnergeticoService {
     return {
       sessions: sessions.map(s => this.mapDbToEnergyCertificateSession(s)),
       certificates: certificates.map(c => this.mapDbToEnergyCertificate(c))
+    };
+  }
+
+  async getEnergyCertificatesByCertificatedId(
+    certificateId: string
+  ): Promise<{ buildingId: string }> {
+    const supabase = this.getSupabase();
+
+    const { data, error: sessionError } = await supabase
+      .from('energy_certificates')
+      .select('building_id')
+      .eq('id', certificateId)
+      .single();
+
+    if (sessionError) {
+      throw new Error(`Error obteniendo certificados: ${sessionError.message}`);
+    }
+
+    return {
+      buildingId: data?.building_id
     };
   }
 

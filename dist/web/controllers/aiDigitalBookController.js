@@ -5,6 +5,8 @@ const aiProcessingService_1 = require("../../domain/services/aiProcessingService
 const libroDigitalService_1 = require("../../domain/services/libroDigitalService");
 const notificationService_1 = require("../../domain/services/notificationService");
 const libroDigital_1 = require("../../types/libroDigital");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 class AIDigitalBookController {
     constructor() {
         this.aiProcessingService = new aiProcessingService_1.AIProcessingService();
@@ -208,6 +210,7 @@ class AIDigitalBookController {
                     }
                     return;
                 }
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Cargar libro digital (automáticamente)" }).catch(err => console.error("Fallo trazabilidad:", err));
             }
             catch (error) {
                 console.error("Error general en uploadAndProcessDocument:", error);

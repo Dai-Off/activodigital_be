@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteUnit = exports.importUnitsFromCatastro = exports.upsertUnits = exports.listUnits = void 0;
 const buildingUnitService_1 = require("../../domain/services/buildingUnitService");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 const service = new buildingUnitService_1.BuildingUnitService();
 const listUnits = async (req, res) => {
     try {
@@ -24,6 +26,7 @@ const upsertUnits = async (req, res) => {
         const buildingId = req.params.id;
         const body = Array.isArray(req.body?.units) ? req.body.units : [];
         const units = await service.upsertUnits(buildingId, body);
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Cargo de las unidades manualmente" }).catch(err => console.error("Fallo trazabilidad:", err));
         res.status(201).json({ data: units });
     }
     catch (error) {
@@ -41,6 +44,7 @@ const importUnitsFromCatastro = async (req, res) => {
             return;
         }
         const units = await service.importFromCatastro(buildingId, rc);
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Carga de las unidades desde catastro" }).catch(err => console.error("Fallo trazabilidad:", err));
         res.status(201).json({ data: units });
     }
     catch (error) {
@@ -58,6 +62,7 @@ const deleteUnit = async (req, res) => {
             return;
         }
         await service.deleteUnit(buildingId, unitId);
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Eliminación de las unidades" }).catch(err => console.error("Fallo trazabilidad:", err));
         res.status(204).send();
     }
     catch (error) {

@@ -1,5 +1,3 @@
-// types/apify.ts
-
 export interface IdealistaProperty {
   url: string;
   title: string;
@@ -8,16 +6,25 @@ export interface IdealistaProperty {
   thumbnail?: string;
   location?: string;
   rooms?: number;
-  area?: number; // m2
-  // Agrega más campos según lo que devuelva el Actor específico de Idealista
+  area?: number;
 }
 
 export interface ScrapeIdealistaRequest {
-  searchUrl: string; // La URL de búsqueda de Idealista (ej: https://idealista.com/venta-viviendas/madrid/)
-  maxItems?: number; // Opcional, por defecto 50
+  searchUrl?: string;
+  locationName?: string; // Nombre que el usuario envía (ej: "Madrid")
+  maxItems?: number;
 }
 
 export interface ApifyRunResponse {
   totalItems: number;
   items: IdealistaProperty[];
+  averagePrice: number;
+  averagePricePerSqm: number;
+}
+
+// Estructura simplificada del JSON de igolaizola
+export interface IgolaizolaLocation {
+  type: string; // Añadimos esto para que coincida al 100%
+  name: string; // Cambiado de 'nombre' a 'name'
+  id: string;
 }
