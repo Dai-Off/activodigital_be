@@ -1,6 +1,6 @@
-import dotenv from 'dotenv';
-import express, { NextFunction, Request, Response } from 'express';
-import app from './app';
+import dotenv from "dotenv";
+import express, { NextFunction, Request, Response } from "express";
+import app from "./app";
 
 dotenv.config();
 const port: number = Number(process.env.PORT) || 3000;
@@ -14,17 +14,29 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   // In production consider structured logging
   // eslint-disable-next-line no-console
   console.error(err.stack);
-  res.status(500).json({ error: '¡Algo salió mal en el servidor!' });
+  res.status(500).json({ error: "¡Algo salió mal en el servidor!" });
 });
 
 // Iniciar el servidor
-app.listen(port, () => {
+import http from "http";
+import { SocketService } from "./services/socketService";
+
+// ... (imports)
+
+// Crear servidor HTTP explícito para poder adjuntar Socket.io
+const server = http.createServer(app);
+
+// Inicializar Socket.io
+SocketService.getInstance().initialize(server);
+
+// Iniciar el servidor
+server.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`Servidor corriendo en http://localhost:${port}`);
   console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
-  console.log(`🎯 FRONTEND_URL: ${process.env.FRONTEND_URL || 'NO CONFIGURADO'}`);
+  console.log(
+    `🎯 FRONTEND_URL: ${process.env.FRONTEND_URL || "NO CONFIGURADO"}`
+  );
 });
 
 export default app;
-
-

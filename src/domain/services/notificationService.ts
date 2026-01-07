@@ -173,14 +173,6 @@ export class NotificationService {
     buildingId?: string
   ): Promise<Notification[]> {
     if (!buildingId) {
-      // Fallback a lógica antigua o error si buildingId es obligatorio según tu lógica
-      // Pero dado que la SQL requiere buildingId, asumimos que se pasa o adaptamos.
-      // Si el anterior método no recibía buildingId explícitamente pero filtraba después...
-      // El código original usaba: getUserNotifications(userId) -> filtraba en memoria.
-      //getUserNotifications trae de TODOS los edificios.
-      // La RPC optimization es por edificio para ser eficiente.
-      // Si necesitamos de TODOS, tendríamos que ajustar la RPC.
-      // Asumiremos que para "Optimización" usamos la RPC, si falla o no hay buildingId, fallback.
       return this.fallbackGetUnread(userId);
     }
 

@@ -1,5 +1,9 @@
 import { EventEmitter } from "events";
-import { CreateNotificationRequest } from "../../types/notification";
+import {
+  CreateNotificationRequest,
+  NotificationType,
+} from "../../types/notification";
+import { SocketService } from "../../services/socketService";
 
 // Definimos los tipos de eventos soportados
 export enum NotificationEvents {
@@ -53,7 +57,26 @@ export class NotificationBus extends EventEmitter {
           const service = new NotificationService();
 
           // Llamada interna para guardar en BD
-          await service.internalCreateNotification(payload);
+          const createdNotification = await service.internalCreateNotification(
+            payload
+          );
+
+          // Emitir evento via Socket.io en tiempo real
+          if (payload.user_id) {
+            // Notificación personal
+            SocketService.getInstance().emitToUser(
+              payload.user_id,
+              "notification:new",
+              createdNotification
+            );
+          } else if (payload.building_id) {
+            // Notificación general del edificio
+            SocketService.getInstance().emitToRoom(
+              `building:${payload.building_id}`,
+              "notification:new",
+              createdNotification
+            );
+          }
 
           // Opcional: Aquí se podría integrar Supabase Realtime explícito si fuera necesario,
           // pero Supabase ya emite eventos Postgres Changes automáticamente si está configurado.
