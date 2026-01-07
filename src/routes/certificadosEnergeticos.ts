@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { CertificateEnergeticoController } from '../web/controllers/certificateEnergeticoController';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requireAuth } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const certificateController = new CertificateEnergeticoController();
 
 // Aplicar middleware de autenticación a todas las rutas
-router.use(authenticateToken);
+router.use(requireAuth);
+router.use(requestLogger);
 
 // Rutas para certificados energéticos
 

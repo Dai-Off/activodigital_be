@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { NotificationController } from "../web/controllers/notificationController";
-import { authenticateToken } from "../web/middlewares/authMiddleware";
-
+import { requireAuth } from "../web/middlewares/authMiddleware";
+import { requestLogger } from "../web/middlewares/requestLogger";
+    
 const router = Router();
 const notificationController = new NotificationController();
 
-// Aplicar middleware de autenticación a todas las rutas
-router.use(authenticateToken);
+router.use(requireAuth);
+router.use(requestLogger);
 
 /**
  * @route GET /notifications/unread
