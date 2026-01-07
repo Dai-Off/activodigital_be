@@ -5,9 +5,11 @@ import {
   GetTypicalMeteorologicalYear,
   GetMonthlyRadiation,
 } from "../web/controllers/PVGISController";
+import { requestLogger } from "../web/middlewares/requestLogger";
 
 const router = Router();
 
+router.use(requestLogger);
 // 1. PVcalc (Cálculo de Producción para Edificios)
 // URL: /api/v1/pvgis/building-energy-output?lat=...&lon=...&peakpower=...&loss=...
 router.get("/building-energy-output", GetBuildingPVEnergyOutput);

@@ -15,8 +15,10 @@ import {
   verify2FALoginController
 } from '../web/controllers/authController';
 import { requireAuth } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
+router.use(requestLogger);
 
 router.post('/signup', signupController);
 router.post('/login', loginController);

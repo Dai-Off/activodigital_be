@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { CalendarController } from "../web/controllers/calendarController";
 import { authenticateToken } from "../web/middlewares/authMiddleware";
+import { requestLogger } from "../web/middlewares/requestLogger";
 
 const router = Router();
 const calendarController = new CalendarController();
 
 router.use(authenticateToken);
+router.use(requestLogger);  
 
 /**
  * @route GET /calendar/all

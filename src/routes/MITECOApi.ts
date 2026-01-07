@@ -18,10 +18,11 @@ import { requestLogger } from "../web/middlewares/requestLogger";
 
 const router = Router();
 
+router.use(requestLogger);
+
 // ==========================================
 // RUTAS DE DATASETS (PAQUETES)
 // ==========================================
-router.use(requestLogger);
 
 // 1. Listado de Datasets (package_list) [cite: 14]
 // Obtiene el inventario de IDs de datasets disponibles.

@@ -10,10 +10,11 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
   // Al usar 'finish', podemos registrar el código de estado de la respuesta.
   res.on('finish', () => {
     const { method, originalUrl, ip } = req;
+    const { user } = req;
     const userAgent = req.get('user-agent') || '';
     const statusCode = res.statusCode;
 
-    const logMessage = `${method} ${originalUrl} ${statusCode} - IP: ${ip} - UA: ${userAgent}`;
+    const logMessage = `${method} ${originalUrl} ${statusCode} - IP: ${ip} - UA: ${userAgent} - User: ${user} `;
     
     logger.info(logMessage);
   });
