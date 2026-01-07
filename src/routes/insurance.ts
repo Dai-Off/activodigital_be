@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { InsuranceController } from "../web/controllers/insuranceController";
-import { authenticateToken } from "../web/middlewares/authMiddleware";
+import { requireAuth } from "../web/middlewares/authMiddleware";
 import { requestLogger } from "../web/middlewares/requestLogger";
 
 const router = Router();
 const insuranceController = new InsuranceController();
 
 // Aplicar middleware de autenticación a todas las rutas
-router.use(authenticateToken);
+router.use(requireAuth);
 router.use(requestLogger);
 
 /**

@@ -10,7 +10,7 @@ import {
   upsertUnits,
   deleteUnit,
 } from '../web/controllers/buildingUnitsController';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requireAuth } from '../web/middlewares/authMiddleware';
 import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
@@ -20,10 +20,10 @@ const buildingScenariosController = new BuildingScenariosController();
 const technicalAuditController = new TechnicalAuditController();
 const financialAuditController = new FinancialAuditController();
 
-router.use(requestLogger);
 
 // Todas las rutas requieren autenticación
-router.use(authenticateToken);
+router.use(requireAuth);
+router.use(requestLogger);
 
 // CRUD básico de edificios
 router.post('/', buildingController.createBuilding);

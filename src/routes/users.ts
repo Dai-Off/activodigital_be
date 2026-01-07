@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requireAuth } from '../web/middlewares/authMiddleware';
 import {
   getUserProfile,
   updateUserProfile,
@@ -15,11 +15,12 @@ import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 
-// Logger middleware - loguea todas las peticiones a este router
-router.use(requestLogger);
 
 // Todas las rutas requieren autenticación
-router.use(authenticateToken);
+router.use(requireAuth);
+
+// Logger middleware - loguea todas las peticiones a este router
+router.use(requestLogger);
 
 // Rutas de roles de usuario
 router.get('/roles', getRoles);

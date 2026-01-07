@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { DigitalBookController } from '../web/controllers/libroDigitalController';
 import { AIDigitalBookController } from '../web/controllers/aiDigitalBookController';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requireAuth } from '../web/middlewares/authMiddleware';
 import { upload } from '../web/middlewares/uploadMiddleware';
 import { requestLogger } from '../web/middlewares/requestLogger';
 
@@ -9,7 +9,7 @@ const router = Router();
 const digitalBookController = new DigitalBookController();
 const aiDigitalBookController = new AIDigitalBookController();
 
-router.use(authenticateToken);
+router.use(requireAuth);
 router.use(requestLogger);
 
 router.post('/upload-ai', (req, res, next) => {

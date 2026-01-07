@@ -3,20 +3,24 @@ import logger from '../../utils/logger';
 
 /**
  * Middleware para registrar todas las peticiones entrantes.
- * Guarda: Método, URL, IP y User-Agent.
+ * Envía los datos tanto al log local como al transport de Supabase.
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
-  // Registrar la petición al inicio o al final. 
-  // Al usar 'finish', podemos registrar el código de estado de la respuesta.
   res.on('finish', () => {
-    const { method, originalUrl, ip } = req;
-    const { user } = req;
-    const userAgent = req.get('user-agent') || '';
+    const { method, originalUrl, ip, user } = req;
+    const userAgent = req.get('user-agent') || 'unknown';
     const statusCode = res.statusCode;
 
-    const logMessage = `${method} ${originalUrl} ${statusCode} - IP: ${ip} - UA: ${userAgent} - User: ${user} `;
-    
-    logger.info(logMessage);
+    const logMessage = `${method} ${originalUrl} ${statusCode} - IP: ${ip} - UA: ${userAgent} ${user?.id ? `UserId: ${user?.id}` : 'Anonymous'} `;
+
+    logger.info(logMessage, {
+      ip,
+      userId: user?.id  || 'Anonymous',
+      userAgent,
+      statusCode,
+      method,
+      path: originalUrl
+    });
   });
 
   next();

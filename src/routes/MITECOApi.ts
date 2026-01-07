@@ -15,9 +15,11 @@ import {
   SearchByTag,
 } from "../web/controllers/MitecoController";
 import { requestLogger } from "../web/middlewares/requestLogger";
+import { requireAuth } from "../web/middlewares/authMiddleware";
 
 const router = Router();
 
+router.use(requireAuth);
 router.use(requestLogger);
 
 // ==========================================
