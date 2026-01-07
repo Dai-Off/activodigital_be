@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { FinancialSnapshotController } from '../web/controllers/financialSnapshotController';
-import { authenticateToken } from '../web/middlewares/authMiddleware';
+import { requireAuth } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 const financialSnapshotController = new FinancialSnapshotController();
 
 // Todas las rutas requieren autenticación
-router.use(authenticateToken);
-
+router.use(requireAuth);
+router.use(requestLogger);
 // CRUD de financial snapshots
 router.post('/', financialSnapshotController.createFinancialSnapshot);
 router.get('/', financialSnapshotController.getAllFinancialSnapshots);

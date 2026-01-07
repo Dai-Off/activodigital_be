@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { ApifyController } from "../web/controllers/idealistaScraperController";
-import { authenticateToken } from "../web/middlewares/authMiddleware";
+import { requireAuth } from "../web/middlewares/authMiddleware";
+import { requestLogger } from "../web/middlewares/requestLogger";
 
 const router = Router();
 const apifyController = new ApifyController();
 
-// Aplicar middleware de autenticación a todas las rutas de este router
-// (Opcional: Si quieres que sea público, quita esta línea)
-router.use(authenticateToken);
+router.use(requireAuth);
+router.use(requestLogger);
 
 /**
  * @route POST /apify/idealista

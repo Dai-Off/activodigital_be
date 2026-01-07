@@ -117,7 +117,7 @@ export class TrazabilityService {
             `,
                 { count: 'exact' }
             )
-            .eq('two_factor_enabled', true)
+            .eq('status', true)
             .order('created_at', { ascending: false });
 
         const { error: errorsUsers, count: activeUsers } = await queryUsers;

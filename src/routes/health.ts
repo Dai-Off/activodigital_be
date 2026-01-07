@@ -1,7 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { getSupabaseClient } from '../lib/supabase';
+import { requireAuth } from '../web/middlewares/authMiddleware';
+import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
+
+router.use(requireAuth);
+router.use(requestLogger);
 
 router.get('/supabase', async (_req: Request, res: Response) => {
   try {
