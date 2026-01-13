@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationController = void 0;
 const notificationService_1 = require("../../domain/services/notificationService");
+const notificationBus_1 = require("../../domain/events/notificationBus");
 class NotificationController {
     constructor() {
         this.notificationService = new notificationService_1.NotificationService();
@@ -17,10 +18,12 @@ class NotificationController {
                     return;
                 }
                 const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+                const buildingId = req.query.buildingId;
                 // Llama al método del servicio que filtra las leídas
-                const notifications = await this.notificationService.getUnreadBuildingNotificationsForUser(userId, limit);
+                // Ahora pasamos buildingId (opcional) y aplicamos el limite sobre el resultado
+                const notifications = await this.notificationService.getUnreadBuildingNotificationsForUser(userId, buildingId);
                 res.status(200).json({
-                    data: notifications,
+                    data: notifications.slice(0, limit),
                     count: notifications.length,
                 });
             }
@@ -84,7 +87,10 @@ class NotificationController {
                 if (req.body.priority) {
                     notificationData.priority = req.body.priority;
                 }
-                await this.notificationService.createNotification(notificationData);
+                // Usamos el Bus para la creación asíncrona
+                // import { NotificationBus, NotificationEvents } from "../../domain/events/notificationBus"; // Asegúrate de importar esto arriba
+                notificationBus_1.NotificationBus.getInstance().emit(notificationBus_1.NotificationEvents.NOTIFICATION_CREATED, notificationData);
+                // await this.notificationService.createNotification(notificationData);
                 res.status(200).json({
                     message: "La notificación se ha creado con éxito",
                 });

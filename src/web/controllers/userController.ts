@@ -164,3 +164,21 @@ export const editUser = async (req: Request, res: Response) => {
       .json({ error: error.message || "Error interno del servidor" });
   }
 };
+
+export const deleteUser = async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    if (!userId) {
+      return res.status(400).json({ error: "userId requerido en parámetro" });
+    }
+    const usuario = await userService.deleteUser(userId);
+    trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: null, action: ActionsValues['ELIMINAR'], module: ModuleValues.USUARIOS, description: `Eliminó el usuario ${usuario?.fullName}` }).catch(err => console.error("Fallo trazabilidad:", err));
+    res.status(200).json({ message: "Usuario eliminado correctamente", usuario });
+  }
+  catch (error: any) {
+    console.error("Error al eliminar usuario:", error);
+    res
+      .status(error.status || 500)
+      .json({ error: error.message || "Error interno del servidor" });
+  }
+};
