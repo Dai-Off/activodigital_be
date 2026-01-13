@@ -20,6 +20,7 @@ import MITECOApi from "./MITECOApi";
 import insurance from "./insurance";
 import calendar from "./calendar";
 import idealistaScraper from "./idealistaScraper";
+import supportRouter from "./support";
 
 const router = Router();
 
@@ -48,5 +49,6 @@ router.use("/MITECOApi", MITECOApi);
 router.use("/insurances", insurance);
 router.use("/calendar", calendar);
 router.use("/idealistascraper", idealistaScraper);
+router.use("/support", supportRouter);
 
 export default router;

@@ -5,6 +5,11 @@ import { requestLogger } from '../web/middlewares/requestLogger';
 
 const router = Router();
 
+// Healthcheck básico sin autenticación (para detección automática del frontend)
+router.get('/', (_req: Request, res: Response) => {
+  res.json({ ok: true, status: 'healthy' });
+});
+
 router.use(requireAuth);
 router.use(requestLogger);
 

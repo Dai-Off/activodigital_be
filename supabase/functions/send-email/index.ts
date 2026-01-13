@@ -10,7 +10,7 @@ interface EmailData {
   subject: string;
   html: string;
   text?: string;
-  type: 'invitation' | 'welcome' | 'assignment';
+  type: 'invitation' | 'welcome' | 'assignment' | 'support';
   metadata?: {
     invitation?: {
       id: string;
@@ -31,6 +31,12 @@ interface EmailData {
       name: string;
       role: string;
       building: string;
+    };
+    support?: {
+      category: string;
+      subject: string;
+      userEmail?: string;
+      context?: string;
     };
   };
 }
@@ -67,6 +73,13 @@ function generateHeaders(type: string, metadata?: any) {
         baseHeaders['X-User-Role'] = metadata.user.role;
       }
       break;
+    
+    case 'support':
+      if (metadata?.support) {
+        baseHeaders['X-Support-Email'] = 'true';
+        baseHeaders['X-Support-Category'] = metadata.support.category;
+      }
+      break;
   }
 
   return baseHeaders;
@@ -78,6 +91,7 @@ function getFromAddress(type: string): string {
     case 'assignment':
       return 'ActivoDigital <noreply@daioff.com>';
     case 'welcome':
+    case 'support':
       return 'ActivoDigital <noreply@daioff.com>';
     default:
       return 'ActivoDigital <noreply@daioff.com>';
@@ -108,9 +122,9 @@ serve(async (req) => {
     }
 
     // Validate email type
-    if (!['invitation', 'welcome', 'assignment'].includes(type)) {
+    if (!['invitation', 'welcome', 'assignment', 'support'].includes(type)) {
       return new Response(JSON.stringify({
-        error: 'Invalid email type. Must be: invitation, welcome, or assignment'
+        error: 'Invalid email type. Must be: invitation, welcome, assignment, or support'
       }), {
         status: 400,
         headers: {
@@ -192,13 +206,21 @@ serve(async (req) => {
         };
         break;
       
-      case 'assignment':
-        responseData.assignment = {
-          email: to,
-          building: metadata?.building?.name,
-          role: metadata?.user?.role
-        };
-        break;
+    case 'assignment':
+      responseData.assignment = {
+        email: to,
+        building: metadata?.building?.name,
+        role: metadata?.user?.role
+      };
+      break;
+    
+    case 'support':
+      responseData.support = {
+        email: to,
+        category: metadata?.support?.category,
+        subject: metadata?.support?.subject
+      };
+      break;
     }
 
     return new Response(JSON.stringify(responseData), {
