@@ -8,7 +8,8 @@ import {
   getRoles,
   getAllUsers,
   createUser,
-  editUser
+  editUser,
+  deleteUser
 } from '../web/controllers/userController';
 
 import { requestLogger } from '../web/middlewares/requestLogger';
@@ -27,6 +28,7 @@ router.get('/roles', getRoles);
 router.get('/all-users', getAllUsers);
 router.post('/create', createUser);
 router.put('/edit/:userId', editUser);
+router.delete('/delete/:userId', deleteUser);
 
 // Rutas de perfil de usuario
 router.get('/profile', getUserProfile);

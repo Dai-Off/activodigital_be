@@ -54,7 +54,9 @@ export interface UpdateUserRequest {
   fullName?: string;
   roleId?: string;
   email?: string;
-  status: boolean;
+  status?: boolean;
+  deleted?: boolean;
+
 }
 
 export interface AssignTechnicianRequest {
