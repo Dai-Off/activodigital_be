@@ -13,7 +13,8 @@ vi.mock('../web/middlewares/authMiddleware', () => {
 
     return {
         authenticateToken: authMock,
-        requireAuth: authMock
+        requireAuth: authMock,
+        optionalAuth: authMock,
     };
 });
 
