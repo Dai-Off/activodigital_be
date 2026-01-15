@@ -6,28 +6,28 @@ export interface DashboardStats {
   totalAssets: number;
   totalRehabilitationCost: number;
   totalPotentialValue: number;
-  
+
   // Métricas ambientales y energéticas
   totalSurfaceArea: number; // m²
   totalEmissions: number; // tCO₂ eq
   averageEnergyClass: string | null; // 'A', 'B', 'C', etc. o null si no hay datos
   averageEnergyRating: number | null; // Valor numérico del rating (A=7, B=6, etc.)
-  
+
   // Métricas de completitud
   completedBooks: number;
   pendingBooks: number;
   draftBooks: number;
   completionPercentage: number;
-  
+
   // Financiación verde (para propietarios)
   greenFinancingEligiblePercentage: number;
   greenFinancingEligibleCount: number;
-  
+
   // Promedios
   averageUnitsPerBuilding: number;
   averageBuildingAge: number;
   averageFloorsPerBuilding: number;
-  
+
   // Tipología
   mostCommonTypology: string | null;
   typologyDistribution: {
@@ -35,9 +35,24 @@ export interface DashboardStats {
     mixed: number;
     commercial: number;
   };
-  
+
   // ESG Score promedio ('Premium' | 'Gold' | 'Silver' | 'Bronze' | 'Crítico', null si no hay edificios con ESG completo)
   averageESGScore: string | null;
+
+  // Nuevas métricas para "Resumen del Sistema" y "Rendimiento"
+  averageOccupancy: number | null; // Porcentaje 0-100
+  nextEventsCount: number; // Cantidad de próximos eventos
+  topPerformingBuildings: {
+    id: string;
+    name: string;
+    type: string;
+    percentage: number;
+  }[];
+
+  // Métricas de crecimiento (KPI Trends)
+  assetsGrowth: number; // Nuevos edificios este mes
+  complianceGrowth: number; // Crecimiento en cumplimiento vs anterior (0 por defecto si no hay historial)
+  alertsGrowth: number; // Nuevas alertas urgentes vs anterior (0 por defecto)
 }
 
 export interface DashboardMetricsResponse {

@@ -2,9 +2,13 @@ import { getSupabaseClient } from '../../lib/supabase';
 import { DashboardStats } from '../../types/dashboard';
 import { UserService } from './userService';
 import { UserRole } from '../../types/user';
+import { BuildingUnitService } from './buildingUnitService';
+import { CalendarService } from './calendarService';
 
 export class DashboardService {
   private userService = new UserService();
+  private buildingUnitService = new BuildingUnitService();
+  private calendarService = new CalendarService();
 
   getSupabase() {
     return getSupabaseClient();
@@ -188,12 +192,12 @@ export class DashboardService {
   /**
    * Calcula métricas para propietarios
    */
-  private calculateOwnerMetrics(
+  private async calculateOwnerMetrics(
     buildings: any[],
     books: any[],
     certificates: any[],
     esgScores: any[] = []
-  ): DashboardStats {
+  ): Promise<DashboardStats> {
     const totalAssets = buildings.length;
 
     // Métricas financieras
@@ -230,8 +234,8 @@ export class DashboardService {
 
     // Financiación verde (edificios con clase energética A, B o C)
     const greenEligibleCount = this.calculateGreenFinancingEligible(buildings, certificates);
-    const greenFinancingEligiblePercentage = totalAssets > 0 
-      ? Math.round((greenEligibleCount / totalAssets) * 100) 
+    const greenFinancingEligiblePercentage = totalAssets > 0
+      ? Math.round((greenEligibleCount / totalAssets) * 100)
       : 0;
 
     // Promedios
@@ -254,6 +258,11 @@ export class DashboardService {
     // ESG promedio (solo edificios con score completo)
     const averageESGScore = this.calculateAverageESGScore(esgScores);
 
+    // Nuevas métricas
+    const averageOccupancy = await this.calculateAverageOccupancy(buildings.map(b => b.id));
+    const nextEventsCount = await this.calculateNextEventsCount(buildings.map(b => b.id));
+    const topPerformingBuildings = this.getTopPerformingBuildings(buildings, books);
+
     return {
       totalValue,
       totalAssets,
@@ -275,13 +284,19 @@ export class DashboardService {
       mostCommonTypology,
       typologyDistribution,
       averageESGScore,
+      averageOccupancy,
+      nextEventsCount,
+      topPerformingBuildings,
+      assetsGrowth: await this.calculateAssetsGrowth(buildings),
+      complianceGrowth: 0, // Por ahora 0 o lógica compleja si hay histórico
+      alertsGrowth: 0 // Por ahora 0 o lógica compleja si hay histórico
     };
   }
 
   /**
    * Calcula métricas para técnicos
    */
-  private calculateTechnicianMetrics(buildings: any[], books: any[]): DashboardStats {
+  private async calculateTechnicianMetrics(buildings: any[], books: any[]): Promise<DashboardStats> {
     const totalAssets = buildings.length;
 
     // Superficie total (usar square_meters si está disponible, sino 0)
@@ -311,6 +326,11 @@ export class DashboardService {
     // Tipología
     const { mostCommonTypology, typologyDistribution } = this.calculateTypologyStats(buildings);
 
+    // Nuevas métricas
+    const averageOccupancy = await this.calculateAverageOccupancy(buildings.map(b => b.id));
+    const nextEventsCount = await this.calculateNextEventsCount(buildings.map(b => b.id));
+    const topPerformingBuildings = this.getTopPerformingBuildings(buildings, books);
+
     return {
       totalValue: 0, // Técnicos no ven valores financieros
       totalAssets,
@@ -332,6 +352,12 @@ export class DashboardService {
       mostCommonTypology,
       typologyDistribution,
       averageESGScore: null,
+      averageOccupancy,
+      nextEventsCount,
+      topPerformingBuildings,
+      assetsGrowth: await this.calculateAssetsGrowth(buildings),
+      complianceGrowth: 0,
+      alertsGrowth: 0
     };
   }
 
@@ -356,7 +382,7 @@ export class DashboardService {
     };
 
     const validCertificates = certificates.filter(c => c.rating && ratingToNumber[c.rating] !== undefined);
-    
+
     if (validCertificates.length === 0) {
       return { averageEnergyClass: null, averageEnergyRating: null };
     }
@@ -376,7 +402,7 @@ export class DashboardService {
    */
   private calculateGreenFinancingEligible(buildings: any[], certificates: any[]): number {
     const greenClasses = ['A', 'B', 'C'];
-    
+
     // Crear un mapa de building_id -> rating
     const buildingRatings = new Map<string, string>();
     certificates.forEach(cert => {
@@ -428,9 +454,9 @@ export class DashboardService {
    */
   private calculateAverageESGScore(esgScores: any[]): string | null {
     // Filtrar scores válidos (status = 'complete' y total existe)
-    const validScores = esgScores.filter(score => 
-      score.status === 'complete' && 
-      score.total !== null && 
+    const validScores = esgScores.filter(score =>
+      score.status === 'complete' &&
+      score.total !== null &&
       score.total !== undefined
     );
 
@@ -485,7 +511,115 @@ export class DashboardService {
         mixed: 0,
         commercial: 0
       },
-      averageESGScore: null
+      averageESGScore: null,
+      averageOccupancy: null,
+      nextEventsCount: 0,
+      topPerformingBuildings: [],
+      assetsGrowth: 0,
+      complianceGrowth: 0,
+      alertsGrowth: 0
     };
+  }
+
+  /**
+   * Calcula la ocupación promedio de los edificios
+   */
+  private async calculateAverageOccupancy(buildingIds: string[]): Promise<number | null> {
+    if (buildingIds.length === 0) return null;
+
+    let totalOccupancy = 0;
+    let buildingCount = 0;
+
+    // Para optimizar, podríamos hacer una query directa, pero por ahora iteramos
+    // en una implementación real esto debería ser una query agregada
+    for (const id of buildingIds) {
+      try {
+        const units = await this.buildingUnitService.listUnits(id);
+        const occupancy = this.buildingUnitService.calculateOccupancy(units);
+        if (occupancy !== null) {
+          totalOccupancy += occupancy;
+          buildingCount++;
+        }
+      } catch (error) {
+        console.error(`Error calculating occupancy for building ${id}:`, error);
+      }
+    }
+
+    if (buildingCount === 0) return null;
+    return Math.round(totalOccupancy / buildingCount);
+  }
+
+  /**
+   * Cuenta los próximos eventos para los edificios dados
+   */
+  private async calculateNextEventsCount(buildingIds: string[]): Promise<number> {
+    if (buildingIds.length === 0) return 0;
+
+    const supabase = this.getSupabase();
+    const today = new Date().toISOString().split('T')[0];
+
+    const { count, error } = await supabase
+      .from('building_events')
+      .select('*', { count: 'exact', head: true })
+      .in('building_id', buildingIds)
+      .gte('event_date', today)
+      .not('status', 'eq', 'completed');
+
+    if (error) {
+      console.error('Error counting next events:', error);
+      return 0;
+    }
+
+    return count || 0;
+  }
+
+  /**
+   * Obtiene los edificios con mejor rendimiento (basado en completitud del libro)
+   */
+  private getTopPerformingBuildings(buildings: any[], books: any[]): { id: string; name: string; type: string; percentage: number }[] {
+    // Mapa de estado de libros por edificio
+    const buildingBookStatus = new Map<string, string>();
+    books.forEach(b => buildingBookStatus.set(b.building_id, b.status));
+
+    const buildingPerformance = buildings.map(b => {
+      const bookStatus = buildingBookStatus.get(b.id);
+      let percentage = 0;
+
+      switch (bookStatus) {
+        case 'complete': percentage = 100; break;
+        case 'in_progress': percentage = 50; break;
+        case 'draft': percentage = 25; break;
+        default: percentage = 0;
+      }
+
+      return {
+        id: b.id,
+        name: b.name,
+        type: b.typology || 'Desconocido',
+        percentage
+      };
+    });
+
+    // Ordenar por porcentaje descendente y tomar los top 5
+    return buildingPerformance
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5);
+  }
+  /**
+   * Calcula el crecimiento de activos (edificios nuevos este mes)
+   */
+  private async calculateAssetsGrowth(buildings: any[]): Promise<number> {
+    if (buildings.length === 0) return 0;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const newBuildings = buildings.filter(b => {
+      const createdAt = new Date(b.created_at);
+      return createdAt.getFullYear() === currentYear && createdAt.getMonth() === currentMonth;
+    });
+
+    return newBuildings.length;
   }
 }
