@@ -82,8 +82,7 @@ export class BuildingService {
           .eq("id", building.id);
 
         throw new Error(
-          `Error al asignar técnico: ${
-            error instanceof Error ? error.message : "Error desconocido"
+          `Error al asignar técnico: ${error instanceof Error ? error.message : "Error desconocido"
           }`
         );
       }
@@ -96,8 +95,7 @@ export class BuildingService {
       } catch (error) {
         // Si falla la invitación CFO, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar CFO: ${
-            error instanceof Error ? error.message : "Error desconocido"
+          `Error al invitar CFO: ${error instanceof Error ? error.message : "Error desconocido"
           }`
         );
       }
@@ -114,8 +112,7 @@ export class BuildingService {
       } catch (error) {
         // Si falla la invitación del propietario, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar propietario: ${
-            error instanceof Error ? error.message : "Error desconocido"
+          `Error al invitar propietario: ${error instanceof Error ? error.message : "Error desconocido"
           }`
         );
       }
@@ -149,23 +146,76 @@ export class BuildingService {
     return this.mapToBuilding(data);
   }
 
+  // async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
+  //   const user = await this.userService.getUserByAuthId(userAuthId);
+  //   if (!user) {
+  //     throw new Error("Usuario no encontrado");
+  //   }
+
+  //   const { data, error } = await this.getSupabase()
+  //     .from("buildings")
+  //     .select("*")
+  //     .order("created_at", { ascending: false });
+
+  //   if (error) {
+  //     throw new Error(`Error al obtener edificios: ${error.message}`);
+  //   }
+
+  //   return data.map(this.mapToBuilding);
+  // }
+
   async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
     const user = await this.userService.getUserByAuthId(userAuthId);
-    if (!user) {
-      throw new Error("Usuario no encontrado");
+    if (!user) throw new Error("Usuario no encontrado");
+  
+    const supabase = this.getSupabase();
+    const isPropietario = user.role.name === UserRole.PROPIETARIO;
+    const isAdministrador = user.role.name === UserRole.ADMINISTRADOR;
+  
+    if (isPropietario) {
+      const assignedBuildingIds = await this.userService.getPropietarioBuildings(userAuthId);
+      if (assignedBuildingIds.length === 0) return [];
+  
+      const { data, error } = await supabase
+        .from('buildings')
+        .select('*')
+        .in('id', assignedBuildingIds)
+        .order("created_at", { ascending: false });
+  
+      if (error) throw new Error(error.message);
+      return data.map(b => this.mapToBuilding(b));
     }
-
-    // Todos los usuarios pueden ver todos los edificios
-    const { data, error } = await this.getSupabase()
-      .from("buildings")
-      .select("*")
+  
+    if (isAdministrador) {
+      const { data, error } = await supabase
+        .from('buildings')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order("created_at", { ascending: false });
+  
+      if (error) throw new Error(error.message);
+      return data.map(b => this.mapToBuilding(b));
+    }
+  
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('building_technician_assignments')
+      .select('building_id')
+      .eq('technician_id', user.id)
+      .eq('status', 'active');
+  
+    if (assignmentsError) throw new Error(assignmentsError.message);
+    
+    const buildingIds = assignments?.map(a => a.building_id) || [];
+    if (buildingIds.length === 0) return [];
+  
+    const { data, error } = await supabase
+      .from('buildings')
+      .select('*')
+      .in('id', buildingIds)
       .order("created_at", { ascending: false });
-
-    if (error) {
-      throw new Error(`Error al obtener edificios: ${error.message}`);
-    }
-
-    return data.map(this.mapToBuilding);
+  
+    if (error) throw new Error(error.message);
+    return data.map(b => this.mapToBuilding(b));
   }
 
   async updateBuilding(
@@ -784,10 +834,10 @@ export class BuildingService {
         roleName === "tecnico"
           ? "Técnico"
           : roleName === "cfo"
-          ? "CFO"
-          : roleName === "propietario"
-          ? "Propietario"
-          : "Usuario";
+            ? "CFO"
+            : roleName === "propietario"
+              ? "Propietario"
+              : "Usuario";
 
       // Emitimos el evento al Bus en lugar de insertar directamente en la BD
       NotificationBus.getInstance().emit(
