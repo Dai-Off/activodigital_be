@@ -21,6 +21,7 @@ import insurance from "./insurance";
 import calendar from "./calendar";
 import idealistaScraper from "./idealistaScraper";
 import supportRouter from "./support";
+import vencidosRouter from "./vencidos";
 
 const router = Router();
 
@@ -50,5 +51,6 @@ router.use("/insurances", insurance);
 router.use("/calendar", calendar);
 router.use("/idealistascraper", idealistaScraper);
 router.use("/support", supportRouter);
+router.use("/vencidos", vencidosRouter);
 
 export default router;
