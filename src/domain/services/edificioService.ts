@@ -7,6 +7,7 @@ import {
   BuildingImage,
   ValidateAssignmentsResponse,
   ValidationResult,
+  BookSection,
 } from "../../types/edificio";
 import { UserService } from "./userService";
 import { InvitationService } from "./invitationService";
@@ -14,6 +15,20 @@ import { UserRole } from "../../types/user";
 import { generateBuildingEmbedding } from "../../lib/embeddingHelper";
 import { NotificationType } from "../../types/notification";
 import { NotificationBus, NotificationEvents } from "../events/notificationBus";
+
+export const calculateCompletionPercentage = (sections: BookSection[]): number => {
+  try {
+    if (!sections || sections.length === 0) return 0;
+
+    const completedCount = sections.filter((section: BookSection) => section.complete === true).length;
+    const percentage = (completedCount / sections.length) * 100;
+
+    return Math.round(percentage);
+  } catch (error) {
+    console.error("Error al calcular el porcentaje de completitud:", error);
+    return 0;
+  }
+};
 
 export class BuildingService {
   private userService = new UserService();
@@ -146,24 +161,6 @@ export class BuildingService {
     return this.mapToBuilding(data);
   }
 
-  // async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
-  //   const user = await this.userService.getUserByAuthId(userAuthId);
-  //   if (!user) {
-  //     throw new Error("Usuario no encontrado");
-  //   }
-
-  //   const { data, error } = await this.getSupabase()
-  //     .from("buildings")
-  //     .select("*")
-  //     .order("created_at", { ascending: false });
-
-  //   if (error) {
-  //     throw new Error(`Error al obtener edificios: ${error.message}`);
-  //   }
-
-  //   return data.map(this.mapToBuilding);
-  // }
-
   async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
     const user = await this.userService.getUserByAuthId(userAuthId);
     if (!user) throw new Error("Usuario no encontrado");
@@ -178,7 +175,7 @@ export class BuildingService {
   
       const { data, error } = await supabase
         .from('buildings')
-        .select('*')
+        .select('*, digital_books(sections)')
         .in('id', assignedBuildingIds)
         .order("created_at", { ascending: false });
   
@@ -189,7 +186,7 @@ export class BuildingService {
     if (isAdministrador) {
       const { data, error } = await supabase
         .from('buildings')
-        .select('*')
+        .select('*, digital_books(sections)')
         .eq('owner_id', user.id)
         .order("created_at", { ascending: false });
   
@@ -210,7 +207,7 @@ export class BuildingService {
   
     const { data, error } = await supabase
       .from('buildings')
-      .select('*')
+      .select('*, digital_books(sections)')
       .in('id', buildingIds)
       .order("created_at", { ascending: false });
   
@@ -939,7 +936,7 @@ export class BuildingService {
    */
   private async validateTechnicianEmail(
     technicianEmail: string,
-    cfoEmail?: string,
+    cfoEmail?: string,  
     propietarioEmail?: string
   ): Promise<{ isValid: boolean; error?: string }> {
     // Verificar si el email ya existe
@@ -1110,6 +1107,13 @@ export class BuildingService {
   }
 
   private mapToBuilding(data: any): Building {
+
+    const digitalBook = Array.isArray(data.digital_books)
+      ? data.digital_books[0]
+      : data.digital_books;
+
+    const sections = digitalBook?.sections || [];
+
     return {
       id: data.id,
       name: data.name,
@@ -1141,6 +1145,7 @@ export class BuildingService {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       userId: data.user_id, // Mantener por compatibilidad
+      porcentBook: calculateCompletionPercentage(sections),
     };
   }
 }
