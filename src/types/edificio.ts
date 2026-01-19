@@ -36,17 +36,18 @@ export interface Building {
   technicianEmail?: string;
   cfoEmail?: string;
   ownerId?: string; // ID del usuario propietario
-  
+
   // Nuevos campos financieros
   rehabilitationCost?: number; // Coste de Rehabilitación (por defecto 0)
   potentialValue?: number;     // Valor potencial (por defecto 0)
-  
+
   // Metros cuadrados
   squareMeters?: number; // Superficie en metros cuadrados
-  
+
   createdAt?: string;
   updatedAt?: string;
   userId?: string; // Mantener por compatibilidad temporal
+  porcentBook?: number; 
 }
 
 export interface BuildingUnit {
@@ -98,7 +99,7 @@ export interface CreateBuildingRequest {
   cfoEmail?: string;
   propietarioEmail?: string;
   images?: BuildingImage[];
-  
+
   // Nuevos campos financieros opcionales
   rehabilitationCost?: number; // Coste de Rehabilitación
   potentialValue?: number;     // Valor potencial

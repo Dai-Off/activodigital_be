@@ -273,6 +273,7 @@ export interface DigitalBook {
   createdAt?: string;
   updatedAt?: string;
   userId?: string;
+  completedPercentage?: number;
 }
 
 export interface CreateDigitalBookRequest {
