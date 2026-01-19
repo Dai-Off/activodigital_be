@@ -7,7 +7,6 @@ import {
   BuildingImage,
   ValidateAssignmentsResponse,
   ValidationResult,
-  BookSection,
 } from "../../types/edificio";
 import { UserService } from "./userService";
 import { InvitationService } from "./invitationService";
@@ -15,6 +14,7 @@ import { UserRole } from "../../types/user";
 import { generateBuildingEmbedding } from "../../lib/embeddingHelper";
 import { NotificationType } from "../../types/notification";
 import { NotificationBus, NotificationEvents } from "../events/notificationBus";
+import { BookSection } from "../../types/libroDigital";
 
 export const calculateCompletionPercentage = (sections: BookSection[]): number => {
   try {
@@ -164,53 +164,53 @@ export class BuildingService {
   async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
     const user = await this.userService.getUserByAuthId(userAuthId);
     if (!user) throw new Error("Usuario no encontrado");
-  
+
     const supabase = this.getSupabase();
     const isPropietario = user.role.name === UserRole.PROPIETARIO;
     const isAdministrador = user.role.name === UserRole.ADMINISTRADOR;
-  
+
     if (isPropietario) {
       const assignedBuildingIds = await this.userService.getPropietarioBuildings(userAuthId);
       if (assignedBuildingIds.length === 0) return [];
-  
+
       const { data, error } = await supabase
         .from('buildings')
         .select('*, digital_books(sections)')
         .in('id', assignedBuildingIds)
         .order("created_at", { ascending: false });
-  
+
       if (error) throw new Error(error.message);
       return data.map(b => this.mapToBuilding(b));
     }
-  
+
     if (isAdministrador) {
       const { data, error } = await supabase
         .from('buildings')
         .select('*, digital_books(sections)')
         .eq('owner_id', user.id)
         .order("created_at", { ascending: false });
-  
+
       if (error) throw new Error(error.message);
       return data.map(b => this.mapToBuilding(b));
     }
-  
+
     const { data: assignments, error: assignmentsError } = await supabase
       .from('building_technician_assignments')
       .select('building_id')
       .eq('technician_id', user.id)
       .eq('status', 'active');
-  
+
     if (assignmentsError) throw new Error(assignmentsError.message);
-    
+
     const buildingIds = assignments?.map(a => a.building_id) || [];
     if (buildingIds.length === 0) return [];
-  
+
     const { data, error } = await supabase
       .from('buildings')
       .select('*, digital_books(sections)')
       .in('id', buildingIds)
       .order("created_at", { ascending: false });
-  
+
     if (error) throw new Error(error.message);
     return data.map(b => this.mapToBuilding(b));
   }
@@ -936,7 +936,7 @@ export class BuildingService {
    */
   private async validateTechnicianEmail(
     technicianEmail: string,
-    cfoEmail?: string,  
+    cfoEmail?: string,
     propietarioEmail?: string
   ): Promise<{ isValid: boolean; error?: string }> {
     // Verificar si el email ya existe

@@ -50,13 +50,6 @@ export interface Building {
   porcentBook?: number; 
 }
 
-export interface BookSection {
-  id: string;
-  type: string;
-  content: any;
-  complete: boolean;
-}
-
 export interface BuildingUnit {
   id: string;
   buildingId: string;
