@@ -13,6 +13,7 @@ import {
 import { UserService } from './userService';
 import { UserRole } from '../../types/user';
 import { generateBuildingEmbedding } from '../../lib/embeddingHelper';
+import { calculateCompletionPercentage } from './edificioService';
 
 export class DigitalBookService {
   private userService = new UserService();
@@ -328,17 +329,20 @@ export class DigitalBookService {
     return true;
   }
 
-  private async userCanDeleteDigitalBook(userAuthId: string, bookId: string): Promise<boolean> {
+  private async userCanDeleteDigitalBook( userAuthId: string, bookId: string): Promise<boolean> {
     return true;
   }
 
   private mapToDigitalBook(data: any): DigitalBook {
+    const sections = data?.sections || [];
+    const completedPercentage = calculateCompletionPercentage(sections);
     return {
       id: data.id,
       buildingId: data.building_id,
       source: data.source,
       status: data.status,
       progress: data.progress,
+      completedPercentage,
       sections: data.sections || [],
       technicianId: data.technician_id,
       createdAt: data.created_at,
