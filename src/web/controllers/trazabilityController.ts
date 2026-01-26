@@ -3,7 +3,8 @@ import { trazabilityService } from '../../domain/trazability/TrazabilityService'
 
 export const listTrazabilityControler = async (req: Request, res: Response) => {
     try {
-        const trazabilidad = await trazabilityService.listTrazability();
+        const { buildingId } = req.params;
+        const trazabilidad = await trazabilityService.listTrazability(buildingId);
         if (!trazabilidad) {
           return res.status(404).json({ error: 'Usuario no encontrado' });
         }

@@ -125,7 +125,7 @@ export class CertificateEnergeticoController {
         token
       );
 
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: session.buildingId, action: ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: ModuleValues.DOCUMENTOS, description: "actualizar sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: session.buildingId, action: ActionsValues['CARGA'], module: ModuleValues.CERTIFICADOS, description: "Subio Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
 
       res.json({ data: session });
     } catch (error) {

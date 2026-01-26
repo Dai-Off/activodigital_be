@@ -20,8 +20,8 @@ export class ServiceInvoiceController {
       const data: CreateServiceInvoiceRequest = req.body;
 
       // Validación básica
-      if (!data.building_id || !data.service_type || !data.invoice_date || data.amount_eur === undefined) {
-        res.status(400).json({ error: 'Faltan campos requeridos: building_id, service_type, invoice_date, amount_eur' });
+      if (!data.building_id || !data.service_type || !data.invoice_date || data.amount_eur === undefined || data.expiration_date === undefined) {
+        res.status(400).json({ error: 'Faltan campos requeridos: building_id, service_type, invoice_date, amount_eur, expiration_date' });
         return;
       }
 
@@ -38,7 +38,22 @@ export class ServiceInvoiceController {
         return;
       }
 
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: ActionsValues['CREAR'], module: ModuleValues.DOCUMENTOS, description: "Crear factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
+      if(data.period_start && data.period_end){
+        if(data.period_start > data.period_end){  
+          res.status(400).json({ error: 'periodos de la factura no son coherentes' });
+          return;
+        }
+      }
+
+      const dataInvoice = {
+        'electricity': 'Eléctricidad',
+        'water': 'Agua',
+        'gas': 'Gas',
+        'ibi': 'IBI',
+        'waste': 'Residuos'
+      } 
+
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: ActionsValues['CARGA'], module: ModuleValues.DOCUMENTOS, description: "Cargo factura de servicios de " + dataInvoice[data.service_type]}).catch(err => console.error("Fallo trazabilidad:", err));
 
       const invoice = await this.getService().createServiceInvoice(data, userId);
       res.status(201).json({ data: invoice });
