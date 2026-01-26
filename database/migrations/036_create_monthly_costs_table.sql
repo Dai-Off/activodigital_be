@@ -168,3 +168,6 @@ COMMENT ON COLUMN service_expenses.waste_units IS 'Unidades de basura (opcional)
 COMMIT;
 
 
+
+
+
