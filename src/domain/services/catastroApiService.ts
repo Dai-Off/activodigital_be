@@ -1,7 +1,7 @@
 export class CatastroApiService {
   private key: string;
   private urlCatastro: string;
-  private options: RequestInit;
+  private baseHeaders: Record<string, string>;
 
   constructor() {
     if (!process.env.CATASTRO_KEY || !process.env.CATASTRO_URL) {
@@ -12,52 +12,97 @@ export class CatastroApiService {
 
     this.key = process.env.CATASTRO_KEY;
     this.urlCatastro = process.env.CATASTRO_URL;
-    this.options = {
-      method: "GET",
-      headers: {
-        "X-API-Key": `${this.key}`,
-        "Content-Type": "application/json",
-      },
+    
+    // Headers base que se usarán en todas las solicitudes
+    this.baseHeaders = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "User-Agent": "ActivoDigital/1.0",
+      // Intentar con X-API-Key primero
+      "X-API-Key": this.key,
     };
+  }
+
+  /**
+   * Obtiene los headers para la solicitud, intentando diferentes formatos de autenticación
+   */
+  private getHeaders(useAlternativeAuth: boolean = false): Record<string, string> {
+    const headers = { ...this.baseHeaders };
+    
+    if (useAlternativeAuth) {
+      // Si el formato X-API-Key falla, intentar con Authorization Bearer
+      delete headers["X-API-Key"];
+      headers["Authorization"] = `Bearer ${this.key}`;
+    }
+    
+    return headers;
+  }
+
+  /**
+   * Realiza una solicitud HTTP con manejo mejorado de errores
+   */
+  private async makeRequest(
+    url: string,
+    useAlternativeAuth: boolean = false
+  ): Promise<Response> {
+    const headers = this.getHeaders(useAlternativeAuth);
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+    });
+
+    // Si recibimos 403 y no hemos intentado el formato alternativo, intentar de nuevo
+    if (response.status === 403 && !useAlternativeAuth) {
+      console.warn(
+        `[CatastroApiService] Error 403 con X-API-Key, intentando con Authorization Bearer...`
+      );
+      return this.makeRequest(url, true);
+    }
+
+    if (!response.ok) {
+      // Intentar obtener más información del error
+      let errorDetails = `Error HTTP: ${response.status}`;
+      try {
+        const errorBody = await response.text();
+        if (errorBody) {
+          errorDetails += ` - ${errorBody.substring(0, 200)}`;
+        }
+      } catch (e) {
+        // Si no se puede leer el cuerpo, continuar con el mensaje básico
+      }
+      
+      const error = new Error(errorDetails);
+      (error as any).status = response.status;
+      (error as any).response = response;
+      throw error;
+    }
+
+    return response;
   }
 
   async getAllProvincias(): Promise<any | null> {
     try {
-      const response = await fetch(
-        `${this.urlCatastro}/api/callejero/provincias`,
-        this.options
+      const response = await this.makeRequest(
+        `${this.urlCatastro}/api/callejero/provincias`
       );
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
       const data: any = await response.json();
-
       return data;
     } catch (error) {
-      console.error("Error en la solicitud:", error);
-      return null;
+      console.error("[CatastroApiService] Error en getAllProvincias:", error);
+      throw error; // Propagar el error en lugar de retornar null
     }
   }
 
   async getMunicipios(provincia: string): Promise<any | null> {
     try {
-      const response = await fetch(
-        `${this.urlCatastro}/api/callejero/municipios?provincia=${provincia}`,
-        this.options
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
+      const url = `${this.urlCatastro}/api/callejero/municipios?provincia=${encodeURIComponent(provincia)}`;
+      const response = await this.makeRequest(url);
       const data: any = await response.json();
-
       return data;
     } catch (error) {
-      console.error("Error en la solicitud:", error);
-      return null;
+      console.error("[CatastroApiService] Error en getMunicipios:", error);
+      throw error;
     }
   }
 
@@ -81,38 +126,24 @@ export class CatastroApiService {
         url.searchParams.append("nombreVia", nombreVia);
       }
 
-      const response = await fetch(url.toString(), this.options);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
+      const response = await this.makeRequest(url.toString());
       const data: any = await response.json();
-
       return data;
     } catch (error) {
-      console.error("Error en la solicitud:", error);
-      return "Hubo un error al consultar las vias";
+      console.error("[CatastroApiService] Error en getVias:", error);
+      throw error;
     }
   }
 
   async getInmuebleRc(rc: string): Promise<any | null> {
     try {
-      const response = await fetch(
-        `${this.urlCatastro}/api/callejero/inmueble-rc?rc=${rc}`,
-        this.options
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
+      const url = `${this.urlCatastro}/api/callejero/inmueble-rc?rc=${encodeURIComponent(rc)}`;
+      const response = await this.makeRequest(url);
       const data: any = await response.json();
-
       return data;
     } catch (error) {
-      console.error("Error en la solicitud:", error);
-      return null;
+      console.error("[CatastroApiService] Error en getInmuebleRc:", error);
+      throw error;
     }
   }
 
@@ -148,18 +179,12 @@ export class CatastroApiService {
         url.searchParams.append("puerta", puerta);
       }
 
-      const response = await fetch(url.toString(), this.options);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
+      const response = await this.makeRequest(url.toString());
       const data: any = await response.json();
-
       return data;
     } catch (error) {
-      console.error("Error en la solicitud:", error);
-      return "Hubo un error al consultar el inmueble";
+      console.error("[CatastroApiService] Error en getInmuebleLoc:", error);
+      throw error;
     }
   }
 
@@ -171,31 +196,24 @@ export class CatastroApiService {
       direccion: string;
     }
     try {
-      const localizacion = await fetch(
-        `${this.urlCatastro}/api/coordenadas/rc-por-coordenadas?x=${x}&y=${y}`,
-        this.options
-      );
-      const dataLoc = await localizacion.json();
+      const urlCoordenadas = `${this.urlCatastro}/api/coordenadas/rc-por-coordenadas?x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}`;
+      const responseCoordenadas = await this.makeRequest(urlCoordenadas);
+      const dataLoc = await responseCoordenadas.json();
       const listadoLoc: resultadoLoc[] = dataLoc.referencias;
+      
       const promesasInmuebles = listadoLoc.map(async (resultadoLoc) => {
         const rc = resultadoLoc.referenciaCatastral;
-
-        const responseInmueble = await fetch(
-          `${this.urlCatastro}/api/callejero/inmueble-rc?rc=${rc}`,
-          this.options
-        );
-
+        const urlInmueble = `${this.urlCatastro}/api/callejero/inmueble-rc?rc=${encodeURIComponent(rc)}`;
+        const responseInmueble = await this.makeRequest(urlInmueble);
         const detailInmueble: any = await responseInmueble.json();
-
         return detailInmueble;
       });
 
       const listadoInmuebles: any[] = await Promise.all(promesasInmuebles);
-
       return listadoInmuebles;
     } catch (error) {
-      console.error("Error en la solicitud:", error);
-      return "Hubo un error al consultar el inmueble";
+      console.error("[CatastroApiService] Error en getInmuebleXY:", error);
+      throw error;
     }
   }
 }
