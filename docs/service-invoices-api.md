@@ -379,3 +379,6 @@ curl -X PUT {{base_url}}/service-invoices/uuid-factura \
 5. **Unidades**: Las unidades se suman si hay múltiples facturas del mismo tipo en el mismo mes. Si una factura no tiene unidades, no afecta el total.
 
 
+
+
+

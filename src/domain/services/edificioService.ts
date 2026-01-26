@@ -48,14 +48,12 @@ export class BuildingService {
       throw new Error("Usuario no encontrado");
     }
 
-    const buildingData = {
+    const buildingData: any = {
       name: data.name,
       address: data.address,
-      cadastral_reference: data.cadastralReference,
       construction_year: data.constructionYear,
       typology: data.typology,
       num_floors: data.numFloors,
-      num_units: data.numUnits,
       lat: data.lat,
       lng: data.lng,
       images: data.images || [],
@@ -71,6 +69,14 @@ export class BuildingService {
       square_meters: data.squareMeters,
     };
 
+    // Solo incluir campos opcionales si tienen valor
+    if (data.cadastralReference) {
+      buildingData.cadastral_reference = data.cadastralReference;
+    }
+    if (data.numUnits !== undefined && data.numUnits !== null) {
+      buildingData.num_units = data.numUnits;
+    }
+
     const { data: building, error } = await this.getSupabase()
       .from("buildings")
       .insert(buildingData)
@@ -78,8 +84,12 @@ export class BuildingService {
       .single();
 
     if (error) {
+      console.error('Error al crear edificio:', error);
+      console.error('Building data:', JSON.stringify(buildingData, null, 2));
       throw new Error(`Error al crear edificio: ${error.message}`);
     }
+
+    console.log(`[createBuilding] Edificio creado: ${building.id} - Owner: ${building.owner_id} - User: ${building.user_id}`);
 
     // Si se especificó un email de técnico, intentar asignarlo o enviar invitación
     if (data.technicianEmail) {
@@ -162,57 +172,21 @@ export class BuildingService {
   }
 
   async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
-    const user = await this.userService.getUserByAuthId(userAuthId);
-    if (!user) throw new Error("Usuario no encontrado");
-
-    const supabase = this.getSupabase();
-    const isPropietario = user.role.name === UserRole.PROPIETARIO;
-    const isAdministrador = user.role.name === UserRole.ADMINISTRADOR;
-
-    if (isPropietario) {
-      const assignedBuildingIds = await this.userService.getPropietarioBuildings(userAuthId);
-      if (assignedBuildingIds.length === 0) return [];
-
-      const { data, error } = await supabase
-        .from('buildings')
-        .select('*, digital_books(sections)')
-        .in('id', assignedBuildingIds)
-        .order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-      return data.map(b => this.mapToBuilding(b));
-    }
-
-    if (isAdministrador) {
-      const { data, error } = await supabase
-        .from('buildings')
-        .select('*, digital_books(sections)')
-        .eq('owner_id', user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-      return data.map(b => this.mapToBuilding(b));
-    }
-
-    const { data: assignments, error: assignmentsError } = await supabase
-      .from('building_technician_assignments')
-      .select('building_id')
-      .eq('technician_id', user.id)
-      .eq('status', 'active');
-
-    if (assignmentsError) throw new Error(assignmentsError.message);
-
-    const buildingIds = assignments?.map(a => a.building_id) || [];
-    if (buildingIds.length === 0) return [];
+    // Todos los usuarios pueden ver todos los edificios, sin importar el rol
+    const supabase = this.getSupabase(); // Usa SERVICE_ROLE_KEY, bypass RLS
 
     const { data, error } = await supabase
       .from('buildings')
       .select('*, digital_books(sections)')
-      .in('id', buildingIds)
       .order("created_at", { ascending: false });
 
-    if (error) throw new Error(error.message);
-    return data.map(b => this.mapToBuilding(b));
+    if (error) {
+      console.error('Error obteniendo edificios:', error);
+      throw new Error(error.message);
+    }
+
+    console.log(`[getBuildingsByUser] Encontrados ${data?.length || 0} edificios (todos los usuarios pueden ver todos los edificios)`);
+    return (data || []).map(b => this.mapToBuilding(b));
   }
 
   async updateBuilding(
@@ -1122,7 +1096,7 @@ export class BuildingService {
       constructionYear: data.construction_year || data.constructionYear,
       typology: data.typology,
       numFloors: data.num_floors || data.numFloors,
-      numUnits: data.num_units || data.numUnits,
+      numUnits: data.num_units ?? data.numUnits ?? undefined,
       lat: data.lat,
       lng: data.lng,
       images: (data.images || []).map((img: any) => ({

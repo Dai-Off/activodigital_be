@@ -312,3 +312,6 @@ COMMENT ON COLUMN service_invoices.provider IS 'Nombre del proveedor del servici
 COMMIT;
 
 
+
+
+
