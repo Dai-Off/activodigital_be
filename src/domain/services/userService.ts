@@ -79,6 +79,7 @@ export class UserService {
         *,
         roles(*)
       `)
+      .eq('deleted', false)
       .order('email');
     if (error) {
       throw new Error(`Error al obtener usuarios: ${error.message}`);

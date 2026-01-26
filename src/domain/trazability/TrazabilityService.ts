@@ -95,7 +95,7 @@ export class TrazabilityService {
         return totalUpdateCount;
     }
 
-    async listTrazability(): Promise<responseListTrazability> {
+    async listTrazability(buildingId?: string): Promise<responseListTrazability> {
 
         const listQuery = this.getSupabase()
             .from('trazability_history')
@@ -108,6 +108,10 @@ export class TrazabilityService {
                 { count: 'exact' }
             )
             .order('created_at', { ascending: false });
+
+        if (buildingId) {
+            listQuery.eq('building_id', buildingId);
+        }
 
         const queryUsers = this.getSupabase()
             .from('users')
