@@ -23,11 +23,11 @@ export interface Building {
   id: string;
   name: string;
   address: string;
-  cadastralReference: string;
+  cadastralReference?: string;
   constructionYear: number;
   typology: BuildingTypology;
   numFloors: number;
-  numUnits: number;
+  numUnits?: number;
   lat: number;
   lng: number;
   images: BuildingImage[];
@@ -87,11 +87,11 @@ export interface CreateBuildingUnitRequest {
 export interface CreateBuildingRequest {
   name: string;
   address: string;
-  cadastralReference: string;
+  cadastralReference?: string;
   constructionYear: number;
   typology: BuildingTypology;
   numFloors: number;
-  numUnits: number;
+  numUnits?: number;
   lat: number;
   lng: number;
   price?: number;
@@ -99,7 +99,7 @@ export interface CreateBuildingRequest {
   cfoEmail?: string;
   propietarioEmail?: string;
   images?: BuildingImage[];
-
+  
   // Nuevos campos financieros opcionales
   rehabilitationCost?: number; // Coste de Rehabilitación
   potentialValue?: number;     // Valor potencial
