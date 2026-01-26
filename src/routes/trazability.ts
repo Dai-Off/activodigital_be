@@ -11,6 +11,6 @@ const router = Router();
 router.use(requireAuth);
 router.use(requestLogger);
 
-router.get('/list', listTrazabilityControler);
+router.get('/list/:buildingId?', listTrazabilityControler);
 
 export default router;

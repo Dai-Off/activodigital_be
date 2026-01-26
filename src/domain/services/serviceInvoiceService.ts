@@ -28,6 +28,7 @@ export class ServiceInvoiceService {
       notes: data.notes || null,
       provider: data.provider || null,
       created_by: userAuthId,
+      expiration_date: data.expiration_date,
     };
 
     const { data: invoice, error } = await this.getSupabase()
