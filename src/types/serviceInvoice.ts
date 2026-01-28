@@ -24,12 +24,13 @@ export interface ServiceInvoice {
   // Metadata
   notes?: string | null;
   provider?: string | null;
+  expiration_date?: string | null;
+  is_overdue?: boolean;
   
   // Audit
   created_at?: string;
   updated_at?: string;
   created_by?: string | null;
-  expiration_date?: string | null;
 }
 
 export interface CreateServiceInvoiceRequest extends Omit<ServiceInvoice, 'id' | 'created_at' | 'updated_at' | 'created_by'> {}

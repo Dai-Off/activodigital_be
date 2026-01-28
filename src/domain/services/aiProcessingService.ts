@@ -230,5 +230,72 @@ Responde ÚNICAMENTE con el JSON estructurado, sin texto adicional.
 
     return requiredTypes.every(type => sectionTypes.includes(type));
   }
+
+  async extractInvoiceData(imageBuffer: Buffer): Promise<any> {
+    try {
+      const base64Image = imageBuffer.toString('base64');
+      const mimeType = 'image/jpeg';
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un asistente especializado en extraer información de facturas de servicios. Extrae los datos y responde SIEMPRE con un JSON válido.'
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analiza esta factura y extrae la siguiente información en formato JSON:
+{
+  "invoice_number": "número de factura (string o null)",
+  "invoice_date": "fecha de factura en formato YYYY-MM-DD",
+  "amount_eur": "importe total en euros (número)",
+  "service_type": "tipo de servicio: 'electricity', 'water', 'gas', 'ibi' o 'waste'",
+  "provider": "nombre del proveedor (string o null)",
+  "period_start": "fecha inicio período en formato YYYY-MM-DD (o null)",
+  "period_end": "fecha fin período en formato YYYY-MM-DD (o null)",
+  "units": "unidades consumidas (número o null)",
+  "notes": "notas relevantes (string o null)",
+  "expiration_date": "fecha de vencimiento en formato YYYY-MM-DD (o null)",
+  "is_overdue": "true si la factura está vencida (fecha de vencimiento < fecha actual), false si no lo está (booleano)"
+}
+
+REGLAS:
+- Si no encuentras un dato, usa null
+- amount_eur debe ser un número
+- service_type debe ser uno de: electricity, water, gas, ibi, waste
+- Las fechas deben estar en formato YYYY-MM-DD
+- is_overdue debe ser true o false (booleano)
+- Para calcular is_overdue: compara expiration_date con la fecha actual (${new Date().toISOString().split('T')[0]})
+- Responde SOLO con el JSON, sin texto adicional`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+        response_format: { type: 'json_object' }
+      });
+
+      const responseText = completion.choices[0]?.message?.content;
+      if (!responseText) {
+        throw new Error('No se recibió respuesta de OpenAI');
+      }
+
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.error('Error al extraer datos de factura con IA:', error);
+      throw new Error(`Error en extracción de factura: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  }
 }
 
