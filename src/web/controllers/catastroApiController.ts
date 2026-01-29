@@ -64,8 +64,8 @@ export const getVias = async (req: Request, res: Response) => {
   const tipoVia = req.query.tipoVia as string | undefined;
   const nombreVia = req.query.nombreVia as string | undefined;
 
-  if (!provincia || !municipio) {
-    return res.status(400).json({ error: "Los parámetros 'provincia' y 'municipio' son requeridos" });
+  if (!provincia || !municipio || !tipoVia || !nombreVia) {
+    return res.status(400).json({ error: "Los parámetros provincia, municipio, tipoVia y nombreVia son requeridos" });
   }
 
   try {
