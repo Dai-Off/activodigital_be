@@ -29,6 +29,7 @@ export class ServiceInvoiceService {
       provider: data.provider || null,
       created_by: userAuthId,
       expiration_date: data.expiration_date,
+      is_overdue: data.is_overdue ?? false,
     };
 
     const { data: invoice, error } = await this.getSupabase()
@@ -164,6 +165,14 @@ export class ServiceInvoiceService {
   }
 
   private mapToServiceInvoice(dbRow: any): ServiceInvoice {
+    const expirationDate = dbRow.expiration_date;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const isOverdue = expirationDate 
+      ? new Date(expirationDate) < today
+      : false;
+
     return {
       id: dbRow.id,
       building_id: dbRow.building_id,
@@ -178,12 +187,15 @@ export class ServiceInvoiceService {
       document_filename: dbRow.document_filename ?? null,
       notes: dbRow.notes ?? null,
       provider: dbRow.provider ?? null,
+      expiration_date: expirationDate ?? null,
+      is_overdue: isOverdue,
       created_at: dbRow.created_at,
       updated_at: dbRow.updated_at,
       created_by: dbRow.created_by ?? null,
     };
   }
 }
+
 
 
 

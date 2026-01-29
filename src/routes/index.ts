@@ -22,6 +22,7 @@ import calendar from "./calendar";
 import idealistaScraper from "./idealistaScraper";
 import supportRouter from "./support";
 import vencidosRouter from "./vencidos";
+import aiRouter from "./ai";
 
 const router = Router();
 
@@ -52,5 +53,6 @@ router.use("/calendar", calendar);
 router.use("/idealistascraper", idealistaScraper);
 router.use("/support", supportRouter);
 router.use("/vencidos", vencidosRouter);
+router.use("/ai", aiRouter);
 
 export default router;
