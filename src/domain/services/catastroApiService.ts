@@ -81,6 +81,23 @@ export class CatastroApiService {
     return response;
   }
 
+  /**
+   * Realiza una solicitud HTTP sin headers especiales (para servicios públicos XML como Consulta_DNPLOC)
+   */
+  private async makePublicRequest(url: string): Promise<Response> {
+    const response = await fetch(url, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const error = new Error(`Error HTTP: ${response.status}`);
+      (error as any).status = response.status;
+      throw error;
+    }
+
+    return response;
+  }
+
   async getAllProvincias(): Promise<any | null> {
     try {
       const response = await this.makeRequest(
@@ -213,6 +230,73 @@ export class CatastroApiService {
       return listadoInmuebles;
     } catch (error) {
       console.error("[CatastroApiService] Error en getInmuebleXY:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene las unidades (construcciones) de un inmueble usando el servicio público
+   * de Catastro Consulta_DNPLOC (XML) a partir de una dirección.
+   *
+   * Ejemplo de URL base:
+   * http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/rest/Consulta_DNPLOC
+   */
+  async getUnidadesPorDireccion(params: {
+    provincia: string;
+    municipio: string;
+    siglaVia: string; // Sigla/tipo de vía (ej: CL, AV, PZ)
+    calle: string; // Nombre de la calle (sin tipo)
+    numero: string;
+    bloque?: string;
+    escalera?: string;
+    planta?: string;
+    puerta?: string;
+  }): Promise<any> {
+    const {
+      provincia,
+      municipio,
+      siglaVia,
+      calle,
+      numero,
+      bloque = "",
+      escalera = "",
+      planta = "",
+      puerta = "",
+    } = params;
+
+    if (!provincia || !municipio || !siglaVia || !calle || !numero) {
+      throw new Error(
+        "Los parámetros provincia, municipio, siglaVia, calle y numero son obligatorios"
+      );
+    }
+
+    try {
+      const baseUrl =
+        "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/rest/Consulta_DNPLOC";
+
+      const url = new URL(baseUrl);
+      url.searchParams.append("Provincia", provincia);
+      url.searchParams.append("Municipio", municipio);
+      url.searchParams.append("Sigla", siglaVia);
+      url.searchParams.append("Calle", calle);
+      url.searchParams.append("Numero", numero);
+      // Los siguientes parámetros son opcionales pero deben existir en la query
+      url.searchParams.append("Bloque", bloque);
+      url.searchParams.append("Escalera", escalera);
+      url.searchParams.append("Planta", planta);
+      url.searchParams.append("Puerta", puerta);
+
+      const response = await this.makePublicRequest(url.toString());
+      const xmlText = await response.text();
+
+      // El servicio responde en XML. Lo devolvemos en bruto para que el caller decida
+      // cómo parsearlo (frontend o servicio de dominio).
+      return { xml: xmlText };
+    } catch (error) {
+      console.error(
+        "[CatastroApiService] Error en getUnidadesPorDireccion:",
+        error
+      );
       throw error;
     }
   }

@@ -6,6 +6,7 @@ import {
   getInmuebleRc,
   getInmuebleLoc,
   getInmuebleXY,
+  getUnidadesPorDireccion,
 } from "../web/controllers/catastroApiController";
 import { requestLogger } from "../web/middlewares/requestLogger";
 import { requireAuth } from "../web/middlewares/authMiddleware";
@@ -19,5 +20,6 @@ router.get("/vias", getVias);
 router.get("/inmuebleLoc", getInmuebleLoc);
 router.get("/inmuebleRc", getInmuebleRc);
 router.get("/inmuebleXY", getInmuebleXY);
+router.get("/unidades-por-direccion", getUnidadesPorDireccion);
 
 export default router;
