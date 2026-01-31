@@ -24,7 +24,7 @@ export class AIProcessingService {
         messages: [
           {
             role: 'system',
-            content: 'Eres un asistente especializado en extraer información estructurada de documentos de libros digitales de edificios. Tu tarea es analizar el documento y extraer datos organizados en 8 secciones específicas. Responde SIEMPRE con un JSON válido.'
+            content: 'Eres un asistente especializado en extraer información estructurada de documentos de libros digitales de edificios. Debes analizar TODO el documento (todas las páginas) y extraer datos para las 8 secciones: general_data, construction_features, certificates_and_licenses, maintenance_and_conservation, facilities_and_consumption, renovations_and_rehabilitations, sustainability_and_esg, annex_documents. Tu respuesta SIEMPRE debe ser un JSON válido que incluya las 8 claves; si una sección no tiene datos en el documento, inclúyela con {}.'
           },
           {
             role: 'user',
@@ -32,7 +32,7 @@ export class AIProcessingService {
           }
         ],
         temperature: 0.1, // Más determinístico para extracción de datos
-        max_tokens: 4000, // Suficiente para el JSON completo
+        max_tokens: 8000, // Suficiente para las 8 secciones completas (evitar truncado)
         response_format: { type: 'json_object' }
       });
 
@@ -55,9 +55,9 @@ export class AIProcessingService {
    */
   private buildPrompt(documentText: string): string {
     return `
-Analiza el siguiente documento de libro digital de un edificio y extrae la información relevante organizándola en las siguientes 8 secciones.
+Analiza TODO el documento de principio a fin. La información puede estar repartida en distintas páginas o apartados. Debes extraer datos para LAS 8 SECCIONES y tu respuesta DEBE incluir siempre las 8 claves del JSON (general_data, construction_features, certificates_and_licenses, maintenance_and_conservation, facilities_and_consumption, renovations_and_rehabilitations, sustainability_and_esg, annex_documents). Para cada sección extrae TODA la información relevante que encuentres en el texto; si una sección no tiene datos en el documento, devuelve {} para esa sección.
 
-IMPORTANTE: Debes responder con un JSON válido con la siguiente estructura:
+IMPORTANTE: Responde con un JSON válido que incluya las 8 claves:
 {
   "general_data": {},
   "construction_features": {},
@@ -125,6 +125,22 @@ DESCRIPCIÓN DE CADA SECCIÓN:
    - photographs: fotografías
    - legal_documents: documentos legales
 
+MAPEO PARA DOCUMENTOS "LIBRO DEL EDIFICIO" (ESPAÑA):
+Si el documento tiene estructura tipo Libro del Edificio, usa este mapeo para extraer TODO:
+- **general_data**: "Nombre del Edificio" + "Emplazamiento" o "Ubicación" + "Referencia Catastral" → identification (ej: "Torre Goya, Calle Goya 63, 28001 Madrid. Ref. Catastral: 2354810VK4725C"). "Año de terminación" → construction_date (ej: 2012 → "2012-01-01"). "Uso principal" → primary_use (texto literal del documento). "Tipología" o "tipología mixta" → building_typology. "DIRECTORIO DE AGENTES" / "Administración de Finca" / "Comunidad de Propietarios" → ownership.
+- **construction_features**: En "DOCUMENTACIÓN TÉCNICA" o "DESCRIPCIÓN": (1) "Estructura:" → structural_system (texto literal). (2) "Fachada:" → facade_type (texto literal). (3) **materials**: incluir TODOS los materiales del apartado: de Estructura (ej. hormigón armado), de Fachada (ej. cerámico, piedra natural, placas ventiladas), de Carpintería (ej. aluminio, doble acristalamiento Climalit) en un solo texto, ej: "Hormigón armado, cerámico, piedra natural, aluminio, doble acristalamiento tipo Climalit". (4) **insulation_systems**: SIEMPRE rellenar cuando el documento mencione "aislamiento térmico", "doble acristalamiento", "rotura de puente térmico", "Climalit"; ej: "Aislamiento térmico reforzado en fachada, aluminio con rotura de puente térmico, doble acristalamiento tipo Climalit". (5) **roof_type**: SIEMPRE rellenar cuando en tablas de mantenimiento o en el texto aparezca "Cubierta" (ej: "Cubierta con revisión anual de sumideros e impermeabilización" o "Plana con impermeabilización").
+- **maintenance_and_conservation**: Cualquier tabla con "Elemento / Periodicidad / Tipo de Inspección" (Ascensores, Extintores/BIEs, Fachadas, Cubierta, Calderas/RITE, IEE) → preventive_plan (descripción del plan) e inspection_schedule (resumen: "Ascensores mensual; Extintores/BIEs trimestral; Fachadas cada 5 años; Cubierta anual; Calderas/RITE anual; IEE cada 10 años" o similar). Si en la tabla aparece "Mantenimiento preventivo por empresa autorizada" o "empresa autorizada" → SIEMPRE incluir en maintenance_contracts (ej: "Mantenimiento preventivo por empresa autorizada (ascensores)").
+- **facilities_and_consumption**: "Instalaciones destacadas" / "Climatización centralizada" / "Sistema de energía solar" / "ICT" / "ACS" → hvac_system (climatización, solar térmica ACS). Para electrical_system: si el documento solo menciona ICT/telecom y no red eléctrica, poner "No especificado en documento. ICT2 (Infraestructura Común de Telecomunicaciones) mencionado." o similar; si hay descripción de red eléctrica, usarla. water_system y gas_system: si no aparecen, "No especificado en documento".
+- **certificates_and_licenses**: "IEE", "Informe de Evaluación de Edificios" → building_permits o habitability_license (ej: "IEE obligatorio cada 10 años (Madrid)"). Si menciona certificado energético o CTE → energy_certificate.
+- **annex_documents**: Cualquier mención a "planos finales de obra", "as-built", "acta de recepción", "Proyecto de Fin de Obra" → technical_drawings, legal_documents (extrae el texto literal o un resumen).
+- **renovations_and_rehabilitations** y **sustainability_and_esg**: Si el documento no los menciona, devuelve {} para esa clave pero INCLÚYELA en el JSON.
+
+CAMPOS QUE DEBES RELLENAR SIEMPRE QUE APAREZCAN EN EL DOCUMENTO (no los dejes vacíos):
+- **ownership**: Si aparece "Comunidad de Propietarios", "Administración de Finca", "DIRECTORIO DE AGENTES" o "titularidad" → rellenar SIEMPRE. Ejemplos: "Comunidad de Propietarios (Administración de Finca a designar)" o "Comunidad de Propietarios" o el texto literal que figure.
+- **building_typology**: La interfaz usa un desplegable. Usar EXACTAMENTE uno de: "Residencial", "Comercial", "Mixto", "Industrial". Si el documento dice "tipología mixta", "residencial con uso comercial", "mixta" o "Uso principal: Residencial (con uso comercial en planta baja)" → usar "Mixto". Si solo dice "Residencial" sin comercial → "Residencial".
+- **maintenance_contracts**: Si en tablas de mantenimiento aparece "Mantenimiento preventivo por empresa autorizada" o "empresa autorizada" → incluir ese texto en maintenance_contracts (ej: "Mantenimiento preventivo por empresa autorizada (ascensores)").
+- **construction_features (materiales, aislamiento, cubierta)**: No dejes materials solo con la carpintería: une Estructura + Fachada + Carpintería. Rellena SIEMPRE insulation_systems si hay "aislamiento", "Climalit", "doble acristalamiento", "rotura de puente térmico". Rellena SIEMPRE roof_type si en el documento aparece "Cubierta" (aunque sea en tablas de mantenimiento).
+
 REGLAS IMPORTANTES:
 - Si no encuentras información para un campo, NO lo incluyas en el JSON (omite campos vacíos)
 - TODOS los valores deben ser strings (texto), NO objetos ni arrays
@@ -133,42 +149,28 @@ REGLAS IMPORTANTES:
 - Para campos de selección (accessibility, safetyCompliance) usa los valores exactos: "full", "partial", "none", "pending"
 - No inventes información que no esté en el documento
 - Extrae SOLO la información que puedas verificar en el texto
-- Si el documento no contiene información clara, devuelve objetos vacíos {}
+- Si una sección no tiene datos en el documento, devuelve {} para esa sección, pero INCLUYE siempre las 8 claves en el JSON.
 - EJEMPLO CORRECTO: "identification": "Edificio Residencial Calle Mayor 123, Madrid"
 - EJEMPLO INCORRECTO: "identification": {"name": "Edificio", "address": "Calle Mayor 123"}
 
-DOCUMENTO A ANALIZAR:
+DOCUMENTO A ANALIZAR (léelo completo; la información puede estar en cualquier parte):
 ---
 ${documentText.slice(0, 50000)}
 ---
 
-EJEMPLO DE RESPUESTA CORRECTA:
+EJEMPLO DE RESPUESTA (debes incluir las 8 claves; las que no tengan datos van como {}):
 {
-  "general_data": {
-    "identification": "Edificio Residencial Calle Mayor 123, Madrid",
-    "ownership": "Comunidad de Propietarios",
-    "building_typology": "Residencial",
-    "primary_use": "Vivienda",
-    "construction_date": "2010-03-15"
-  },
-  "construction_features": {
-    "materials": "Hormigón armado, ladrillo visto",
-    "insulation_systems": "Aislamiento térmico en fachada",
-    "structural_system": "Hormigón armado",
-    "facade_type": "Ladrillo visto",
-    "roof_type": "Plana"
-  },
-  "sustainability_and_esg": {
-    "renewableSharePercent": "15",
-    "waterFootprintM3PerM2Year": "2.4",
-    "accessibility": "full",
-    "indoorAirQualityCo2Ppm": "800",
-    "safetyCompliance": "full",
-    "regulatoryCompliancePercent": "95"
-  }
+  "general_data": { "identification": "...", "ownership": "...", "building_typology": "Residencial", "primary_use": "Vivienda", "construction_date": "2010-03-15" },
+  "construction_features": { "materials": "...", "structural_system": "...", "facade_type": "...", "roof_type": "..." },
+  "certificates_and_licenses": { "energy_certificate": "...", "building_permits": "...", "habitability_license": "..." },
+  "maintenance_and_conservation": { "preventive_plan": "...", "inspection_schedule": "...", "maintenance_contracts": "..." },
+  "facilities_and_consumption": { "electrical_system": "...", "water_system": "...", "hvac_system": "..." },
+  "renovations_and_rehabilitations": { "renovation_history": "...", "permits_renovations": "..." },
+  "sustainability_and_esg": { "renewableSharePercent": "15", "accessibility": "full", "regulatoryCompliancePercent": "95" },
+  "annex_documents": { "additional_documents": "...", "technical_drawings": "...", "legal_documents": "..." }
 }
 
-Responde ÚNICAMENTE con el JSON estructurado, sin texto adicional.
+Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adicional.
 `;
   }
 
@@ -229,6 +231,73 @@ Responde ÚNICAMENTE con el JSON estructurado, sin texto adicional.
     const sectionTypes = sections.map(s => s.type);
 
     return requiredTypes.every(type => sectionTypes.includes(type));
+  }
+
+  async extractInvoiceData(imageBuffer: Buffer): Promise<any> {
+    try {
+      const base64Image = imageBuffer.toString('base64');
+      const mimeType = 'image/jpeg';
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un asistente especializado en extraer información de facturas de servicios. Extrae los datos y responde SIEMPRE con un JSON válido.'
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analiza esta factura y extrae la siguiente información en formato JSON:
+{
+  "invoice_number": "número de factura (string o null)",
+  "invoice_date": "fecha de factura en formato YYYY-MM-DD",
+  "amount_eur": "importe total en euros (número)",
+  "service_type": "tipo de servicio: 'electricity', 'water', 'gas', 'ibi' o 'waste'",
+  "provider": "nombre del proveedor (string o null)",
+  "period_start": "fecha inicio período en formato YYYY-MM-DD (o null)",
+  "period_end": "fecha fin período en formato YYYY-MM-DD (o null)",
+  "units": "unidades consumidas (número o null)",
+  "notes": "notas relevantes (string o null)",
+  "expiration_date": "fecha de vencimiento en formato YYYY-MM-DD (o null)",
+  "is_overdue": "true si la factura está vencida (fecha de vencimiento < fecha actual), false si no lo está (booleano)"
+}
+
+REGLAS:
+- Si no encuentras un dato, usa null
+- amount_eur debe ser un número
+- service_type debe ser uno de: electricity, water, gas, ibi, waste
+- Las fechas deben estar en formato YYYY-MM-DD
+- is_overdue debe ser true o false (booleano)
+- Para calcular is_overdue: compara expiration_date con la fecha actual (${new Date().toISOString().split('T')[0]})
+- Responde SOLO con el JSON, sin texto adicional`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+        response_format: { type: 'json_object' }
+      });
+
+      const responseText = completion.choices[0]?.message?.content;
+      if (!responseText) {
+        throw new Error('No se recibió respuesta de OpenAI');
+      }
+
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.error('Error al extraer datos de factura con IA:', error);
+      throw new Error(`Error en extracción de factura: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
   }
 }
 
