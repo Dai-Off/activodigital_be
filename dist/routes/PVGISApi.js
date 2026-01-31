@@ -2,7 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const PVGISController_1 = require("../web/controllers/PVGISController");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
+const authMiddleware_1 = require("../web/middlewares/authMiddleware");
 const router = (0, express_1.Router)();
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 // 1. PVcalc (Cálculo de Producción para Edificios)
 // URL: /api/v1/pvgis/building-energy-output?lat=...&lon=...&peakpower=...&loss=...
 router.get("/building-energy-output", PVGISController_1.GetBuildingPVEnergyOutput);

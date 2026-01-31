@@ -2,7 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const catastroApiController_1 = require("../web/controllers/catastroApiController");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
+const authMiddleware_1 = require("../web/middlewares/authMiddleware");
 const router = (0, express_1.Router)();
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 router.get("/provincias", catastroApiController_1.getAllProvincias);
 router.get("/municipios", catastroApiController_1.getMunicipios);
 router.get("/vias", catastroApiController_1.getVias);

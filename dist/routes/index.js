@@ -25,6 +25,8 @@ const MITECOApi_1 = __importDefault(require("./MITECOApi"));
 const insurance_1 = __importDefault(require("./insurance"));
 const calendar_1 = __importDefault(require("./calendar"));
 const idealistaScraper_1 = __importDefault(require("./idealistaScraper"));
+const support_1 = __importDefault(require("./support"));
+const vencidos_1 = __importDefault(require("./vencidos"));
 const router = (0, express_1.Router)();
 router.get("/", (_req, res) => {
     res.json({ message: "¡Bienvenido a la API de Activo Digital Backend!" });
@@ -50,5 +52,7 @@ router.use("/MITECOApi", MITECOApi_1.default);
 router.use("/insurances", insurance_1.default);
 router.use("/calendar", calendar_1.default);
 router.use("/idealistascraper", idealistaScraper_1.default);
+router.use("/support", support_1.default);
+router.use("/vencidos", vencidos_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

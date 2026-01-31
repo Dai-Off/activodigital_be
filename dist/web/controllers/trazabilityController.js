@@ -4,7 +4,8 @@ exports.listTrazabilityControler = void 0;
 const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
 const listTrazabilityControler = async (req, res) => {
     try {
-        const trazabilidad = await TrazabilityService_1.trazabilityService.listTrazability();
+        const { buildingId } = req.params;
+        const trazabilidad = await TrazabilityService_1.trazabilityService.listTrazability(buildingId);
         if (!trazabilidad) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }

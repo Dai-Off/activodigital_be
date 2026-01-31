@@ -199,6 +199,11 @@ class VencidosService {
                 if (categoriaDoc !== filtros.categoria)
                     return false;
             }
+            // Filtro por tipo de documento
+            if (filtros.tipo_documento) {
+                if (doc.tipo_documento !== filtros.tipo_documento)
+                    return false;
+            }
             // Filtro por búsqueda
             if (filtros.search) {
                 const searchLower = filtros.search.toLowerCase();
@@ -386,6 +391,54 @@ class VencidosService {
             .trim();
         const numero = parseFloat(limpio);
         return isNaN(numero) ? 0 : numero;
+    }
+    /**
+     * Obtiene los valores únicos disponibles para los filtros
+     */
+    async getFiltrosDisponibles() {
+        const supabase = this.getSupabase();
+        const { data: documentos, error } = await supabase
+            .from('data-room-docs')
+            .select('tipo_documento, contenido_extraido, building_id, building_name');
+        if (error) {
+            console.error('Error obteniendo documentos para filtros:', error);
+            throw new Error('Error al obtener filtros disponibles');
+        }
+        if (!documentos || documentos.length === 0) {
+            return {
+                tipos_documento: [],
+                categorias: [],
+                edificios: []
+            };
+        }
+        const tiposDocumentoSet = new Set();
+        const categoriasSet = new Set();
+        const edificiosMap = new Map();
+        documentos.forEach((doc) => {
+            const contenido = typeof doc.contenido_extraido === 'string'
+                ? JSON.parse(doc.contenido_extraido)
+                : doc.contenido_extraido;
+            if (contenido.estado !== 'VENCIDO')
+                return;
+            if (doc.tipo_documento) {
+                tiposDocumentoSet.add(doc.tipo_documento);
+            }
+            const categoria = this.obtenerCategoria(this.mapToDocumentoVencido(doc));
+            if (categoria) {
+                categoriasSet.add(categoria);
+            }
+            if (doc.building_id && doc.building_name) {
+                edificiosMap.set(doc.building_id, doc.building_name);
+            }
+        });
+        return {
+            tipos_documento: Array.from(tiposDocumentoSet).sort(),
+            categorias: Array.from(categoriasSet).sort(),
+            edificios: Array.from(edificiosMap.entries()).map(([id, nombre]) => ({
+                id,
+                nombre
+            })).sort((a, b) => a.nombre.localeCompare(b.nombre))
+        };
     }
 }
 exports.VencidosService = VencidosService;

@@ -3,10 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const invitationController_1 = require("../web/controllers/invitationController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const invitationController = new invitationController_1.InvitationController();
 // Todas las rutas requieren autenticación
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 // Crear una nueva invitación
 router.post('/', invitationController.createInvitation.bind(invitationController));
 // Obtener invitaciones enviadas por el usuario autenticado

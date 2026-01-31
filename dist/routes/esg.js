@@ -3,9 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
 const esgController_1 = require("../web/controllers/esgController");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const controller = new esgController_1.EsgController();
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 // POST /esg/calculate - Calcula y guarda el ESG
 router.post('/calculate', controller.calculate);
 // GET /esg/building/:buildingId - Obtiene el ESG guardado

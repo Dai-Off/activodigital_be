@@ -15,14 +15,22 @@ app_1.default.use((err, _req, res, _next) => {
     // In production consider structured logging
     // eslint-disable-next-line no-console
     console.error(err.stack);
-    res.status(500).json({ error: '¡Algo salió mal en el servidor!' });
+    res.status(500).json({ error: "¡Algo salió mal en el servidor!" });
 });
 // Iniciar el servidor
-app_1.default.listen(port, () => {
+const http_1 = __importDefault(require("http"));
+const socketService_1 = require("./services/socketService");
+// ... (imports)
+// Crear servidor HTTP explícito para poder adjuntar Socket.io
+const server = http_1.default.createServer(app_1.default);
+// Inicializar Socket.io
+socketService_1.SocketService.getInstance().initialize(server);
+// Iniciar el servidor
+server.listen(port, () => {
     // eslint-disable-next-line no-console
     console.log(`Servidor corriendo en http://localhost:${port}`);
     console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`🎯 FRONTEND_URL: ${process.env.FRONTEND_URL || 'NO CONFIGURADO'}`);
+    console.log(`🎯 FRONTEND_URL: ${process.env.FRONTEND_URL || "NO CONFIGURADO"}`);
 });
 exports.default = app_1.default;
 //# sourceMappingURL=index.js.map
