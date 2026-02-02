@@ -3,10 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const rentController_1 = require("../web/controllers/rentController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const rentController = new rentController_1.RentController();
 // Todas las rutas requieren autenticación
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 // ========== RESUMEN MENSUAL ==========
 // GET /rents/building/:buildingId/summary/:month
 // Obtiene el resumen de rentas del mes (facturado, cobrado, %, estados)

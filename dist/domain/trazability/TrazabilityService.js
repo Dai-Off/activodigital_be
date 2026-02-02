@@ -71,7 +71,7 @@ class TrazabilityService {
         }
         return totalUpdateCount;
     }
-    async listTrazability() {
+    async listTrazability(buildingId) {
         const listQuery = this.getSupabase()
             .from('trazability_history')
             .select(`
@@ -80,12 +80,15 @@ class TrazabilityService {
                 building:buildings(*)
             `, { count: 'exact' })
             .order('created_at', { ascending: false });
+        if (buildingId) {
+            listQuery.eq('building_id', buildingId);
+        }
         const queryUsers = this.getSupabase()
             .from('users')
             .select(`
                 id
             `, { count: 'exact' })
-            .eq('two_factor_enabled', true)
+            .eq('status', true)
             .order('created_at', { ascending: false });
         const { error: errorsUsers, count: activeUsers } = await queryUsers;
         const { data, error, count: totalCount } = await listQuery;

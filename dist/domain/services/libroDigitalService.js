@@ -6,6 +6,7 @@ const libroDigital_1 = require("../../types/libroDigital");
 const userService_1 = require("./userService");
 const user_1 = require("../../types/user");
 const embeddingHelper_1 = require("../../lib/embeddingHelper");
+const edificioService_1 = require("./edificioService");
 class DigitalBookService {
     constructor() {
         this.userService = new userService_1.UserService();
@@ -268,12 +269,15 @@ class DigitalBookService {
         return true;
     }
     mapToDigitalBook(data) {
+        const sections = data?.sections || [];
+        const completedPercentage = (0, edificioService_1.calculateCompletionPercentage)(sections);
         return {
             id: data.id,
             buildingId: data.building_id,
             source: data.source,
             status: data.status,
             progress: data.progress,
+            completedPercentage,
             sections: data.sections || [],
             technicianId: data.technician_id,
             createdAt: data.created_at,

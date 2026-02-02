@@ -159,6 +159,7 @@ export class BuildingService {
       .from("buildings")
       .select("*")
       .eq("id", id)
+      .eq("deleted", false)
       .single();
 
     if (error) {
@@ -178,6 +179,7 @@ export class BuildingService {
     const { data, error } = await supabase
       .from('buildings')
       .select('*, digital_books(sections)')
+      .eq("deleted", false)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -246,7 +248,7 @@ export class BuildingService {
 
     const { error } = await this.getSupabase()
       .from("buildings")
-      .delete()
+      .update({ deleted: true })
       .eq("id", id);
 
     if (error) {
@@ -588,6 +590,7 @@ export class BuildingService {
       `
       )
       .eq("id", buildingId)
+      .eq("deleted", false)
       .single();
 
     if (error || !data) {

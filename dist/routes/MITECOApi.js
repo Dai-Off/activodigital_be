@@ -2,7 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const MitecoController_1 = require("../web/controllers/MitecoController");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
+const authMiddleware_1 = require("../web/middlewares/authMiddleware");
 const router = (0, express_1.Router)();
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 // ==========================================
 // RUTAS DE DATASETS (PAQUETES)
 // ==========================================

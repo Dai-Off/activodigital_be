@@ -94,7 +94,7 @@ class CertificateEnergeticoController {
                 const sessionId = req.params.sessionId;
                 const data = req.body;
                 const session = await this.getCertificateService().updateEnergyCertificateSession(sessionId, data, userId, token);
-                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: session.buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "actualizar sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: session.buildingId, action: interfaceTrazability_1.ActionsValues['CARGA'], module: interfaceTrazability_1.ModuleValues.CERTIFICADOS, description: "Subio Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: session });
             }
             catch (error) {

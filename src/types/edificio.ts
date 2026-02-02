@@ -48,6 +48,7 @@ export interface Building {
   updatedAt?: string;
   userId?: string; // Mantener por compatibilidad temporal
   porcentBook?: number; 
+  deleted?: boolean;
 }
 
 export interface BuildingUnit {

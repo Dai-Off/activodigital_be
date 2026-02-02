@@ -75,18 +75,15 @@ class NotificationController {
                     return;
                 }
                 const notificationData = {
+                    user_id: req.body.user_id,
                     building_id: building_id,
                     type: type,
                     title: title,
-                    expiration: null,
-                    priority: 0,
+                    expiration: req.body.expiration || null,
+                    priority: req.body.priority || 0,
+                    message: req.body.message || req.body.description, // Soporta ambos por compatibilidad
+                    metadata: req.body.metadata || {},
                 };
-                if (req.body.expiration) {
-                    notificationData.expiration = req.body.expiration;
-                }
-                if (req.body.priority) {
-                    notificationData.priority = req.body.priority;
-                }
                 // Usamos el Bus para la creación asíncrona
                 // import { NotificationBus, NotificationEvents } from "../../domain/events/notificationBus"; // Asegúrate de importar esto arriba
                 notificationBus_1.NotificationBus.getInstance().emit(notificationBus_1.NotificationEvents.NOTIFICATION_CREATED, notificationData);

@@ -8,6 +8,7 @@ const technicalAuditController_1 = require("../web/controllers/technicalAuditCon
 const financialAuditController_1 = require("../web/controllers/financialAuditController");
 const buildingUnitsController_1 = require("../web/controllers/buildingUnitsController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const buildingController = new edificioController_1.BuildingController();
 const buildingMetricsController = new buildingMetricsController_1.BuildingMetricsController();
@@ -15,7 +16,8 @@ const buildingScenariosController = new buildingScenariosController_1.BuildingSc
 const technicalAuditController = new technicalAuditController_1.TechnicalAuditController();
 const financialAuditController = new financialAuditController_1.FinancialAuditController();
 // Todas las rutas requieren autenticación
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 // CRUD básico de edificios
 router.post('/', buildingController.createBuilding);
 router.get('/', buildingController.getBuildings);
