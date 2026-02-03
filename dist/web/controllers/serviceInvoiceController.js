@@ -15,8 +15,8 @@ class ServiceInvoiceController {
                 }
                 const data = req.body;
                 // Validación básica
-                if (!data.building_id || !data.service_type || !data.invoice_date || data.amount_eur === undefined) {
-                    res.status(400).json({ error: 'Faltan campos requeridos: building_id, service_type, invoice_date, amount_eur' });
+                if (!data.building_id || !data.service_type || !data.invoice_date || data.amount_eur === undefined || data.expiration_date === undefined) {
+                    res.status(400).json({ error: 'Faltan campos requeridos: building_id, service_type, invoice_date, amount_eur, expiration_date' });
                     return;
                 }
                 // Validar service_type
@@ -30,7 +30,20 @@ class ServiceInvoiceController {
                     res.status(400).json({ error: 'amount_eur debe ser >= 0' });
                     return;
                 }
-                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: interfaceTrazability_1.ActionsValues['CREAR'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Crear factura de servicios" }).catch(err => console.error("Fallo trazabilidad:", err));
+                if (data.period_start && data.period_end) {
+                    if (data.period_start > data.period_end) {
+                        res.status(400).json({ error: 'periodos de la factura no son coherentes' });
+                        return;
+                    }
+                }
+                const dataInvoice = {
+                    'electricity': 'Eléctricidad',
+                    'water': 'Agua',
+                    'gas': 'Gas',
+                    'ibi': 'IBI',
+                    'waste': 'Residuos'
+                };
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.building_id, action: interfaceTrazability_1.ActionsValues['CARGA'], module: interfaceTrazability_1.ModuleValues.DOCUMENTOS, description: "Cargo factura de servicios de " + dataInvoice[data.service_type] }).catch(err => console.error("Fallo trazabilidad:", err));
                 const invoice = await this.getService().createServiceInvoice(data, userId);
                 res.status(201).json({ data: invoice });
             }

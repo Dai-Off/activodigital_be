@@ -3,10 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const insuranceController_1 = require("../web/controllers/insuranceController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const insuranceController = new insuranceController_1.InsuranceController();
 // Aplicar middleware de autenticación a todas las rutas
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 /**
  * @route GET /insurances
  * @desc Obtener seguros de un edificio (Requiere query param: ?buildingId=...)

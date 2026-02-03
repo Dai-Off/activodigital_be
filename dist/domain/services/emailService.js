@@ -510,6 +510,162 @@ class EmailService {
             // No lanzar error para emails de bienvenida, solo loggear
         }
     }
+    /**
+     * Escapa caracteres especiales para HTML
+     */
+    escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, (m) => map[m]);
+    }
+    /**
+     * Envía un email de soporte a soporte@empresa.com usando Supabase Edge Functions
+     */
+    async sendSupportEmail(subject, message, category, userEmail, context) {
+        const supportEmail = process.env.SUPPORT_EMAIL || 'martiingadeea1996@gmail.com';
+        const timestamp = new Date().toLocaleString('es-ES', {
+            timeZone: 'Europe/Madrid',
+            dateStyle: 'full',
+            timeStyle: 'long'
+        });
+        // Escapar valores para HTML
+        const escapedCategory = this.escapeHtml(category);
+        const escapedSubject = this.escapeHtml(subject);
+        const escapedMessage = this.escapeHtml(message);
+        const escapedUserEmail = userEmail ? this.escapeHtml(userEmail) : '';
+        const escapedContext = context ? this.escapeHtml(context) : '';
+        // Generar HTML del email
+        const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+          }
+          .content {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+          }
+          .field {
+            margin-bottom: 15px;
+          }
+          .label {
+            font-weight: bold;
+            color: #555;
+            display: block;
+            margin-bottom: 5px;
+          }
+          .value {
+            background-color: white;
+            padding: 10px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+          }
+          .message {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Nuevo Ticket de Soporte</h1>
+        </div>
+        <div class="content">
+          <div class="field">
+            <span class="label">Categoría:</span>
+            <div class="value">${escapedCategory}</div>
+          </div>
+          <div class="field">
+            <span class="label">Asunto:</span>
+            <div class="value">${escapedSubject}</div>
+          </div>
+          <div class="field">
+            <span class="label">Mensaje:</span>
+            <div class="value message">${escapedMessage}</div>
+          </div>
+          ${userEmail ? `
+          <div class="field">
+            <span class="label">Email del usuario:</span>
+            <div class="value">${escapedUserEmail}</div>
+          </div>
+          ` : ''}
+          ${context ? `
+          <div class="field">
+            <span class="label">URL de origen:</span>
+            <div class="value">${escapedContext}</div>
+          </div>
+          ` : ''}
+          <div class="field">
+            <span class="label">Fecha:</span>
+            <div class="value">${timestamp}</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+        // Generar versión texto plano
+        const text = `Nuevo Ticket de Soporte
+
+Categoría: ${category}
+Asunto: ${subject}
+Mensaje: ${message}
+${userEmail ? `Email del usuario: ${userEmail}\n` : ''}${context ? `URL de origen: ${context}\n` : ''}Fecha: ${timestamp}`;
+        const emailSubject = `[Soporte] ${category} - ${subject}`;
+        try {
+            const { data, error } = await this.getSupabase().functions.invoke('send-email', {
+                body: {
+                    to: supportEmail,
+                    subject: emailSubject,
+                    html,
+                    text,
+                    type: 'support',
+                    metadata: {
+                        support: {
+                            category,
+                            subject,
+                            userEmail,
+                            context
+                        }
+                    }
+                }
+            });
+            if (error) {
+                console.error('Error enviando email de soporte:', error);
+                throw new Error(`Error al enviar email de soporte: ${error.message}`);
+            }
+            return {
+                success: true,
+                emailId: data?.emailId
+            };
+        }
+        catch (error) {
+            console.error('Error en sendSupportEmail:', error);
+            throw new Error(`Error al enviar email de soporte: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+        }
+    }
 }
 exports.EmailService = EmailService;
 //# sourceMappingURL=emailService.js.map

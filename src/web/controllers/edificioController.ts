@@ -94,6 +94,36 @@ export class BuildingController {
     }
   };
 
+  deleteBuilding = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { id } = req.params;
+      
+      // Verificar si el usuario tiene permiso para eliminar (opcional, por ahora todos pueden)
+      // En el servicio deleteBuilding solo se verifica que exista el registro
+      
+      await this.getBuildingService().deleteBuilding(id, userId);
+      
+      trazabilityService.registerTrazability({ 
+        authUserId: userId, 
+        buildingId: id, 
+        action: ActionsValues.ELIMINAR, 
+        module: ModuleValues.EDIFICIOS, 
+        description: "Eliminó un edificio permanentemente" 
+      }).catch(err => console.error("Fallo trazabilidad:", err));
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error al eliminar edificio:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  };
+
   // Endpoints para gestión de imágenes
   uploadImages = async (req: Request, res: Response): Promise<void> => {
     try {
