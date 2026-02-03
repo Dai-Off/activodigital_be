@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { PDFParse } from "pdf-parse";
 import { AIProcessingService } from "../../domain/services/aiProcessingService";
 import { DigitalBookService } from "../../domain/services/libroDigitalService";
 import { NotificationService } from "../../domain/services/notificationService";
@@ -48,6 +47,8 @@ export class AIDigitalBookController {
       let documentText = "";
       try {
         if (req.file.mimetype === "application/pdf") {
+          // Importación dinámica (lazy) de pdf-parse para evitar crash al iniciar
+          const { PDFParse } = await import("pdf-parse");
           const dataBuffer = req.file.buffer;
           const parser = new PDFParse({ data: dataBuffer });
           try {
