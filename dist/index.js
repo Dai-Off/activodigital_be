@@ -25,6 +25,10 @@ const socketService_1 = require("./services/socketService");
 const server = http_1.default.createServer(app_1.default);
 // Inicializar Socket.io
 socketService_1.SocketService.getInstance().initialize(server);
+// Inicializar cronjob de alertas de documentos próximos a vencer
+const documentExpirationCronJob_1 = require("./services/documentExpirationCronJob");
+const documentExpirationCronJob = (0, documentExpirationCronJob_1.getDocumentExpirationCronJob)();
+documentExpirationCronJob.start();
 // Iniciar el servidor
 server.listen(port, () => {
     // eslint-disable-next-line no-console

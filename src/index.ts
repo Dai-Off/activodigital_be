@@ -29,6 +29,11 @@ const server = http.createServer(app);
 // Inicializar Socket.io
 SocketService.getInstance().initialize(server);
 
+// Inicializar cronjob de alertas de documentos próximos a vencer
+import { getDocumentExpirationCronJob } from "./services/documentExpirationCronJob";
+const documentExpirationCronJob = getDocumentExpirationCronJob();
+documentExpirationCronJob.start();
+
 // Iniciar el servidor
 server.listen(port, () => {
   // eslint-disable-next-line no-console

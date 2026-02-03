@@ -153,6 +153,7 @@ class BuildingService {
             .from("buildings")
             .select("*")
             .eq("id", id)
+            .eq("deleted", false)
             .single();
         if (error) {
             if (error.code === "PGRST116") {
@@ -168,6 +169,7 @@ class BuildingService {
         const { data, error } = await supabase
             .from('buildings')
             .select('*, digital_books(sections)')
+            .eq("deleted", false)
             .order("created_at", { ascending: false });
         if (error) {
             console.error('Error obteniendo edificios:', error);
@@ -233,7 +235,7 @@ class BuildingService {
         // Todos los usuarios pueden eliminar cualquier edificio
         const { error } = await this.getSupabase()
             .from("buildings")
-            .delete()
+            .update({ deleted: true })
             .eq("id", id);
         if (error) {
             throw new Error(`Error al eliminar edificio: ${error.message}`);
@@ -453,6 +455,7 @@ class BuildingService {
         )
       `)
             .eq("id", buildingId)
+            .eq("deleted", false)
             .single();
         if (error || !data) {
             throw new Error("Edificio no encontrado");
