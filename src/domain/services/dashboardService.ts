@@ -26,14 +26,62 @@ export class DashboardService {
 
     const isPropietario = user.role.name === UserRole.PROPIETARIO;
     const isAdministrador = user.role.name === UserRole.ADMINISTRADOR;
+    const isTecnico = user.role.name === UserRole.TECNICO;
 
     if (isPropietario) {
       return this.getPropietarioStats(user.id, userAuthId);
     } else if (isAdministrador) {
       return this.getOwnerStats(user.id, userAuthId);
-    } else {
+    } else if (isTecnico) {
       return this.getTechnicianStats(user.id, userAuthId);
+    } else {
+      return this.getCFOStats(user.id, userAuthId);
     }
+  }
+
+  /**
+ * Estadísticas para el CFO (Visión financiera global)
+ */
+  private async getCFOStats(userId: string, userAuthId: string): Promise<DashboardStats> {
+    const supabase = this.getSupabase();
+
+    // El CFO usualmente ve todos los edificios de la plataforma o de su empresa
+    // Si el CFO está ligado a un owner_id específico, filtrar por él. 
+    // Si es global, quitamos el .eq()
+    const { data: buildings, error: buildingsError } = await supabase
+      .from('buildings')
+      .select('*')
+      .eq('cfo_id', userId);
+
+    if (buildingsError) {
+      console.error('Error fetching buildings for CFO:', buildingsError);
+      throw new Error('Error al obtener edificios para CFO');
+    }
+
+    const buildingIds = buildings?.map(b => b.id) || [];
+    const placeholderId = ['00000000-0000-0000-0000-000000000000'];
+
+    // Obtener libros digitales
+    const { data: books } = await supabase
+      .from('digital_books')
+      .select('status, building_id')
+      .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId);
+
+    // Obtener certificados energéticos
+    const { data: certificates } = await supabase
+      .from('energy_certificates')
+      .select('rating, building_id, emissions_kg_co2_per_m2_year')
+      .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId);
+
+    // Obtener scores ESG completos
+    const { data: esgScores } = await supabase
+      .from('esg_scores')
+      .select('building_id, status, total')
+      .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId)
+      .eq('status', 'complete');
+
+    // El CFO utiliza el cálculo de métricas de Owner porque necesita ver valores $, ESG y cumplimiento
+    return this.calculateOwnerMetrics(buildings || [], books || [], certificates || [], esgScores || []);
   }
 
   /**

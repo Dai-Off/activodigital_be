@@ -171,23 +171,89 @@ export class BuildingService {
     return this.mapToBuilding(data);
   }
 
+  // async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
+  //   // Todos los usuarios pueden ver todos los edificios, sin importar el rol
+  //   const supabase = this.getSupabase(); // Usa SERVICE_ROLE_KEY, bypass RLS
+
+  //   const { data, error } = await supabase
+  //     .from('buildings')
+  //     .select('*, digital_books(sections)')
+  //     .order("created_at", { ascending: false });
+
+  //   if (error) {
+  //     console.error('Error obteniendo edificios:', error);
+  //     throw new Error(error.message);
+  //   }
+
+  //   console.log(`[getBuildingsByUser] Encontrados ${data?.length || 0} edificios (todos los usuarios pueden ver todos los edificios)`);
+  //   return (data || []).map(b => this.mapToBuilding(b));
+  // }
+
   async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
-    // Todos los usuarios pueden ver todos los edificios, sin importar el rol
-    const supabase = this.getSupabase(); // Usa SERVICE_ROLE_KEY, bypass RLS
+    const supabase = this.getSupabase();
+    const userService = new UserService(); // Instanciamos para usar su lógica probada
 
-    const { data, error } = await supabase
-      .from('buildings')
-      .select('*, digital_books(sections)')
-      .order("created_at", { ascending: false });
+    try {
+      // 1. Usamos el servicio de usuario que ya funciona en el Dashboard
+      const user = await userService.getUserByAuthId(userAuthId);
 
-    if (error) {
-      console.error('Error obteniendo edificios:', error);
-      throw new Error(error.message);
+      if (!user) {
+        console.error('[getBuildingsByUser] Usuario no encontrado');
+        return [];
+      }
+
+      const roleName = user.role.name;
+      const userId = user.id;
+
+      let query = supabase.from('buildings').select('*, digital_books(sections)');
+
+      // 2. Replicamos la lógica exacta de filtrado del Dashboard
+      if (roleName === 'propietario') {
+        // Usamos el método que ya te devuelve los 13 IDs en los stats
+        const assignedBuildingIds = await userService.getPropietarioBuildings(userAuthId);
+
+        if (assignedBuildingIds.length === 0) return [];
+        query = query.in('id', assignedBuildingIds);
+
+      } else if (roleName === 'administrador') {
+        // Filtro por owner_id (Administrador)
+        query = query.eq('owner_id', userId);
+      } else if (roleName === 'cfo') {
+        // Filtro por owner_id (CFO)
+        query = query.eq('cfo_id', userId);
+
+      } else if (roleName === 'tecnico') {
+        // Lógica para Técnicos
+        const { data: assignments } = await supabase
+          .from('building_technician_assignments')
+          .select('building_id')
+          .eq('technician_id', userId)
+          .eq('status', 'active');
+
+        const ids = assignments?.map(a => a.building_id) || [];
+        if (ids.length === 0) return [];
+        query = query.in('id', ids);
+      }
+
+
+
+      // 3. Ejecutar y mapear
+      const { data, error } = await query.order("created_at", { ascending: false });
+
+      if (error) {
+        console.error('Error de Supabase en buildings:', error.message);
+        throw error;
+      }
+
+      return (data || []).map(b => this.mapToBuilding(b));
+
+    } catch (error) {
+      console.error('Error crítico en getBuildingsByUser:', error);
+      // No lanzamos error para evitar el 500, devolvemos array vacío si falla la lógica
+      return [];
     }
-
-    console.log(`[getBuildingsByUser] Encontrados ${data?.length || 0} edificios (todos los usuarios pueden ver todos los edificios)`);
-    return (data || []).map(b => this.mapToBuilding(b));
   }
+
 
   async updateBuilding(
     id: string,
