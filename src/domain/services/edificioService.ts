@@ -209,16 +209,11 @@ export class BuildingService {
       if (assignedIds.length === 0) return [];
       query = query.in("id", assignedIds);
     } else if (roleId === UserRole.TECNICO) {
-      // El técnico ve los edificios asignados en building_technician_assignments
-      const assignedIds =
-        await this.userService.getTechnicianBuildings(userAuthId);
-      if (assignedIds.length === 0) return [];
-      query = query.in("id", assignedIds);
+      // El técnico ve los edificios asignados por su id en la tabla buildings
+      query = query.eq("technician_id", user.id);
     } else if (roleId === UserRole.CFO) {
-      // El CFO ve los edificios asignados en building_cfo_assignments
-      const assignedIds = await this.userService.getCfoBuildings(userAuthId);
-      if (assignedIds.length === 0) return [];
-      query = query.in("id", assignedIds);
+      // El CFO ve los edificios asignados por su id en la tabla buildings
+      query = query.eq("cfo_id", user.id);
     } else {
       // Para otros roles (si los hay), por defecto no ve nada o manejamos caso por caso
       console.warn(`[getBuildingsByUser] Rol desconocido: ${roleId}`);
@@ -732,6 +727,17 @@ export class BuildingService {
     if (error) {
       throw new Error(`Error al asignar técnico: ${error.message}`);
     }
+
+    // Actualizar también el campo technician_id en la tabla buildings
+    const { error: updateError } = await this.getSupabase()
+      .from("buildings")
+      .update({ technician_id: technician.id })
+      .eq("id", buildingId);
+
+    if (updateError) {
+      console.error("Error al actualizar technician_id en edificio:", updateError);
+      // No lanzamos error para no interrumpir el flujo si la asignación principal funcionó
+    }
   }
 
   /**
@@ -761,6 +767,17 @@ export class BuildingService {
 
     if (error) {
       throw new Error(`Error al asignar CFO: ${error.message}`);
+    }
+
+    // Actualizar también el campo cfo_id en la tabla buildings
+    const { error: updateError } = await this.getSupabase()
+      .from("buildings")
+      .update({ cfo_id: cfoId })
+      .eq("id", buildingId);
+
+    if (updateError) {
+      console.error("Error al actualizar cfo_id en edificio:", updateError);
+      // No lanzamos error para no interrumpir el flujo si la asignación principal funcionó
     }
   }
 

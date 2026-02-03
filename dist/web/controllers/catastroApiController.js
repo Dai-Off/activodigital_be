@@ -1,8 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getInmuebleXY = exports.getInmuebleLoc = exports.getInmuebleRc = exports.getVias = exports.getMunicipios = exports.getAllProvincias = void 0;
+exports.getUnidadesPorDireccion = exports.getInmuebleXY = exports.getInmuebleLoc = exports.getInmuebleRc = exports.getVias = exports.getMunicipios = exports.getAllProvincias = void 0;
 const catastroApiService_1 = require("../../domain/services/catastroApiService");
 const catastroApiService = new catastroApiService_1.CatastroApiService();
+const handleExternalApiError = (res, error) => {
+    console.error("[CatastroApiController] Error Catastro:", error);
+    const status = error?.status || 500;
+    const message = error?.message || "Error interno del servidor";
+    const finalStatus = status === 401 ? 500 : status;
+    res.status(finalStatus).json({
+        error: message,
+        details: finalStatus === 403
+            ? "Error de autenticación con la API de Catastro. Verifica las credenciales."
+            : undefined,
+        source: "catastro_external_api",
+    });
+};
 const getAllProvincias = async (req, res) => {
     try {
         const provincias = await catastroApiService.getAllProvincias();
@@ -13,15 +26,7 @@ const getAllProvincias = async (req, res) => {
     }
     catch (error) {
         console.error("[CatastroApiController] Error al obtener las provincias:", error);
-        const status = error?.status || 500;
-        const message = error?.message || "Error interno del servidor";
-        // IMPORTANTE: Si el error es 401, convertirlo a 500 para evitar que el frontend desloguee al usuario
-        const finalStatus = status === 401 ? 500 : status;
-        res.status(finalStatus).json({
-            error: message,
-            details: finalStatus === 403 ? "Error de autenticación con la API de Catastro. Verifica las credenciales." : undefined,
-            source: "catastro_external_api"
-        });
+        handleExternalApiError(res, error);
     }
 };
 exports.getAllProvincias = getAllProvincias;
@@ -39,15 +44,7 @@ const getMunicipios = async (req, res) => {
     }
     catch (error) {
         console.error("[CatastroApiController] Error al obtener los municipios:", error);
-        const status = error?.status || 500;
-        const message = error?.message || "Error interno del servidor";
-        // IMPORTANTE: Si el error es 401, convertirlo a 500 para evitar que el frontend desloguee al usuario
-        const finalStatus = status === 401 ? 500 : status;
-        res.status(finalStatus).json({
-            error: message,
-            details: finalStatus === 403 ? "Error de autenticación con la API de Catastro. Verifica las credenciales." : undefined,
-            source: "catastro_external_api"
-        });
+        handleExternalApiError(res, error);
     }
 };
 exports.getMunicipios = getMunicipios;
@@ -68,15 +65,7 @@ const getVias = async (req, res) => {
     }
     catch (error) {
         console.error("[CatastroApiController] Error al obtener las vías:", error);
-        const status = error?.status || 500;
-        const message = error?.message || "Error interno del servidor";
-        // IMPORTANTE: Si el error es 401, convertirlo a 500 para evitar que el frontend desloguee al usuario
-        const finalStatus = status === 401 ? 500 : status;
-        res.status(finalStatus).json({
-            error: message,
-            details: finalStatus === 403 ? "Error de autenticación con la API de Catastro. Verifica las credenciales." : undefined,
-            source: "catastro_external_api"
-        });
+        handleExternalApiError(res, error);
     }
 };
 exports.getVias = getVias;
@@ -94,16 +83,7 @@ const getInmuebleRc = async (req, res) => {
     }
     catch (error) {
         console.error("[CatastroApiController] Error al obtener el inmueble por RC:", error);
-        const status = error?.status || 500;
-        const message = error?.message || "Error interno del servidor";
-        // IMPORTANTE: Si el error es 401, convertirlo a 500 para evitar que el frontend desloguee al usuario
-        // Los errores 401 en este contexto son de la API externa de Catastro, no de autenticación del usuario
-        const finalStatus = status === 401 ? 500 : status;
-        res.status(finalStatus).json({
-            error: message,
-            details: finalStatus === 403 ? "Error de autenticación con la API de Catastro. Verifica las credenciales." : undefined,
-            source: "catastro_external_api"
-        });
+        handleExternalApiError(res, error);
     }
 };
 exports.getInmuebleRc = getInmuebleRc;
@@ -131,15 +111,7 @@ const getInmuebleLoc = async (req, res) => {
     }
     catch (error) {
         console.error("[CatastroApiController] Error al obtener el inmueble por localización:", error);
-        const status = error?.status || 500;
-        const message = error?.message || "Error interno del servidor";
-        // IMPORTANTE: Si el error es 401, convertirlo a 500 para evitar que el frontend desloguee al usuario
-        const finalStatus = status === 401 ? 500 : status;
-        res.status(finalStatus).json({
-            error: message,
-            details: finalStatus === 403 ? "Error de autenticación con la API de Catastro. Verifica las credenciales." : undefined,
-            source: "catastro_external_api"
-        });
+        handleExternalApiError(res, error);
     }
 };
 exports.getInmuebleLoc = getInmuebleLoc;
@@ -158,16 +130,46 @@ const getInmuebleXY = async (req, res) => {
     }
     catch (error) {
         console.error("[CatastroApiController] Error al obtener el inmueble por coordenadas:", error);
-        const status = error?.status || 500;
-        const message = error?.message || "Error interno del servidor";
-        // IMPORTANTE: Si el error es 401, convertirlo a 500 para evitar que el frontend desloguee al usuario
-        const finalStatus = status === 401 ? 500 : status;
-        res.status(finalStatus).json({
-            error: message,
-            details: finalStatus === 403 ? "Error de autenticación con la API de Catastro. Verifica las credenciales." : undefined,
-            source: "catastro_external_api"
-        });
+        handleExternalApiError(res, error);
     }
 };
 exports.getInmuebleXY = getInmuebleXY;
+/**
+ * Nuevo endpoint: obtener unidades desde Catastro usando Consulta_DNPLOC (por dirección).
+ * Devuelve el XML bruto para máxima fidelidad; el cliente puede parsearlo según necesidad.
+ */
+const getUnidadesPorDireccion = async (req, res) => {
+    const provincia = req.query.provincia;
+    const municipio = req.query.municipio;
+    const siglaVia = req.query.siglaVia; // ej: CL
+    const calle = req.query.calle;
+    const numero = req.query.numero;
+    const bloque = req.query.bloque || "";
+    const escalera = req.query.escalera || "";
+    const planta = req.query.planta || "";
+    const puerta = req.query.puerta || "";
+    if (!provincia || !municipio || !siglaVia || !calle || !numero) {
+        return res.status(400).json({
+            error: "Los parámetros 'provincia', 'municipio', 'siglaVia', 'calle' y 'numero' son requeridos",
+        });
+    }
+    try {
+        const result = await catastroApiService.getUnidadesPorDireccion({
+            provincia,
+            municipio,
+            siglaVia,
+            calle,
+            numero,
+            bloque,
+            escalera,
+            planta,
+            puerta,
+        });
+        res.status(200).json(result);
+    }
+    catch (error) {
+        handleExternalApiError(res, error);
+    }
+};
+exports.getUnidadesPorDireccion = getUnidadesPorDireccion;
 //# sourceMappingURL=catastroApiController.js.map

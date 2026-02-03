@@ -13,5 +13,6 @@ router.get("/vias", catastroApiController_1.getVias);
 router.get("/inmuebleLoc", catastroApiController_1.getInmuebleLoc);
 router.get("/inmuebleRc", catastroApiController_1.getInmuebleRc);
 router.get("/inmuebleXY", catastroApiController_1.getInmuebleXY);
+router.get("/unidades-por-direccion", catastroApiController_1.getUnidadesPorDireccion);
 exports.default = router;
 //# sourceMappingURL=catastroApi.js.map

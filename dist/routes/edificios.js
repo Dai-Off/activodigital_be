@@ -41,6 +41,7 @@ router.post('/:id/scenarios/sensitivity', buildingScenariosController.calculateS
 // CRUD básico de edificios (continuación)
 router.get('/:id', buildingController.getBuilding);
 router.put('/:id', buildingController.updateBuilding);
+router.delete('/:id', buildingController.deleteBuilding);
 // Gestión de unidades
 router.get('/:id/units', buildingUnitsController_1.listUnits);
 router.post('/:id/units', buildingUnitsController_1.upsertUnits);
