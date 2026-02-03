@@ -26,11 +26,14 @@ export class DashboardService {
 
     const isPropietario = user.role.name === UserRole.PROPIETARIO;
     const isAdministrador = user.role.name === UserRole.ADMINISTRADOR;
+    const isCfo = user.role.name === UserRole.CFO;
 
     if (isPropietario) {
       return this.getPropietarioStats(user.id, userAuthId);
     } else if (isAdministrador) {
       return this.getOwnerStats(user.id, userAuthId);
+    } else if (isCfo) {
+      return this.getCfoStats(user.id, userAuthId);
     } else {
       return this.getTechnicianStats(user.id, userAuthId);
     }
@@ -143,6 +146,42 @@ export class DashboardService {
     }
 
     return this.calculateOwnerMetrics(buildings || [], books || [], certificates || [], esgScores || []);
+  }
+
+  /**
+   * Estadísticas para CFOs
+   */
+  private async getCfoStats(userId: string, userAuthId: string): Promise<DashboardStats> {
+    const supabase = this.getSupabase();
+
+    // Obtener edificios asignados al CFO
+    const assignedBuildingIds = await this.userService.getCfoBuildings(userAuthId);
+    if (assignedBuildingIds.length === 0) {
+      return this.getEmptyStats();
+    }
+
+    const { data: buildings, error: buildingsError } = await supabase
+      .from('buildings')
+      .select('*')
+      .in('id', assignedBuildingIds);
+
+    if (buildingsError) {
+      console.error('Error fetching buildings:', buildingsError);
+      throw new Error('Error al obtener edificios');
+    }
+
+    // Obtener libros digitales de estos edificios
+    const { data: books, error: booksError } = await supabase
+      .from('digital_books')
+      .select('status, building_id')
+      .in('building_id', assignedBuildingIds);
+
+    if (booksError) {
+      console.error('Error fetching books:', booksError);
+    }
+
+    // El CFO sí ve datos financieros, así que usamos calculateOwnerMetrics
+    return this.calculateOwnerMetrics(buildings || [], books || [], [], []);
   }
 
   /**

@@ -16,11 +16,15 @@ import { NotificationType } from "../../types/notification";
 import { NotificationBus, NotificationEvents } from "../events/notificationBus";
 import { BookSection } from "../../types/libroDigital";
 
-export const calculateCompletionPercentage = (sections: BookSection[]): number => {
+export const calculateCompletionPercentage = (
+  sections: BookSection[],
+): number => {
   try {
     if (!sections || sections.length === 0) return 0;
 
-    const completedCount = sections.filter((section: BookSection) => section.complete === true).length;
+    const completedCount = sections.filter(
+      (section: BookSection) => section.complete === true,
+    ).length;
     const percentage = (completedCount / sections.length) * 100;
 
     return Math.round(percentage);
@@ -40,7 +44,7 @@ export class BuildingService {
 
   async createBuilding(
     data: CreateBuildingRequest,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<Building> {
     // Obtener usuario
     const user = await this.userService.getUserByAuthId(userAuthId);
@@ -84,12 +88,14 @@ export class BuildingService {
       .single();
 
     if (error) {
-      console.error('Error al crear edificio:', error);
-      console.error('Building data:', JSON.stringify(buildingData, null, 2));
+      console.error("Error al crear edificio:", error);
+      console.error("Building data:", JSON.stringify(buildingData, null, 2));
       throw new Error(`Error al crear edificio: ${error.message}`);
     }
 
-    console.log(`[createBuilding] Edificio creado: ${building.id} - Owner: ${building.owner_id} - User: ${building.user_id}`);
+    console.log(
+      `[createBuilding] Edificio creado: ${building.id} - Owner: ${building.owner_id} - User: ${building.user_id}`,
+    );
 
     // Si se especificó un email de técnico, intentar asignarlo o enviar invitación
     if (data.technicianEmail) {
@@ -97,7 +103,7 @@ export class BuildingService {
         await this.handleTechnicianAssignment(
           building.id,
           data.technicianEmail,
-          userAuthId
+          userAuthId,
         );
       } catch (error) {
         // Si falla la asignación/invitación, eliminar el edificio creado
@@ -107,8 +113,9 @@ export class BuildingService {
           .eq("id", building.id);
 
         throw new Error(
-          `Error al asignar técnico: ${error instanceof Error ? error.message : "Error desconocido"
-          }`
+          `Error al asignar técnico: ${
+            error instanceof Error ? error.message : "Error desconocido"
+          }`,
         );
       }
     }
@@ -120,8 +127,9 @@ export class BuildingService {
       } catch (error) {
         // Si falla la invitación CFO, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar CFO: ${error instanceof Error ? error.message : "Error desconocido"
-          }`
+          `Error al invitar CFO: ${
+            error instanceof Error ? error.message : "Error desconocido"
+          }`,
         );
       }
     }
@@ -132,13 +140,14 @@ export class BuildingService {
         await this.handlePropietarioInvitation(
           building.id,
           data.propietarioEmail,
-          userAuthId
+          userAuthId,
         );
       } catch (error) {
         // Si falla la invitación del propietario, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar propietario: ${error instanceof Error ? error.message : "Error desconocido"
-          }`
+          `Error al invitar propietario: ${
+            error instanceof Error ? error.message : "Error desconocido"
+          }`,
         );
       }
     }
@@ -152,7 +161,7 @@ export class BuildingService {
 
   async getBuildingById(
     id: string,
-    userAuthId?: string
+    userAuthId?: string,
   ): Promise<Building | null> {
     // Todos los usuarios pueden ver cualquier edificio
     const { data, error } = await this.getSupabase()
@@ -173,28 +182,66 @@ export class BuildingService {
   }
 
   async getBuildingsByUser(userAuthId: string): Promise<Building[]> {
-    // Todos los usuarios pueden ver todos los edificios, sin importar el rol
+    // Obtener usuario
+    const user = await this.userService.getUserByAuthId(userAuthId);
+    if (!user) {
+      throw new Error("Usuario no encontrado");
+    }
+
     const supabase = this.getSupabase(); // Usa SERVICE_ROLE_KEY, bypass RLS
 
-    const { data, error } = await supabase
-      .from('buildings')
-      .select('*, digital_books(sections)')
+    let query = supabase
+      .from("buildings")
+      .select("*, digital_books(sections)")
       .eq("deleted", false)
       .order("created_at", { ascending: false });
 
+    // Filtrar según el rol del usuario
+    const roleId = user.role.name;
+
+    if (roleId === UserRole.ADMINISTRADOR) {
+      // El administrador ve los edificios donde es owner_id
+      query = query.eq("owner_id", user.id);
+    } else if (roleId === UserRole.PROPIETARIO) {
+      // El propietario ve los edificios asignados en building_propietario_assignments
+      const assignedIds =
+        await this.userService.getPropietarioBuildings(userAuthId);
+      if (assignedIds.length === 0) return [];
+      query = query.in("id", assignedIds);
+    } else if (roleId === UserRole.TECNICO) {
+      // El técnico ve los edificios asignados en building_technician_assignments
+      const assignedIds =
+        await this.userService.getTechnicianBuildings(userAuthId);
+      if (assignedIds.length === 0) return [];
+      query = query.in("id", assignedIds);
+    } else if (roleId === UserRole.CFO) {
+      // El CFO ve los edificios asignados en building_cfo_assignments
+      const assignedIds = await this.userService.getCfoBuildings(userAuthId);
+      if (assignedIds.length === 0) return [];
+      query = query.in("id", assignedIds);
+    } else {
+      // Para otros roles (si los hay), por defecto no ve nada o manejamos caso por caso
+      console.warn(`[getBuildingsByUser] Rol desconocido: ${roleId}`);
+      return [];
+    }
+
+    const { data, error } = await query;
+
     if (error) {
-      console.error('Error obteniendo edificios:', error);
+      console.error("Error obteniendo edificios:", error);
       throw new Error(error.message);
     }
 
-    console.log(`[getBuildingsByUser] Encontrados ${data?.length || 0} edificios (todos los usuarios pueden ver todos los edificios)`);
-    return (data || []).map(b => this.mapToBuilding(b));
+    console.log(
+      `[getBuildingsByUser] Encontrados ${data?.length || 0} edificios para el usuario ${user.email} (Rol: ${roleId})`,
+    );
+    return (data || []).map((b) => this.mapToBuilding(b));
   }
 
   async updateBuilding(
     id: string,
     data: UpdateBuildingRequest,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<Building> {
     // Todos los usuarios pueden actualizar cualquier edificio
 
@@ -259,7 +306,7 @@ export class BuildingService {
   async updateStatus(
     id: string,
     status: BuildingStatus,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<Building> {
     return this.updateBuilding(id, { status }, userAuthId);
   }
@@ -267,7 +314,7 @@ export class BuildingService {
   async addImage(
     buildingId: string,
     image: BuildingImage,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<Building> {
     // Primero obtenemos el edificio actual
     const building = await this.getBuildingById(buildingId, userAuthId);
@@ -284,7 +331,7 @@ export class BuildingService {
   async removeImage(
     buildingId: string,
     imageId: string,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<Building> {
     // Primero obtenemos el edificio actual
     const building = await this.getBuildingById(buildingId, userAuthId);
@@ -301,7 +348,7 @@ export class BuildingService {
   async setMainImage(
     buildingId: string,
     imageId: string,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<Building> {
     // Primero obtenemos el edificio actual
     const building = await this.getBuildingById(buildingId, userAuthId);
@@ -321,7 +368,7 @@ export class BuildingService {
   // Método para verificar si un edificio tiene libro digital
   async hasDigitalBook(
     buildingId: string,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<boolean> {
     // Todos los usuarios pueden verificar si un edificio tiene libro digital
 
@@ -337,7 +384,7 @@ export class BuildingService {
   // Método para obtener edificio con su libro digital
   async getBuildingWithBook(
     buildingId: string,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<Building & { digitalBook?: any }> {
     const building = await this.getBuildingById(buildingId, userAuthId);
     if (!building) {
@@ -360,7 +407,7 @@ export class BuildingService {
   // Métodos auxiliares para verificar permisos
   public async userHasAccessToBuilding(
     userAuthId: string,
-    buildingId: string
+    buildingId: string,
   ): Promise<boolean> {
     // Todos los usuarios tienen acceso a todos los edificios
     return true;
@@ -368,7 +415,7 @@ export class BuildingService {
 
   private async userCanUpdateBuilding(
     userAuthId: string,
-    buildingId: string
+    buildingId: string,
   ): Promise<boolean> {
     // Todos los usuarios pueden actualizar cualquier edificio
     return true;
@@ -380,20 +427,19 @@ export class BuildingService {
   private async handleTechnicianAssignment(
     buildingId: string,
     technicianEmail: string,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<void> {
     console.log(
-      `\n🔍 ASIGNACIÓN TÉCNICO - Email: ${technicianEmail} | Building: ${buildingId}`
+      `\n🔍 ASIGNACIÓN TÉCNICO - Email: ${technicianEmail} | Building: ${buildingId}`,
     );
 
     // Primero verificar si el usuario ya existe
-    const existingTechnician = await this.userService.getUserByEmail(
-      technicianEmail
-    );
+    const existingTechnician =
+      await this.userService.getUserByEmail(technicianEmail);
 
     if (existingTechnician) {
       console.log(
-        `✅ Usuario existe - Rol: ${existingTechnician.role.name} | ID: ${existingTechnician.id}`
+        `✅ Usuario existe - Rol: ${existingTechnician.role.name} | ID: ${existingTechnician.id}`,
       );
     } else {
       console.log(`❌ Usuario NO existe - Creando invitación de registro`);
@@ -405,9 +451,8 @@ export class BuildingService {
         console.log(`📧 Enviando EMAIL DE ASIGNACIÓN para técnico existente`);
 
         // Enviar email de notificación de asignación directamente
-        const assignedByUser = await this.userService.getUserByAuthId(
-          userAuthId
-        );
+        const assignedByUser =
+          await this.userService.getUserByAuthId(userAuthId);
         const building = await this.getBuildingById(buildingId);
 
         if (assignedByUser && building) {
@@ -417,18 +462,18 @@ export class BuildingService {
             await this.assignTechnicianToBuilding(
               buildingId,
               existingTechnician.userId,
-              userAuthId
+              userAuthId,
             );
             console.log(`✅ ASIGNACIÓN CREADA en BD exitosamente`);
 
             // SEGUNDO: Enviar email de notificación
             console.log(
-              `📧 Enviando EMAIL DE ASIGNACIÓN para técnico existente`
+              `📧 Enviando EMAIL DE ASIGNACIÓN para técnico existente`,
             );
             await this.sendAssignmentNotificationEmail(
               existingTechnician,
               building,
-              assignedByUser
+              assignedByUser,
             );
             console.log(`✅ EMAIL DE ASIGNACIÓN enviado exitosamente`);
           } catch (error) {
@@ -450,7 +495,7 @@ export class BuildingService {
           role: UserRole.TECNICO,
           buildingId: buildingId,
         },
-        userAuthId
+        userAuthId,
       );
 
       console.log(`✅ INVITACIÓN DE REGISTRO creada exitosamente`);
@@ -463,7 +508,7 @@ export class BuildingService {
   private async handleCfoInvitation(
     buildingId: string,
     cfoEmail: string,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<void> {
     // Verificar si el usuario ya existe
     const existingCfo = await this.userService.getUserByEmail(cfoEmail);
@@ -483,7 +528,7 @@ export class BuildingService {
           role: UserRole.CFO,
           buildingId: buildingId,
         },
-        userAuthId
+        userAuthId,
       );
     }
   }
@@ -494,55 +539,53 @@ export class BuildingService {
   private async handlePropietarioInvitation(
     buildingId: string,
     propietarioEmail: string,
-    userAuthId: string
+    userAuthId: string,
   ): Promise<void> {
     console.log(
-      `\n🔍 ASIGNACIÓN PROPIETARIO - Email: ${propietarioEmail} | Building: ${buildingId}`
+      `\n🔍 ASIGNACIÓN PROPIETARIO - Email: ${propietarioEmail} | Building: ${buildingId}`,
     );
 
     // Verificar si el usuario ya existe
-    const existingPropietario = await this.userService.getUserByEmail(
-      propietarioEmail
-    );
+    const existingPropietario =
+      await this.userService.getUserByEmail(propietarioEmail);
 
     if (existingPropietario) {
       console.log(
-        `✅ Usuario existe - Rol: ${existingPropietario.role.name} | ID: ${existingPropietario.id}`
+        `✅ Usuario existe - Rol: ${existingPropietario.role.name} | ID: ${existingPropietario.id}`,
       );
 
       // Si existe y es propietario, asignarlo directamente
       if (existingPropietario.role.name === UserRole.PROPIETARIO) {
         console.log(
-          `📧 Enviando EMAIL DE ASIGNACIÓN para propietario existente`
+          `📧 Enviando EMAIL DE ASIGNACIÓN para propietario existente`,
         );
 
         // Enviar email de notificación de asignación directamente
-        const assignedByUser = await this.userService.getUserByAuthId(
-          userAuthId
-        );
+        const assignedByUser =
+          await this.userService.getUserByAuthId(userAuthId);
         const building = await this.getBuildingById(buildingId);
 
         if (assignedByUser && building) {
           try {
             // PRIMERO: Crear la asignación en la base de datos
             console.log(
-              `🏢 CREANDO ASIGNACIÓN en BD para propietario existente`
+              `🏢 CREANDO ASIGNACIÓN en BD para propietario existente`,
             );
             await this.assignPropietarioToBuilding(
               buildingId,
               existingPropietario.id,
-              userAuthId
+              userAuthId,
             );
             console.log(`✅ ASIGNACIÓN CREADA en BD exitosamente`);
 
             // SEGUNDO: Enviar email de notificación
             console.log(
-              `📧 Enviando EMAIL DE ASIGNACIÓN para propietario existente`
+              `📧 Enviando EMAIL DE ASIGNACIÓN para propietario existente`,
             );
             await this.sendAssignmentNotificationEmail(
               existingPropietario,
               building,
-              assignedByUser
+              assignedByUser,
             );
             console.log(`✅ EMAIL DE ASIGNACIÓN enviado exitosamente`);
           } catch (error) {
@@ -564,7 +607,7 @@ export class BuildingService {
           role: UserRole.PROPIETARIO,
           buildingId: buildingId,
         },
-        userAuthId
+        userAuthId,
       );
 
       console.log(`✅ INVITACIÓN DE REGISTRO creada exitosamente`);
@@ -587,7 +630,7 @@ export class BuildingService {
           full_name,
           role_id
         )
-      `
+      `,
       )
       .eq("id", buildingId)
       .eq("deleted", false)
@@ -605,7 +648,7 @@ export class BuildingService {
    */
   private async cfoHasAccessToBuilding(
     cfoAuthId: string,
-    buildingId: string
+    buildingId: string,
   ): Promise<boolean> {
     const user = await this.userService.getUserByAuthId(cfoAuthId);
     if (!user) return false;
@@ -623,7 +666,7 @@ export class BuildingService {
 
   private async propietarioHasAccessToBuilding(
     propietarioAuthId: string,
-    buildingId: string
+    buildingId: string,
   ): Promise<boolean> {
     const user = await this.userService.getUserByAuthId(propietarioAuthId);
     if (!user) return false;
@@ -645,7 +688,7 @@ export class BuildingService {
   async assignTechnicianToBuilding(
     buildingId: string,
     technicianAuthId: string,
-    assignedByUserId: string
+    assignedByUserId: string,
   ): Promise<void> {
     const technician = await this.userService.getUserByAuthId(technicianAuthId);
     if (!technician) {
@@ -669,9 +712,8 @@ export class BuildingService {
       throw new Error("El técnico ya está asignado a este edificio");
     }
 
-    const assignedByUser = await this.userService.getUserByAuthId(
-      assignedByUserId
-    );
+    const assignedByUser =
+      await this.userService.getUserByAuthId(assignedByUserId);
     if (!assignedByUser) {
       throw new Error("Usuario asignador no encontrado");
     }
@@ -698,11 +740,10 @@ export class BuildingService {
   async assignCfoToBuilding(
     buildingId: string,
     cfoId: string,
-    assignedByUserId: string
+    assignedByUserId: string,
   ): Promise<void> {
-    const assignedByUser = await this.userService.getUserByAuthId(
-      assignedByUserId
-    );
+    const assignedByUser =
+      await this.userService.getUserByAuthId(assignedByUserId);
     if (!assignedByUser) {
       throw new Error("Usuario asignador no encontrado");
     }
@@ -729,11 +770,10 @@ export class BuildingService {
   async assignPropietarioToBuilding(
     buildingId: string,
     propietarioId: string,
-    assignedByUserId: string
+    assignedByUserId: string,
   ): Promise<void> {
-    const assignedByUser = await this.userService.getUserByAuthId(
-      assignedByUserId
-    );
+    const assignedByUser =
+      await this.userService.getUserByAuthId(assignedByUserId);
     if (!assignedByUser) {
       throw new Error("Usuario asignador no encontrado");
     }
@@ -774,7 +814,7 @@ export class BuildingService {
   private async sendAssignmentNotificationEmail(
     user: any,
     building: Building,
-    assignedByUser: any
+    assignedByUser: any,
   ): Promise<void> {
     try {
       const emailService = new (await import("./emailService")).EmailService();
@@ -783,7 +823,7 @@ export class BuildingService {
       await emailService.sendAssignmentNotificationEmail(
         user,
         building,
-        assignedByUser
+        assignedByUser,
       );
 
       // También crear una notificación en la base de datos
@@ -800,7 +840,7 @@ export class BuildingService {
   private async createAssignmentNotification(
     user: any,
     building: Building,
-    assignedByUser: any
+    assignedByUser: any,
   ): Promise<void> {
     try {
       const roleName = user.role?.name || "usuario";
@@ -830,7 +870,7 @@ export class BuildingService {
             assigned_by: assignedByUser.fullName,
             role: roleName,
           },
-        }
+        },
       );
     } catch (error) {
       console.error("Error al emitir notificación de asignación:", error);
@@ -844,7 +884,7 @@ export class BuildingService {
     technicianEmail?: string,
     cfoEmail?: string,
     propietarioEmail?: string,
-    userAuthId?: string
+    userAuthId?: string,
   ): Promise<ValidateAssignmentsResponse> {
     const technicianValidation: ValidationResult = {
       isValid: true,
@@ -861,7 +901,7 @@ export class BuildingService {
       const technicianResult = await this.validateTechnicianEmail(
         technicianEmail,
         cfoEmail,
-        propietarioEmail
+        propietarioEmail,
       );
       if (!technicianResult.isValid) {
         technicianValidation.isValid = false;
@@ -874,7 +914,7 @@ export class BuildingService {
       const cfoResult = await this.validateCfoEmail(
         cfoEmail,
         technicianEmail,
-        propietarioEmail
+        propietarioEmail,
       );
       if (!cfoResult.isValid) {
         cfoValidation.isValid = false;
@@ -887,7 +927,7 @@ export class BuildingService {
       const propietarioResult = await this.validatePropietarioEmail(
         propietarioEmail,
         technicianEmail,
-        cfoEmail
+        cfoEmail,
       );
       if (!propietarioResult.isValid) {
         propietarioValidation.isValid = false;
@@ -914,7 +954,7 @@ export class BuildingService {
   private async validateTechnicianEmail(
     technicianEmail: string,
     cfoEmail?: string,
-    propietarioEmail?: string
+    propietarioEmail?: string,
   ): Promise<{ isValid: boolean; error?: string }> {
     // Verificar si el email ya existe
     const existingUser = await this.userService.getUserByEmail(technicianEmail);
@@ -961,7 +1001,7 @@ export class BuildingService {
   private async validateCfoEmail(
     cfoEmail: string,
     technicianEmail?: string,
-    propietarioEmail?: string
+    propietarioEmail?: string,
   ): Promise<{ isValid: boolean; error?: string }> {
     // Verificar si es el mismo email que el técnico
     if (technicianEmail && cfoEmail === technicianEmail) {
@@ -1024,7 +1064,7 @@ export class BuildingService {
   private async validatePropietarioEmail(
     propietarioEmail: string,
     technicianEmail?: string,
-    cfoEmail?: string
+    cfoEmail?: string,
   ): Promise<{ isValid: boolean; error?: string }> {
     // Verificar si es el mismo email que el técnico
     if (technicianEmail && propietarioEmail === technicianEmail) {
@@ -1043,9 +1083,8 @@ export class BuildingService {
     }
 
     // Verificar si el email ya existe
-    const existingUser = await this.userService.getUserByEmail(
-      propietarioEmail
-    );
+    const existingUser =
+      await this.userService.getUserByEmail(propietarioEmail);
 
     if (existingUser) {
       // Si existe, verificar el rol
@@ -1084,7 +1123,6 @@ export class BuildingService {
   }
 
   private mapToBuilding(data: any): Building {
-
     const digitalBook = Array.isArray(data.digital_books)
       ? data.digital_books[0]
       : data.digital_books;
