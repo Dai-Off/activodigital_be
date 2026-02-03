@@ -170,10 +170,9 @@ class BuildingService {
             throw new Error("Usuario no encontrado");
         }
         const supabase = this.getSupabase(); // Usa SERVICE_ROLE_KEY, bypass RLS
-        let query = supabase
-            .from("buildings")
-            .select("*, digital_books(sections)")
-            .eq("deleted", false)
+        const { data, error } = await supabase
+            .from('buildings')
+            .select('*, digital_books(sections)')
             .order("created_at", { ascending: false });
         // Filtrar según el rol del usuario
         const roleId = user.role.name;
