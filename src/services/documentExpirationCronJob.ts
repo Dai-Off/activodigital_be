@@ -27,7 +27,6 @@ export class DocumentExpirationCronJob {
     this.task = cron.schedule('0 2 * * *', async () => {
       await this.execute();
     }, {
-      scheduled: true,
       timezone: "Europe/Madrid" // Ajustar según tu zona horaria
     });
 

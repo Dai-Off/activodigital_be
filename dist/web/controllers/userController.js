@@ -1,0 +1,174 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteUser = exports.editUser = exports.createUser = exports.assignTechnicianToBuilding = exports.getTechnicians = exports.updateUserProfile = exports.getAllUsers = exports.getRoles = exports.getUserProfile = void 0;
+const userService_1 = require("../../domain/services/userService");
+const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
+const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
+const userService = new userService_1.UserService();
+const getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: "Usuario no autenticado" });
+        }
+        const user = await userService.getUserByAuthId(userId);
+        if (!user) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        res.json(user);
+    }
+    catch (error) {
+        console.error("Error al obtener perfil:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+exports.getUserProfile = getUserProfile;
+const getRoles = async (req, res) => {
+    try {
+        const roles = await userService.getRoles();
+        if (!roles) {
+            return res.status(404).json({ error: "Rol no encontrado" });
+        }
+        res.json(roles);
+    }
+    catch (error) {
+        console.error("Error al obtener rol:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+exports.getRoles = getRoles;
+const getAllUsers = async (req, res) => {
+    try {
+        const usuarios = await userService.getAllUsersService();
+        res.json(usuarios);
+    }
+    catch (error) {
+        console.error("Error al obtener usuarios:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+exports.getAllUsers = getAllUsers;
+const updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: "Usuario no autenticado" });
+        }
+        const { fullName, status } = req.body;
+        const user = await userService.getUserByAuthId(userId);
+        if (!user) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        const updatedUser = await userService.updateUser(user.id, { fullName, status });
+        res.json(updatedUser);
+    }
+    catch (error) {
+        console.error("Error al actualizar perfil:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+exports.updateUserProfile = updateUserProfile;
+const getTechnicians = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: "Usuario no autenticado" });
+        }
+        // Todos los usuarios pueden ver técnicos
+        const technicians = await userService.getTechnicians();
+        res.json(technicians);
+    }
+    catch (error) {
+        console.error("Error al obtener técnicos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+exports.getTechnicians = getTechnicians;
+const assignTechnicianToBuilding = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: "Usuario no autenticado" });
+        }
+        // Todos los usuarios pueden asignar técnicos a cualquier edificio
+        const { buildingId, technicianEmail } = req.body;
+        if (!buildingId || !technicianEmail) {
+            return res
+                .status(400)
+                .json({ error: "buildingId y technicianEmail son requeridos" });
+        }
+        const assignment = await userService.assignTechnicianToBuilding(buildingId, technicianEmail, userId);
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: interfaceTrazability_1.ModuleValues.USUARIOS, description: "Asignó un nuevo técnico" }).catch(err => console.error("Fallo trazabilidad:", err));
+        res.json(assignment);
+    }
+    catch (error) {
+        console.error("Error al asignar técnico:", error);
+        res.status(500).json({
+            error: error instanceof Error ? error.message : "Error interno del servidor",
+        });
+    }
+};
+exports.assignTechnicianToBuilding = assignTechnicianToBuilding;
+const createUser = async (req, res) => {
+    try {
+        const { email, role, fullName } = req.body;
+        if (!email || !role || !fullName) {
+            return res
+                .status(400)
+                .json({ error: "email, fullname y  role son requeridos" });
+        }
+        const usuario = await userService.createUser({ ...req.body, userId: req?.user?.id });
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: null, action: interfaceTrazability_1.ActionsValues.CREAR, module: interfaceTrazability_1.ModuleValues.USUARIOS, description: "Creo un nuevo usuario" }).catch(err => console.error("Fallo trazabilidad:", err));
+        res.status(201).json({ message: 'Usuario creado correctamente', usuario });
+    }
+    catch (error) {
+        console.error("Error al crear usuario:", error);
+        res
+            .status(error.status || 500)
+            .json({ error: error.message || "Error interno del servidor" });
+    }
+};
+exports.createUser = createUser;
+const editUser = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        if (!userId) {
+            return res.status(400).json({ error: "userId requerido en parámetro" });
+        }
+        const { fullName, roleId, email, status } = req.body;
+        const usuario = await userService.editUser(userId, {
+            fullName,
+            roleId,
+            email,
+            status
+        });
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: null, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR O MODIFICAR DOCUMENTOS'], module: interfaceTrazability_1.ModuleValues.USUARIOS, description: `Actualizó el usuario de ${usuario?.fullName}` }).catch(err => console.error("Fallo trazabilidad:", err));
+        res.status(200).json({ message: "Usuario editado correctamente", usuario });
+    }
+    catch (error) {
+        console.error("Error al editar usuario:", error);
+        res
+            .status(error.status || 500)
+            .json({ error: error.message || "Error interno del servidor" });
+    }
+};
+exports.editUser = editUser;
+const deleteUser = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        if (!userId) {
+            return res.status(400).json({ error: "userId requerido en parámetro" });
+        }
+        const usuario = await userService.deleteUser(userId);
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.USUARIOS, description: `Eliminó el usuario ${usuario?.fullName}` }).catch(err => console.error("Fallo trazabilidad:", err));
+        res.status(200).json({ ok: true, message: "Usuario eliminado correctamente", usuario });
+    }
+    catch (error) {
+        console.error("Error al eliminar usuario:", error);
+        res
+            .status(error.status || 500)
+            .json({ error: error.message || "Error interno del servidor" });
+    }
+};
+exports.deleteUser = deleteUser;
+//# sourceMappingURL=userController.js.map
