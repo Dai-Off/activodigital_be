@@ -23,6 +23,9 @@ import idealistaScraper from "./idealistaScraper";
 import supportRouter from "./support";
 import vencidosRouter from "./vencidos";
 import aiRouter from "./ai";
+import buildingDocumentsRouter from "./buildingDocuments";
+import unitDocumentsRouter from "./unitDocuments";
+import documentExpirationAlertsRouter from "./documentExpirationAlerts";
 
 const router = Router();
 
@@ -54,5 +57,8 @@ router.use("/idealistascraper", idealistaScraper);
 router.use("/support", supportRouter);
 router.use("/vencidos", vencidosRouter);
 router.use("/ai", aiRouter);
+router.use("/building-documents", buildingDocumentsRouter);
+router.use("/unit-documents", unitDocumentsRouter);
+router.use("/document-expiration-alerts", documentExpirationAlertsRouter);
 
 export default router;
