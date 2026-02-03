@@ -103,8 +103,8 @@ class BuildingService {
             .select()
             .single();
         if (error) {
-            console.error('Error al crear edificio:', error);
-            console.error('Building data:', JSON.stringify(buildingData, null, 2));
+            console.error("Error al crear edificio:", error);
+            console.error("Building data:", JSON.stringify(buildingData, null, 2));
             throw new Error(`Error al crear edificio: ${error.message}`);
         }
         console.log(`[createBuilding] Edificio creado: ${building.id} - Owner: ${building.owner_id} - User: ${building.user_id}`);
@@ -164,19 +164,49 @@ class BuildingService {
         return this.mapToBuilding(data);
     }
     async getBuildingsByUser(userAuthId) {
-        // Todos los usuarios pueden ver todos los edificios, sin importar el rol
+        // Obtener usuario
+        const user = await this.userService.getUserByAuthId(userAuthId);
+        if (!user) {
+            throw new Error("Usuario no encontrado");
+        }
         const supabase = this.getSupabase(); // Usa SERVICE_ROLE_KEY, bypass RLS
         const { data, error } = await supabase
             .from('buildings')
             .select('*, digital_books(sections)')
-            .eq("deleted", false)
             .order("created_at", { ascending: false });
+        // Filtrar según el rol del usuario
+        const roleId = user.role.name;
+        if (roleId === user_1.UserRole.ADMINISTRADOR) {
+            // El administrador ve los edificios donde es owner_id
+            query = query.eq("owner_id", user.id);
+        }
+        else if (roleId === user_1.UserRole.PROPIETARIO) {
+            // El propietario ve los edificios asignados en building_propietario_assignments
+            const assignedIds = await this.userService.getPropietarioBuildings(userAuthId);
+            if (assignedIds.length === 0)
+                return [];
+            query = query.in("id", assignedIds);
+        }
+        else if (roleId === user_1.UserRole.TECNICO) {
+            // El técnico ve los edificios asignados por su id en la tabla buildings
+            query = query.eq("technician_id", user.id);
+        }
+        else if (roleId === user_1.UserRole.CFO) {
+            // El CFO ve los edificios asignados por su id en la tabla buildings
+            query = query.eq("cfo_id", user.id);
+        }
+        else {
+            // Para otros roles (si los hay), por defecto no ve nada o manejamos caso por caso
+            console.warn(`[getBuildingsByUser] Rol desconocido: ${roleId}`);
+            return [];
+        }
+        const { data, error } = await query;
         if (error) {
-            console.error('Error obteniendo edificios:', error);
+            console.error("Error obteniendo edificios:", error);
             throw new Error(error.message);
         }
-        console.log(`[getBuildingsByUser] Encontrados ${data?.length || 0} edificios (todos los usuarios pueden ver todos los edificios)`);
-        return (data || []).map(b => this.mapToBuilding(b));
+        console.log(`[getBuildingsByUser] Encontrados ${data?.length || 0} edificios para el usuario ${user.email} (Rol: ${roleId})`);
+        return (data || []).map((b) => this.mapToBuilding(b));
     }
     async updateBuilding(id, data, userAuthId) {
         // Todos los usuarios pueden actualizar cualquier edificio
@@ -529,6 +559,15 @@ class BuildingService {
         if (error) {
             throw new Error(`Error al asignar técnico: ${error.message}`);
         }
+        // Actualizar también el campo technician_id en la tabla buildings
+        const { error: updateError } = await this.getSupabase()
+            .from("buildings")
+            .update({ technician_id: technician.id })
+            .eq("id", buildingId);
+        if (updateError) {
+            console.error("Error al actualizar technician_id en edificio:", updateError);
+            // No lanzamos error para no interrumpir el flujo si la asignación principal funcionó
+        }
     }
     /**
      * Asigna un CFO a un edificio
@@ -549,6 +588,15 @@ class BuildingService {
             .insert(assignmentData);
         if (error) {
             throw new Error(`Error al asignar CFO: ${error.message}`);
+        }
+        // Actualizar también el campo cfo_id en la tabla buildings
+        const { error: updateError } = await this.getSupabase()
+            .from("buildings")
+            .update({ cfo_id: cfoId })
+            .eq("id", buildingId);
+        if (updateError) {
+            console.error("Error al actualizar cfo_id en edificio:", updateError);
+            // No lanzamos error para no interrumpir el flujo si la asignación principal funcionó
         }
     }
     /**
