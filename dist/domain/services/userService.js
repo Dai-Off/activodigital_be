@@ -62,6 +62,7 @@ class UserService {
         *,
         roles(*)
       `)
+            .eq('deleted', false)
             .order('email');
         if (error) {
             throw new Error(`Error al obtener usuarios: ${error.message}`);
@@ -142,6 +143,22 @@ class UserService {
         };
         return this.updateUser(userId, updatePayload);
     }
+    async deleteUser(userId) {
+        const { data: found, error } = await this.getSupabase()
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        if (!found) {
+            const errorNotFound = new Error('Usuario no encontrado.');
+            errorNotFound.status = 404;
+            throw errorNotFound;
+        }
+        if (error && error.code !== 'PGRST116') {
+            throw new Error(`Error verificando duplicados: ${error.message}`);
+        }
+        return this.updateUser(userId, { deleted: true });
+    }
     // Obtener rol por nombre
     async getRoleByName(name) {
         const { data, error } = await this.getSupabase()
@@ -194,7 +211,8 @@ class UserService {
             .update({
             full_name: updateData.fullName,
             status: updateData.status,
-            role_id: updateData.roleId
+            role_id: updateData.roleId,
+            deleted: updateData.deleted ?? false
         })
             .eq('id', userId)
             .select()

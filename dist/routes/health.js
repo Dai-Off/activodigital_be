@@ -2,7 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const supabase_1 = require("../lib/supabase");
+const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
+// Healthcheck básico sin autenticación (para detección automática del frontend)
+router.get('/', (_req, res) => {
+    res.json({ ok: true, status: 'healthy' });
+});
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 router.get('/supabase', async (_req, res) => {
     try {
         const supabase = (0, supabase_1.getSupabaseClient)();

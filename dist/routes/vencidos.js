@@ -25,6 +25,7 @@ router.get('/categorias', authMiddleware_1.authenticateToken, vencidosController
  *   - unidad: Unidad (opcional)
  *   - prioridad: alta | media | baja | todas (opcional)
  *   - categoria: Categoría (opcional)
+ *   - tipo_documento: Tipo de documento (opcional)
  *   - search: Búsqueda por texto (opcional)
  *   - page: Número de página (opcional, default: 1)
  *   - limit: Elementos por página (opcional, default: 10)
@@ -32,6 +33,12 @@ router.get('/categorias', authMiddleware_1.authenticateToken, vencidosController
  * Requiere autenticación
  */
 router.get('/listado', authMiddleware_1.authenticateToken, vencidosController.getListado);
+/**
+ * GET /vencidos/filtros
+ * Obtiene los valores únicos disponibles para los filtros
+ * Requiere autenticación
+ */
+router.get('/filtros', authMiddleware_1.authenticateToken, vencidosController.getFiltrosDisponibles);
 /**
  * GET /vencidos/:id
  * Obtiene el detalle de un documento vencido por ID

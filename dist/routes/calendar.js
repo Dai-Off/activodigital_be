@@ -3,9 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const calendarController_1 = require("../web/controllers/calendarController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const calendarController = new calendarController_1.CalendarController();
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 /**
  * @route GET /calendar/all
  * @desc Obtener eventos de todos los edificios

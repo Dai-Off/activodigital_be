@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.editUser = exports.createUser = exports.assignTechnicianToBuilding = exports.getTechnicians = exports.updateUserProfile = exports.getAllUsers = exports.getRoles = exports.getUserProfile = void 0;
+exports.deleteUser = exports.editUser = exports.createUser = exports.assignTechnicianToBuilding = exports.getTechnicians = exports.updateUserProfile = exports.getAllUsers = exports.getRoles = exports.getUserProfile = void 0;
 const userService_1 = require("../../domain/services/userService");
 const interfaceTrazability_1 = require("../../domain/trazability/interfaceTrazability");
 const TrazabilityService_1 = require("../../domain/trazability/TrazabilityService");
@@ -153,4 +153,22 @@ const editUser = async (req, res) => {
     }
 };
 exports.editUser = editUser;
+const deleteUser = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        if (!userId) {
+            return res.status(400).json({ error: "userId requerido en parámetro" });
+        }
+        const usuario = await userService.deleteUser(userId);
+        TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req?.user?.id || null, buildingId: null, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.USUARIOS, description: `Eliminó el usuario ${usuario?.fullName}` }).catch(err => console.error("Fallo trazabilidad:", err));
+        res.status(200).json({ ok: true, message: "Usuario eliminado correctamente", usuario });
+    }
+    catch (error) {
+        console.error("Error al eliminar usuario:", error);
+        res
+            .status(error.status || 500)
+            .json({ error: error.message || "Error interno del servidor" });
+    }
+};
+exports.deleteUser = deleteUser;
 //# sourceMappingURL=userController.js.map

@@ -3,10 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const notificationController_1 = require("../web/controllers/notificationController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const notificationController = new notificationController_1.NotificationController();
-// Aplicar middleware de autenticación a todas las rutas
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 /**
  * @route GET /notifications/unread
  * @desc Obtener notificaciones NO LEÍDAS del usuario autenticado (Requiere buildingId)

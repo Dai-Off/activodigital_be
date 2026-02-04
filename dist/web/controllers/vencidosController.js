@@ -56,6 +56,7 @@ class VencidosController {
                     unidad: req.query.unidad,
                     prioridad: req.query.prioridad,
                     categoria: req.query.categoria,
+                    tipo_documento: req.query.tipo_documento,
                     search: req.query.search,
                     page: req.query.page ? parseInt(req.query.page) : 1,
                     limit: req.query.limit ? parseInt(req.query.limit) : 10,
@@ -106,6 +107,26 @@ class VencidosController {
                 console.error('Error en getDetalle:', error);
                 res.status(500).json({
                     error: 'Error al obtener detalle',
+                    message: error instanceof Error ? error.message : 'Error desconocido'
+                });
+            }
+        };
+        /**
+         * GET /vencidos/filtros
+         * Obtiene los valores únicos disponibles para los filtros
+         */
+        this.getFiltrosDisponibles = async (req, res) => {
+            try {
+                const filtros = await this.vencidosService.getFiltrosDisponibles();
+                res.status(200).json({
+                    data: filtros,
+                    message: 'Filtros disponibles obtenidos exitosamente'
+                });
+            }
+            catch (error) {
+                console.error('Error en getFiltrosDisponibles:', error);
+                res.status(500).json({
+                    error: 'Error al obtener filtros disponibles',
                     message: error instanceof Error ? error.message : 'Error desconocido'
                 });
             }

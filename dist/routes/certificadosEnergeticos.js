@@ -3,10 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const certificateEnergeticoController_1 = require("../web/controllers/certificateEnergeticoController");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
+const requestLogger_1 = require("../web/middlewares/requestLogger");
 const router = (0, express_1.Router)();
 const certificateController = new certificateEnergeticoController_1.CertificateEnergeticoController();
 // Aplicar middleware de autenticación a todas las rutas
-router.use(authMiddleware_1.authenticateToken);
+router.use(authMiddleware_1.requireAuth);
+router.use(requestLogger_1.requestLogger);
 // Rutas para certificados energéticos
 /**
  * @route GET /api/certificados-energeticos

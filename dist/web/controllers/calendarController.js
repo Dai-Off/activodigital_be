@@ -120,8 +120,8 @@ class CalendarController {
         this.deleteEvent = async (req, res) => {
             try {
                 const { id } = req.params;
-                await this.calendarService.deleteEvent(id);
                 const data = await this.calendarService.getEvent(id);
+                await this.calendarService.deleteEvent(id);
                 TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: req.user?.id || null, buildingId: data?.buildingId, action: interfaceTrazability_1.ActionsValues['ELIMINAR'], module: interfaceTrazability_1.ModuleValues.CALENDARIO, description: "Eliminar evento" }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.status(200).json({ message: "Evento eliminado", success: true });
             }
