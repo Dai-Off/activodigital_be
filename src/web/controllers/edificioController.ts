@@ -51,6 +51,8 @@ export class BuildingController {
     }
   };
 
+  
+
   getBuilding = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id;
