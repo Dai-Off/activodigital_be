@@ -219,6 +219,29 @@ class CatastroApiService {
             throw error;
         }
     }
+    /**
+     * Obtiene las unidades (construcciones) de un inmueble usando el servicio público
+     * de Catastro Consulta_DNPRC (XML) a partir de la Referencia Catastral.
+     *
+     * @param rc Referencia Catastral (14 o 20 caracteres)
+     */
+    async getUnidadesPorRc(rc) {
+        if (!rc) {
+            throw new Error("El parámetro rc es obligatorio");
+        }
+        try {
+            const baseUrl = "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/rest/Consulta_DNPRC";
+            const url = new URL(baseUrl);
+            // Algunos servicios de Catastro prefieren RefCat en lugar de RC para Consulta_DNPRC
+            url.searchParams.append("RefCat", rc);
+            const response = await this.makePublicRequest(url.toString());
+            const xmlText = await response.text();
+            return { xml: xmlText };
+        }
+        catch (error) {
+            throw error;
+        }
+    }
 }
 exports.CatastroApiService = CatastroApiService;
 //# sourceMappingURL=catastroApiService.js.map

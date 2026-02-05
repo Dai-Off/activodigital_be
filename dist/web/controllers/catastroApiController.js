@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUnidadesPorDireccion = exports.getInmuebleXY = exports.getInmuebleLoc = exports.getInmuebleRc = exports.getVias = exports.getMunicipios = exports.getAllProvincias = void 0;
+exports.getUnidadesPorRc = exports.getUnidadesPorDireccion = exports.getInmuebleXY = exports.getInmuebleLoc = exports.getInmuebleRc = exports.getVias = exports.getMunicipios = exports.getAllProvincias = void 0;
 const catastroApiService_1 = require("../../domain/services/catastroApiService");
 const catastroApiService = new catastroApiService_1.CatastroApiService();
 const handleExternalApiError = (res, error) => {
@@ -172,4 +172,20 @@ const getUnidadesPorDireccion = async (req, res) => {
     }
 };
 exports.getUnidadesPorDireccion = getUnidadesPorDireccion;
+const getUnidadesPorRc = async (req, res) => {
+    const rc = req.query.rc;
+    if (!rc) {
+        return res.status(400).json({
+            error: "El parámetro 'rc' es requerido",
+        });
+    }
+    try {
+        const result = await catastroApiService.getUnidadesPorRc(rc);
+        res.status(200).json(result);
+    }
+    catch (error) {
+        handleExternalApiError(res, error);
+    }
+};
+exports.getUnidadesPorRc = getUnidadesPorRc;
 //# sourceMappingURL=catastroApiController.js.map
