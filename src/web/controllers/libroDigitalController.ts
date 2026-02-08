@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { DigitalBookService } from '../../domain/services/libroDigitalService';
-import { CreateDigitalBookRequest, UpdateDigitalBookRequest, UpdateSectionRequest, SectionType } from '../../types/libroDigital';
+import { CreateDigitalBookRequest, UpdateDigitalBookRequest, UpdateSectionRequest, SectionType, sectionTypeName } from '../../types/libroDigital';
 import { trazabilityService } from '../../domain/trazability/TrazabilityService';
 import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
 
@@ -111,7 +111,7 @@ export class DigitalBookController {
         data,
         userId
       );
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: book?.buildingId, action: ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: ModuleValues.EDIFICIOS, description: "Modificar libro digital" }).catch(err => console.error("Fallo trazabilidad:", err));
+      trazabilityService.registerTrazability({ authUserId: userId, buildingId: book?.buildingId, action: ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: ModuleValues.EDIFICIOS, description: `Modificó sección de ${sectionTypeName[sectionTypeParam as SectionType]} del libro digital`}).catch(err => console.error("Fallo trazabilidad:", err));
       res.json({ data: book });
     } catch (error) {
       console.error('Error al actualizar sección:', error);
