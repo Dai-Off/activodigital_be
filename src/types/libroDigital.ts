@@ -255,6 +255,17 @@ export enum SectionType {
   ANNEX_DOCUMENTS = 'annex_documents'
 }
 
+export const  sectionTypeName =  {
+  'general_data': 'datos generales',
+  'construction_features': 'características constructivas y técnicas',
+  'certificates_and_licenses': 'certificados y licencias',
+  'maintenance_and_conservation': 'mantenimientos y conservaciones',
+  'facilities_and_consumption': 'instalaciones y consumos',
+  'renovations_and_rehabilitations': 'reformas y rehabilitaciones',
+  'sustainability_and_esg': 'sosteninilidad y ESG',
+  'annex_documents':'documentos anexos'
+}
+
 export interface BookSection {
   id: string;
   type: SectionType;
