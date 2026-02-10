@@ -215,3 +215,20 @@ export const getUnidadesPorDireccion = async (req: Request, res: Response) => {
     handleExternalApiError(res, error);
   }
 };
+
+export const getUnidadesPorRc = async (req: Request, res: Response) => {
+  const rc = req.query.rc as string;
+
+  if (!rc) {
+    return res.status(400).json({
+      error: "El parámetro 'rc' es requerido",
+    });
+  }
+
+  try {
+    const result = await catastroApiService.getUnidadesPorRc(rc);
+    res.status(200).json(result);
+  } catch (error: any) {
+    handleExternalApiError(res, error);
+  }
+};
