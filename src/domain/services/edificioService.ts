@@ -1,6 +1,7 @@
 import { getSupabaseClient } from "../../lib/supabase";
 import {
   Building,
+  BuildingAddressData,
   CreateBuildingRequest,
   UpdateBuildingRequest,
   BuildingStatus,
@@ -42,6 +43,46 @@ export class BuildingService {
     return getSupabaseClient();
   }
 
+  /**
+   * Construye un objeto de dirección estructurada a partir de los datos recibidos.
+   * - Si ya viene un JSON con fullAddress, se normaliza y se usa tal cual.
+   * - Si no viene JSON pero sí un address string, se crea un JSON mínimo con fullAddress.
+   * - Si no hay datos suficientes, devuelve null para no ensuciar la columna.
+   */
+  private buildAddressData(
+    address?: string,
+    addressData?: BuildingAddressData | null,
+  ): BuildingAddressData | null {
+    // Si ya tenemos un JSON con fullAddress, normalizar y devolver
+    if (addressData && typeof addressData.fullAddress === "string") {
+      const fullAddress = addressData.fullAddress.trim();
+      if (!fullAddress) {
+        // Si el JSON viene sin fullAddress útil, intentamos usar el string plano
+        if (address && address.trim()) {
+          return {
+            ...addressData,
+            fullAddress: address.trim(),
+          };
+        }
+        return null;
+      }
+
+      return {
+        ...addressData,
+        fullAddress,
+      };
+    }
+
+    // Si no hay JSON pero sí address plano, crear estructura mínima
+    if (address && address.trim()) {
+      return {
+        fullAddress: address.trim(),
+      };
+    }
+
+    return null;
+  }
+
   async createBuilding(
     data: CreateBuildingRequest,
     userAuthId: string,
@@ -52,9 +93,15 @@ export class BuildingService {
       throw new Error("Usuario no encontrado");
     }
 
+    const buildingAddressData = this.buildAddressData(
+      data.address,
+      data.addressData,
+    );
+
     const buildingData: any = {
       name: data.name,
       address: data.address,
+      address_data: buildingAddressData,
       construction_year: data.constructionYear,
       typology: data.typology,
       num_floors: data.numFloors,
@@ -279,6 +326,26 @@ export class BuildingService {
       updateData.potential_value = data.potentialValue;
     if (data.squareMeters !== undefined)
       updateData.square_meters = data.squareMeters;
+
+    // Actualizar JSON de dirección si corresponde:
+    // - Si llega addressData explícito
+    // - O si cambia el address plano sin addressData (creamos JSON mínimo)
+    const hasAddressDataField = Object.prototype.hasOwnProperty.call(
+      data,
+      "addressData",
+    );
+    const hasAddressField = Object.prototype.hasOwnProperty.call(
+      data,
+      "address",
+    );
+
+    if (hasAddressDataField || hasAddressField) {
+      const newAddressData = this.buildAddressData(
+        hasAddressField ? data.address : undefined,
+        hasAddressDataField ? data.addressData ?? null : undefined,
+      );
+      updateData.address_data = newAddressData;
+    }
 
     const { data: building, error } = await this.getSupabase()
       .from("buildings")
@@ -1163,6 +1230,7 @@ export class BuildingService {
       id: data.id,
       name: data.name,
       address: data.address,
+      addressData: data.address_data || data.addressData,
       cadastralReference: data.cadastral_reference || data.cadastralReference,
       constructionYear: data.construction_year || data.constructionYear,
       typology: data.typology,
