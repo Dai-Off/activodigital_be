@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DashboardService = void 0;
 const supabase_1 = require("../../lib/supabase");
 const userService_1 = require("./userService");
-const user_1 = require("../../types/user");
 const buildingUnitService_1 = require("./buildingUnitService");
 const calendarService_1 = require("./calendarService");
 class DashboardService {
@@ -15,6 +14,30 @@ class DashboardService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
     }
+    calculateAverageCompliance(buildings, books) {
+        if (buildings.length === 0)
+            return 0;
+        const bookStatusMap = new Map();
+        books.forEach(b => bookStatusMap.set(b.building_id, b.status));
+        let totalCompliance = 0;
+        buildings.forEach(b => {
+            const status = bookStatusMap.get(b.id);
+            switch (status) {
+                case 'complete':
+                    totalCompliance += 100;
+                    break;
+                case 'in_progress':
+                    totalCompliance += 50;
+                    break;
+                case 'draft':
+                    totalCompliance += 25;
+                    break;
+                default:
+                    totalCompliance += 0;
+            }
+        });
+        return Math.round(totalCompliance / buildings.length);
+    }
     /**
      * Obtiene las estadísticas del dashboard para un usuario
      * Las métricas varían según el rol (propietario vs técnico)
@@ -24,21 +47,92 @@ class DashboardService {
         if (!user) {
             throw new Error('Usuario no encontrado');
         }
-        const isPropietario = user.role.name === user_1.UserRole.PROPIETARIO;
-        const isAdministrador = user.role.name === user_1.UserRole.ADMINISTRADOR;
-        const isCfo = user.role.name === user_1.UserRole.CFO;
-        if (isPropietario) {
-            return this.getPropietarioStats(user.id, userAuthId);
+        // const isPropietario = user.role.name === UserRole.PROPIETARIO;
+        // const isAdministrador = user.role.name === UserRole.ADMINISTRADOR;
+        // const isTecnico = user.role.name === UserRole.TECNICO;
+        // if (isPropietario) {
+        //   return this.getPropietarioStats(user.id, userAuthId);
+        // } else if (isAdministrador) {
+        //   return this.getOwnerStats(user.id, userAuthId);
+        // } else if (isTecnico) {
+        //   return this.getTechnicianStats(user.id, userAuthId);
+        // } else {
+        //   return this.getCFOStats(user.id, userAuthId);
+        // }
+        return this.getAllStats(user.id, userAuthId);
+    }
+    /**
+   * Estadísticas para el CFO (Visión financiera global)
+   */
+    async getAllStats(userId, userAuthId) {
+        const supabase = this.getSupabase();
+        // El CFO usualmente ve todos los edificios de la plataforma o de su empresa
+        // Si el CFO está ligado a un owner_id específico, filtrar por él. 
+        // Si es global, quitamos el .eq()
+        const { data: buildings, error: buildingsError } = await supabase
+            .from('buildings')
+            .select('*');
+        if (buildingsError) {
+            console.error('Error fetching buildings for CFO:', buildingsError);
+            throw new Error('Error al obtener edificios para CFO');
         }
-        else if (isAdministrador) {
-            return this.getOwnerStats(user.id, userAuthId);
+        const buildingIds = buildings?.map(b => b.id) || [];
+        const placeholderId = ['00000000-0000-0000-0000-000000000000'];
+        // Obtener libros digitales
+        const { data: books } = await supabase
+            .from('digital_books')
+            .select('status, building_id')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId);
+        // Obtener certificados energéticos
+        const { data: certificates } = await supabase
+            .from('energy_certificates')
+            .select('rating, building_id, emissions_kg_co2_per_m2_year')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId);
+        // Obtener scores ESG completos
+        const { data: esgScores } = await supabase
+            .from('esg_scores')
+            .select('building_id, status, total')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId)
+            .eq('status', 'complete');
+        // El CFO utiliza el cálculo de métricas de Owner porque necesita ver valores $, ESG y cumplimiento
+        return this.calculateOwnerMetrics(buildings || [], books || [], certificates || [], esgScores || []);
+    }
+    /**
+   * Estadísticas para el CFO (Visión financiera global)
+   */
+    async getCFOStats(userId, userAuthId) {
+        const supabase = this.getSupabase();
+        // El CFO usualmente ve todos los edificios de la plataforma o de su empresa
+        // Si el CFO está ligado a un owner_id específico, filtrar por él. 
+        // Si es global, quitamos el .eq()
+        const { data: buildings, error: buildingsError } = await supabase
+            .from('buildings')
+            .select('*')
+            .eq('cfo_id', userId);
+        if (buildingsError) {
+            console.error('Error fetching buildings for CFO:', buildingsError);
+            throw new Error('Error al obtener edificios para CFO');
         }
-        else if (isCfo) {
-            return this.getCfoStats(user.id, userAuthId);
-        }
-        else {
-            return this.getTechnicianStats(user.id, userAuthId);
-        }
+        const buildingIds = buildings?.map(b => b.id) || [];
+        const placeholderId = ['00000000-0000-0000-0000-000000000000'];
+        // Obtener libros digitales
+        const { data: books } = await supabase
+            .from('digital_books')
+            .select('status, building_id')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId);
+        // Obtener certificados energéticos
+        const { data: certificates } = await supabase
+            .from('energy_certificates')
+            .select('rating, building_id, emissions_kg_co2_per_m2_year')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId);
+        // Obtener scores ESG completos
+        const { data: esgScores } = await supabase
+            .from('esg_scores')
+            .select('building_id, status, total')
+            .in('building_id', buildingIds.length > 0 ? buildingIds : placeholderId)
+            .eq('status', 'complete');
+        // El CFO utiliza el cálculo de métricas de Owner porque necesita ver valores $, ESG y cumplimiento
+        return this.calculateOwnerMetrics(buildings || [], books || [], certificates || [], esgScores || []);
     }
     /**
      * Estadísticas para propietarios (solo lectura)
@@ -248,11 +342,13 @@ class DashboardService {
         const averageOccupancy = await this.calculateAverageOccupancy(buildings.map(b => b.id));
         const nextEventsCount = await this.calculateNextEventsCount(buildings.map(b => b.id));
         const topPerformingBuildings = this.getTopPerformingBuildings(buildings, books);
+        const complianceAverage = this.calculateAverageCompliance(buildings, books);
         return {
             totalValue,
             totalAssets,
             totalRehabilitationCost,
             totalPotentialValue,
+            complianceAverage: complianceAverage,
             totalSurfaceArea,
             totalEmissions,
             averageEnergyClass,
@@ -307,12 +403,14 @@ class DashboardService {
         const averageOccupancy = await this.calculateAverageOccupancy(buildings.map(b => b.id));
         const nextEventsCount = await this.calculateNextEventsCount(buildings.map(b => b.id));
         const topPerformingBuildings = this.getTopPerformingBuildings(buildings, books);
+        const complianceAverage = this.calculateAverageCompliance(buildings, books);
         return {
             totalValue: 0, // Técnicos no ven valores financieros
             totalAssets,
             totalRehabilitationCost: 0,
             totalPotentialValue: 0,
             totalSurfaceArea,
+            complianceAverage,
             totalEmissions: 0,
             averageEnergyClass: null,
             averageEnergyRating: null,
@@ -445,6 +543,7 @@ class DashboardService {
             totalValue: 0,
             totalAssets: 0,
             totalRehabilitationCost: 0,
+            complianceAverage: 0,
             totalPotentialValue: 0,
             totalSurfaceArea: 0,
             totalEmissions: 0,
