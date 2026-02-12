@@ -242,7 +242,7 @@ export class BuildingService {
       }
 
       
-      let query = supabase.from('buildings').select('*, digital_books(sections)');
+      let query = supabase.from('buildings').select('*, digital_books(sections)').eq('deleted', false);
       
       // TODO: Replicar la lógica exacta de filtrado del Dashboard
       // const roleName = user.role.name;
