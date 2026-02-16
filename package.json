@@ -18,6 +18,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bullmq": "^5.34.5",
+    "ioredis": "^5.4.1",
     "@supabase/supabase-js": "^2.56.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

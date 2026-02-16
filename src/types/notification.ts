@@ -4,6 +4,7 @@ export enum NotificationType {
   EXPIRATION = "expiration",
   RENEWAL = "renewal",
   BUILDING_ASSIGNMENT = "building_assignment",
+  CERTIFICATE = "certificate",
 }
 
 export interface Notification {
@@ -20,7 +21,10 @@ export interface Notification {
 }
 
 export interface CreateNotificationRequest {
+  /** Auth user UUID (users.user_id) para el INSERT en notifications (FK). */
   user_id?: string;
+  /** Si se indica, el socket emite a este id (ej. users.id para que el frontend reciba). */
+  socket_emit_user_id?: string;
   building_id: string;
   type: NotificationType;
   title: string;

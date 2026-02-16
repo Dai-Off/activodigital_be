@@ -16,6 +16,17 @@ export class UserService {
     return getSupabaseClient();
   }
 
+  /** Obtiene el auth user_id (UUID de auth) a partir del id de la tabla users (para notificaciones). */
+  async getAuthUserIdByAppId(appUserId: string): Promise<string | null> {
+    const { data, error } = await this.getSupabase()
+      .from('users')
+      .select('user_id')
+      .eq('id', appUserId)
+      .single();
+    if (error || !data?.user_id) return null;
+    return data.user_id as string;
+  }
+
   // Obtener usuario por ID de auth
   async getUserByAuthId(authUserId: string): Promise<UserWithRole | null> {
     const { data, error } = await this.getSupabase()
