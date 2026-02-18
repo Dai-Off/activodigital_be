@@ -61,11 +61,11 @@ export class NotificationBus extends EventEmitter {
             payload
           );
 
-          // Emitir evento via Socket.io en tiempo real
-          if (payload.user_id) {
-            // Notificación personal
+          // Emitir evento via Socket.io en tiempo real (socket_emit_user_id = a quién enviar; user_id = para BD)
+          const emitToUserId = payload.socket_emit_user_id ?? payload.user_id;
+          if (emitToUserId) {
             SocketService.getInstance().emitToUser(
-              payload.user_id,
+              emitToUserId,
               "notification:new",
               createdNotification
             );

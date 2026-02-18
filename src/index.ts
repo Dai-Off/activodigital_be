@@ -34,6 +34,20 @@ import { getDocumentExpirationCronJob } from "./services/documentExpirationCronJ
 const documentExpirationCronJob = getDocumentExpirationCronJob();
 documentExpirationCronJob.start();
 
+// Iniciar workers de cola (Redis/BullMQ). Si Redis no está, solo se registra un aviso.
+import { startInvoiceProcessingWorker } from "./services/invoiceProcessingQueue";
+import { startCertificateProcessingWorker } from "./services/certificateProcessingQueue";
+try {
+  startInvoiceProcessingWorker();
+} catch (e) {
+  console.warn("[InvoiceQueue] No se pudo iniciar el worker de facturas (¿Redis configurado? REDIS_URL):", (e as Error).message);
+}
+try {
+  startCertificateProcessingWorker();
+} catch (e) {
+  console.warn("[CertificateQueue] No se pudo iniciar el worker de certificados (¿Redis configurado? REDIS_URL):", (e as Error).message);
+}
+
 // Iniciar el servidor
 server.listen(port, () => {
   // eslint-disable-next-line no-console
