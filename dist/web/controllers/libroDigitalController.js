@@ -92,7 +92,7 @@ class DigitalBookController {
                     return;
                 }
                 const book = await this.getDigitalBookService().updateSection(id, sectionTypeParam, data, userId);
-                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: book?.buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: "Modificar libro digital" }).catch(err => console.error("Fallo trazabilidad:", err));
+                TrazabilityService_1.trazabilityService.registerTrazability({ authUserId: userId, buildingId: book?.buildingId, action: interfaceTrazability_1.ActionsValues['ACTUALIZAR LIBRO DEL EDIFICIO'], module: interfaceTrazability_1.ModuleValues.EDIFICIOS, description: `Modificó sección de ${libroDigital_1.sectionTypeName[sectionTypeParam]} del libro digital` }).catch(err => console.error("Fallo trazabilidad:", err));
                 res.json({ data: book });
             }
             catch (error) {

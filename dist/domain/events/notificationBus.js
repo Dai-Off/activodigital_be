@@ -76,10 +76,10 @@ class NotificationBus extends events_1.EventEmitter {
                 const service = new NotificationService();
                 // Llamada interna para guardar en BD
                 const createdNotification = await service.internalCreateNotification(payload);
-                // Emitir evento via Socket.io en tiempo real
-                if (payload.user_id) {
-                    // Notificación personal
-                    socketService_1.SocketService.getInstance().emitToUser(payload.user_id, "notification:new", createdNotification);
+                // Emitir evento via Socket.io en tiempo real (socket_emit_user_id = a quién enviar; user_id = para BD)
+                const emitToUserId = payload.socket_emit_user_id ?? payload.user_id;
+                if (emitToUserId) {
+                    socketService_1.SocketService.getInstance().emitToUser(emitToUserId, "notification:new", createdNotification);
                 }
                 else if (payload.building_id) {
                     // Notificación general del edificio

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SectionType = exports.BookStatus = exports.BookSource = exports.LibroDigitalSectionType = exports.LibroDigitalEstado = void 0;
+exports.sectionTypeName = exports.SectionType = exports.BookStatus = exports.BookSource = exports.LibroDigitalSectionType = exports.LibroDigitalEstado = void 0;
 // Estado del libro digital
 var LibroDigitalEstado;
 (function (LibroDigitalEstado) {
@@ -44,4 +44,14 @@ var SectionType;
     SectionType["SUSTAINABILITY_AND_ESG"] = "sustainability_and_esg";
     SectionType["ANNEX_DOCUMENTS"] = "annex_documents";
 })(SectionType || (exports.SectionType = SectionType = {}));
+exports.sectionTypeName = {
+    'general_data': 'datos generales',
+    'construction_features': 'características constructivas y técnicas',
+    'certificates_and_licenses': 'certificados y licencias',
+    'maintenance_and_conservation': 'mantenimientos y conservaciones',
+    'facilities_and_consumption': 'instalaciones y consumos',
+    'renovations_and_rehabilitations': 'reformas y rehabilitaciones',
+    'sustainability_and_esg': 'sosteninilidad y ESG',
+    'annex_documents': 'documentos anexos'
+};
 //# sourceMappingURL=libroDigital.js.map

@@ -1,4 +1,4 @@
-import { Queue, Worker } from 'bullmq';
+import { Queue, Worker, Job } from 'bullmq';
 import { getRedisConnection } from '../lib/redis';
 import { InvoiceProcessingJobService } from '../domain/services/invoiceProcessingJobService';
 import { UserService } from '../domain/services/userService';
@@ -10,13 +10,15 @@ import type { InvoiceJobPayload } from '../types/invoiceProcessingJob';
 
 const QUEUE_NAME = 'invoice-processing';
 
-let queue: Queue<InvoiceJobPayload> | null = null;
-let worker: Worker<InvoiceJobPayload> | null = null;
+let queue: Queue | null = null;
+let worker: Worker | null = null;
 
-function getQueue(): Queue<InvoiceJobPayload> {
+function getQueue(): Queue {
   if (!queue) {
     queue = new Queue<InvoiceJobPayload>(QUEUE_NAME, {
-      connection: getRedisConnection(),
+      // BullMQ trae su propia versión de ioredis, así que usamos un cast
+      // para evitar incompatibilidades de tipos entre ambas versiones.
+      connection: getRedisConnection() as any,
       defaultJobOptions: {
         attempts: 2,
         backoff: { type: 'exponential', delay: 5000 },
@@ -44,14 +46,15 @@ export async function addInvoiceProcessingJob(jobId: string): Promise<string> {
 export function startInvoiceProcessingWorker(): void {
   if (worker) return;
 
-  const connection = getRedisConnection();
+  // Cast para evitar incompatibilidad de tipos entre ioredis directo y el que usa BullMQ internamente.
+  const connection = getRedisConnection() as any;
   const jobService = new InvoiceProcessingJobService();
   const userService = new UserService();
   const aiService = new AIProcessingService();
 
   worker = new Worker<InvoiceJobPayload>(
     QUEUE_NAME,
-    async (job) => {
+    async (job: Job<InvoiceJobPayload>) => {
       const { jobId } = job.data;
       const record = await jobService.getById(jobId);
       if (!record) {
@@ -106,16 +109,18 @@ export function startInvoiceProcessingWorker(): void {
     }
   );
 
-  worker.on('completed', (job) => {
+  worker.on('completed', (job: Job<InvoiceJobPayload>) => {
     const jobId = job?.data?.jobId ?? job?.id;
     console.log(`[InvoiceQueue] Job ${jobId} completado`);
   });
-  worker.on('failed', (job, err) => {
+  worker.on('failed', (job: Job<InvoiceJobPayload> | undefined, err: unknown) => {
     const jobId = job?.data?.jobId ?? job?.id;
-    console.error(`[InvoiceQueue] Job ${jobId} falló:`, err?.message ?? err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[InvoiceQueue] Job ${jobId} falló:`, message);
   });
-  worker.on('error', (err) => {
-    console.error('[InvoiceQueue] Error en worker:', err);
+  worker.on('error', (err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[InvoiceQueue] Error en worker:', message);
   });
 
   console.log('[InvoiceQueue] Worker de facturas iniciado');
