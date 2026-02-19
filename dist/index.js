@@ -29,6 +29,21 @@ socketService_1.SocketService.getInstance().initialize(server);
 const documentExpirationCronJob_1 = require("./services/documentExpirationCronJob");
 const documentExpirationCronJob = (0, documentExpirationCronJob_1.getDocumentExpirationCronJob)();
 documentExpirationCronJob.start();
+// Iniciar workers de cola (Redis/BullMQ). Si Redis no está, solo se registra un aviso.
+const invoiceProcessingQueue_1 = require("./services/invoiceProcessingQueue");
+const certificateProcessingQueue_1 = require("./services/certificateProcessingQueue");
+try {
+    (0, invoiceProcessingQueue_1.startInvoiceProcessingWorker)();
+}
+catch (e) {
+    console.warn("[InvoiceQueue] No se pudo iniciar el worker de facturas (¿Redis configurado? REDIS_URL):", e.message);
+}
+try {
+    (0, certificateProcessingQueue_1.startCertificateProcessingWorker)();
+}
+catch (e) {
+    console.warn("[CertificateQueue] No se pudo iniciar el worker de certificados (¿Redis configurado? REDIS_URL):", e.message);
+}
 // Iniciar el servidor
 server.listen(port, () => {
     // eslint-disable-next-line no-console

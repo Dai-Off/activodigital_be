@@ -27,9 +27,25 @@ export class TechnicalAuditController {
       });
     } catch (error) {
       console.error('Error al obtener auditoría técnica:', error);
+      
+      // Si el error es por datos faltantes, retornar 400 (Bad Request) con mensaje claro
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const isMissingDataError = errorMessage.includes('No se puede realizar la auditoría técnica') || 
+                                 errorMessage.includes('Faltan los siguientes datos críticos');
+      
+      if (isMissingDataError) {
+        res.status(400).json({ 
+          error: 'Datos incompletos',
+          message: errorMessage,
+          code: 'MISSING_REQUIRED_DATA'
+        });
+        return;
+      }
+      
+      // Para otros errores, retornar 500
       res.status(500).json({ 
         error: 'Error interno del servidor',
-        message: error instanceof Error ? error.message : 'Error desconocido'
+        message: errorMessage
       });
     }
   };

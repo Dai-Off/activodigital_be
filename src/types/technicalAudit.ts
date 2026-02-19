@@ -1,5 +1,7 @@
 // Tipos para la auditoría técnica de edificios
 
+import { EsgResult } from '../domain/services/esgService';
+
 export interface TechnicalTask {
   id: string;
   category: 'maintenance' | 'safety' | 'energy' | 'documentation' | 'compliance';
@@ -23,6 +25,7 @@ export interface TechnicalAuditResult {
   tasks: TechnicalTask[];
   energyImprovements: EnergyImprovement[];
   potentialSavingsKwhPerM2: number; // kWh/m²·año potencial de ahorro total
+  esgResult: EsgResult | null; // Resultado del cálculo ESG
   summary: {
     totalTasks: number;
     highPriorityTasks: number;

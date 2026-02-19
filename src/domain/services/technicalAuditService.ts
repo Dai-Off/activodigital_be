@@ -11,10 +11,67 @@ export class TechnicalAuditService {
   }
 
   /**
+   * Valida que todos los datos críticos estén presentes antes de ejecutar la auditoría
+   * @param digitalBook Libro digital del edificio
+   * @param certificate Certificado energético
+   * @param esgResult Resultado del cálculo ESG
+   * @throws Error si faltan datos críticos
+   */
+  private validateRequiredData(
+    digitalBook: any,
+    certificate: any,
+    esgResult: any
+  ): void {
+    const missingData: string[] = [];
+
+    // Validar libro digital
+    if (!digitalBook) {
+      missingData.push('Libro digital del edificio');
+    } else if (!digitalBook.estado) {
+      missingData.push('Estado del libro digital');
+    }
+
+    // Validar certificado energético
+    if (!certificate) {
+      missingData.push('Certificado energético (CEE)');
+    } else {
+      if (!certificate.rating) {
+        missingData.push('Rating del certificado energético');
+      }
+      if (!certificate.primary_energy_kwh_per_m2_year) {
+        missingData.push('Consumo energético primario (kWh/m²·año)');
+      }
+      if (!certificate.emissions_kg_co2_per_m2_year) {
+        missingData.push('Emisiones CO₂ (kg CO₂eq/m²·año)');
+      }
+    }
+
+    // Validar ESG completo
+    if (!esgResult) {
+      missingData.push('Score ESG (no se pudo calcular)');
+    } else if (esgResult.status !== 'complete') {
+      if (esgResult.status === 'incomplete' && esgResult.missingData) {
+        missingData.push(`ESG incompleto: ${esgResult.missingData.join(', ')}`);
+      } else {
+        missingData.push('Score ESG completo');
+      }
+    }
+
+    // Si faltan datos críticos, lanzar error
+    if (missingData.length > 0) {
+      throw new Error(
+        `No se puede realizar la auditoría técnica. Faltan los siguientes datos críticos: ${missingData.join(', ')}. ` +
+        `Por favor, complete el libro digital, el certificado energético y asegúrese de que el ESG esté calculado correctamente.`
+      );
+    }
+  }
+
+  /**
    * Obtiene la auditoría técnica de un edificio
    * @param buildingId ID del edificio
    * @param userAuthId ID del usuario autenticado (para validar permisos)
    * @returns Resultado de la auditoría técnica
+   * @throws Error si faltan datos críticos (libro digital, CEE, ESG completo)
    */
   async getTechnicalAudit(buildingId: string, userAuthId: string): Promise<TechnicalAuditResult> {
     const supabase = this.getSupabase();
@@ -40,6 +97,7 @@ export class TechnicalAuditService {
 
     if (bookError) {
       console.error('Error obteniendo libro digital:', bookError);
+      throw new Error(`Error al obtener el libro digital: ${bookError.message}`);
     }
 
     // Obtener certificado energético más reciente
@@ -53,14 +111,45 @@ export class TechnicalAuditService {
 
     if (certError) {
       console.error('Error obteniendo certificado energético:', certError);
+      throw new Error(`Error al obtener el certificado energético: ${certError.message}`);
     }
 
     // Obtener o calcular ESG
-    let esgResult = await this.esgService.getStoredEsgScore(buildingId, supabase);
-    if (!esgResult) {
-      // Si no hay ESG guardado, calcularlo
-      esgResult = await this.esgService.calculateFromDatabase(buildingId, supabase);
+    let esgResult = null;
+    try {
+      console.log(`[TechnicalAudit] Obteniendo ESG para edificio ${buildingId}`);
+      esgResult = await this.esgService.getStoredEsgScore(buildingId, supabase);
+      
+      if (!esgResult) {
+        console.log(`[TechnicalAudit] No hay ESG guardado, calculando desde BD para edificio ${buildingId}`);
+        // Si no hay ESG guardado, calcularlo
+        esgResult = await this.esgService.calculateFromDatabase(buildingId, supabase);
+        console.log(`[TechnicalAudit] ESG calculado:`, {
+          status: esgResult?.status,
+          hasData: esgResult?.status === 'complete' ? !!esgResult.data : false,
+          missingDataCount: esgResult?.status === 'incomplete' ? esgResult.missingData?.length : 0
+        });
+      } else {
+        console.log(`[TechnicalAudit] ESG obtenido de BD:`, {
+          status: esgResult?.status,
+          hasData: esgResult?.status === 'complete' ? !!esgResult.data : false
+        });
+      }
+    } catch (error) {
+      console.error(`[TechnicalAudit] Error obteniendo/calculando ESG para edificio ${buildingId}:`, error);
+      throw new Error(
+        `Error al calcular el score ESG: ${error instanceof Error ? error.message : 'Error desconocido'}`
+      );
     }
+
+    // VALIDAR QUE TODOS LOS DATOS CRÍTICOS ESTÉN PRESENTES
+    this.validateRequiredData(digitalBook, certificate, esgResult);
+
+    console.log(`[TechnicalAudit] Todos los datos críticos validados para edificio ${buildingId}:`, {
+      hasDigitalBook: !!digitalBook,
+      hasCertificate: !!certificate,
+      hasCompleteESG: esgResult?.status === 'complete'
+    });
 
     // Calcular porcentaje de completitud
     const completionPercentage = this.calculateCompletionPercentage(
@@ -72,8 +161,8 @@ export class TechnicalAuditService {
     // Generar tareas
     const tasks = this.generateTasks(digitalBook, certificate, esgResult, building);
 
-    // Generar mejoras energéticas
-    const energyImprovements = this.generateEnergyImprovements(certificate, digitalBook);
+    // Generar mejoras energéticas (usando certificado, libro digital y ESG)
+    const energyImprovements = this.generateEnergyImprovements(certificate, digitalBook, esgResult);
 
     // Calcular ahorro potencial
     const potentialSavingsKwhPerM2 = this.calculatePotentialSavings(
@@ -95,6 +184,7 @@ export class TechnicalAuditService {
       tasks,
       energyImprovements,
       potentialSavingsKwhPerM2,
+      esgResult, // Incluir resultado ESG en la respuesta
       summary
     };
   }
@@ -147,14 +237,17 @@ export class TechnicalAuditService {
 
     // ESG completo (20 puntos máx)
     maxScore += 20;
-    if (esgResult?.status === 'complete') {
-      score += 20;
-    } else if (esgResult?.status === 'incomplete') {
-      // Puntos parciales si tiene algunos datos
-      const missingCount = esgResult.missingData?.length || 0;
-      const completenessRatio = Math.max(0, 1 - (missingCount / 10)); // Aproximado
-      score += completenessRatio * 10;
+    if (esgResult) {
+      if (esgResult.status === 'complete') {
+        score += 20;
+      } else if (esgResult.status === 'incomplete') {
+        // Puntos parciales si tiene algunos datos
+        const missingCount = esgResult.missingData?.length || 0;
+        const completenessRatio = Math.max(0, 1 - (missingCount / 10)); // Aproximado
+        score += completenessRatio * 10;
+      }
     }
+    // Si esgResult es null, no se suman puntos (0/20)
 
     return Math.round((score / maxScore) * 100);
   }
@@ -296,7 +389,16 @@ export class TechnicalAuditService {
     }
 
     // Tareas relacionadas con ESG
-    if (esgResult?.status === 'incomplete' && esgResult.missingData) {
+    if (!esgResult) {
+      tasks.push({
+        id: `task-${taskId++}`,
+        category: 'compliance',
+        title: 'Calcular score ESG',
+        description: 'No se pudo obtener o calcular el score ESG del edificio. Verifica que existan certificado energético y libro digital con datos completos.',
+        priority: 'medium',
+        relatedData: 'esg_score'
+      });
+    } else if (esgResult.status === 'incomplete' && esgResult.missingData) {
       esgResult.missingData.forEach((missing: string) => {
         tasks.push({
           id: `task-${taskId++}`,
@@ -314,10 +416,12 @@ export class TechnicalAuditService {
 
   /**
    * Genera sugerencias de mejoras energéticas
+   * Usa datos del certificado energético, libro digital y ESG para generar recomendaciones precisas
    */
   private generateEnergyImprovements(
     certificate: any,
-    digitalBook: any
+    digitalBook: any,
+    esgResult: any
   ): EnergyImprovement[] {
     const improvements: EnergyImprovement[] = [];
     let improvementId = 1;
@@ -328,7 +432,12 @@ export class TechnicalAuditService {
 
     const rating = certificate.rating;
     const currentConsumption = certificate.primary_energy_kwh_per_m2_year || 0;
+    const emissions = certificate.emissions_kg_co2_per_m2_year || 0;
     const camposAmbientales = digitalBook?.campos_ambientales || {};
+    
+    // Usar datos del ESG si está disponible para mejorar las recomendaciones
+    const esgScore = esgResult?.status === 'complete' ? esgResult.data?.total : null;
+    const esgEnvironmental = esgResult?.status === 'complete' ? esgResult.data?.environmental?.normalized : null;
 
     // Mejoras según clase energética
     if (['D', 'E', 'F', 'G'].includes(rating)) {
@@ -376,15 +485,30 @@ export class TechnicalAuditService {
     });
 
     // Energías renovables (si no hay o es bajo el porcentaje)
+    // Usa datos del libro digital (campos_ambientales) y del ESG para priorizar
     const renewableShare = camposAmbientales.renewableSharePercent || 0;
     if (renewableShare < 30) {
+      // Si el ESG ambiental es bajo, priorizar más las energías renovables
+      const shouldPrioritizeRenewable = esgEnvironmental !== null && esgEnvironmental < 30;
       improvements.push({
         id: `improvement-${improvementId++}`,
         type: 'renewable',
         title: 'Instalación de energías renovables',
         description: 'Instalar paneles solares u otros sistemas de energía renovable puede reducir significativamente el consumo energético y las emisiones.',
         estimatedSavingsKwhPerM2: 20,
-        priority: renewableShare === 0 ? 'high' : 'medium'
+        priority: renewableShare === 0 || shouldPrioritizeRenewable ? 'high' : 'medium'
+      });
+    }
+
+    // Si el ESG ambiental es bajo, agregar recomendaciones adicionales basadas en ESG
+    if (esgEnvironmental !== null && esgEnvironmental < 35) {
+      improvements.push({
+        id: `improvement-${improvementId++}`,
+        type: 'insulation',
+        title: 'Mejora urgente de eficiencia energética',
+        description: `El score ESG ambiental es bajo (${esgEnvironmental.toFixed(1)}/50). Se recomienda priorizar mejoras de eficiencia energética para mejorar la sostenibilidad del edificio.`,
+        estimatedSavingsKwhPerM2: 25,
+        priority: 'high'
       });
     }
 
