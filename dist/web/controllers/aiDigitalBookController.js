@@ -74,19 +74,11 @@ class AIDigitalBookController {
                 let documentText = "";
                 try {
                     if (req.file.mimetype === "application/pdf") {
-                        // Importación dinámica (lazy) de pdf-parse para evitar crash al iniciar
-                        const { PDFParse } = await Promise.resolve().then(() => __importStar(require("pdf-parse")));
+                        // pdf-parse 1.x: API compatible con Node en Fly (sin DOMMatrix/canvas)
+                        const pdfParse = (await Promise.resolve().then(() => __importStar(require("pdf-parse")))).default;
                         const dataBuffer = req.file.buffer;
-                        const parser = new PDFParse({ data: dataBuffer });
-                        try {
-                            const result = await parser.getText();
-                            documentText = result.text ?? "";
-                            await parser.destroy();
-                        }
-                        catch (pdfError) {
-                            await parser.destroy().catch(() => { });
-                            throw pdfError;
-                        }
+                        const data = await pdfParse(dataBuffer);
+                        documentText = data?.text ?? "";
                         console.log(`PDF procesado: ${req.file.originalname}`);
                         console.log("Texto extraído:", documentText.length, "caracteres");
                     }

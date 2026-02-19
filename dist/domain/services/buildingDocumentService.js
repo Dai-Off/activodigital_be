@@ -2,9 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuildingDocumentService = void 0;
 const supabase_1 = require("../../lib/supabase");
+const aiProcessingService_1 = require("./aiProcessingService");
 class BuildingDocumentService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
+    }
+    getAIService() {
+        return new aiProcessingService_1.AIProcessingService();
     }
     async createBuildingDocument(data, userAuthId) {
         const documentData = {
@@ -26,6 +30,11 @@ class BuildingDocumentService {
             .single();
         if (error) {
             throw new Error(`Error al crear documento de edificio: ${error.message}`);
+        }
+        if (document && document.category && document.category !== "financial") {
+            this.updateExpirationDateWithAI(document).catch((err) => {
+                console.error("Error actualizando expiration_date con IA:", err);
+            });
         }
         return this.mapToBuildingDocument(document);
     }
@@ -101,6 +110,34 @@ class BuildingDocumentService {
             created_at: dbDoc.created_at,
             updated_at: dbDoc.updated_at,
         };
+    }
+    async updateExpirationDateWithAI(dbDoc) {
+        const supabase = this.getSupabase();
+        const bucket = dbDoc.storage_bucket || "building-documents";
+        const path = dbDoc.storage_path;
+        if (!path)
+            return;
+        // 1) Generar URL firmada temporal
+        const { data: signed, error: signedError } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(path, 60 * 60); // 1 hora
+        if (signedError || !signed?.signedUrl) {
+            console.error("No se pudo generar URL firmada para extracción de expiration_date:", signedError);
+            return;
+        }
+        // 2) Pedir a la IA que detecte fecha de vencimiento
+        const aiService = this.getAIService();
+        const expiration = await aiService.extractDocumentExpirationFromUrl(signed.signedUrl);
+        if (!expiration)
+            return;
+        // 3) Actualizar fila en Supabase
+        const { error: updateError } = await supabase
+            .from("building_documents")
+            .update({ expiration_date: expiration })
+            .eq("id", dbDoc.id);
+        if (updateError) {
+            console.error("Error actualizando expiration_date en building_documents:", updateError);
+        }
     }
 }
 exports.BuildingDocumentService = BuildingDocumentService;

@@ -8,6 +8,17 @@ class UserService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
     }
+    /** Obtiene el auth user_id (UUID de auth) a partir del id de la tabla users (para notificaciones). */
+    async getAuthUserIdByAppId(appUserId) {
+        const { data, error } = await this.getSupabase()
+            .from('users')
+            .select('user_id')
+            .eq('id', appUserId)
+            .single();
+        if (error || !data?.user_id)
+            return null;
+        return data.user_id;
+    }
     // Obtener usuario por ID de auth
     async getUserByAuthId(authUserId) {
         const { data, error } = await this.getSupabase()

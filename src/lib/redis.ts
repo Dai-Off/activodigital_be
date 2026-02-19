@@ -13,13 +13,14 @@ export function getRedisConnection(): Redis {
     redisClient = new Redis(REDIS_URL, {
       maxRetriesPerRequest: null, // Requerido por BullMQ para workers
       enableReadyCheck: true,
-      retryStrategy(times) {
+      retryStrategy(times: number) {
         const delay = Math.min(times * 500, 5000);
         return delay;
       },
     });
-    redisClient.on('error', (err) => {
-      console.error('[Redis] Error:', err.message);
+    redisClient.on('error', (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[Redis] Error:', message);
     });
   }
   return redisClient;

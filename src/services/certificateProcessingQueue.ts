@@ -1,4 +1,4 @@
-import { Queue, Worker } from 'bullmq';
+import { Queue, Worker, Job } from 'bullmq';
 import { getRedisConnection } from '../lib/redis';
 import { CertificateProcessingJobService } from '../domain/services/certificateProcessingJobService';
 import { UserService } from '../domain/services/userService';
@@ -11,14 +11,15 @@ const QUEUE_NAME = 'certificate-processing';
 
 const CERTIFICATE_EXTRACTOR_URL =
   process.env.CERTIFICATE_EXTRACTOR_URL || 'https://energy-certificate-extractor.fly.dev';
+let queue: Queue | null = null;
+let worker: Worker | null = null;
 
-let queue: Queue<CertificateJobPayload> | null = null;
-let worker: Worker<CertificateJobPayload> | null = null;
-
-function getQueue(): Queue<CertificateJobPayload> {
+function getQueue(): Queue {
   if (!queue) {
     queue = new Queue<CertificateJobPayload>(QUEUE_NAME, {
-      connection: getRedisConnection(),
+      // BullMQ trae su propia versión de ioredis, así que usamos un cast
+      // para evitar incompatibilidades de tipos entre ambas versiones.
+      connection: getRedisConnection() as any,
       defaultJobOptions: {
         attempts: 2,
         backoff: { type: 'exponential', delay: 5000 },
@@ -46,13 +47,14 @@ export async function addCertificateProcessingJob(jobId: string): Promise<string
 export function startCertificateProcessingWorker(): void {
   if (worker) return;
 
-  const connection = getRedisConnection();
+  // Cast para evitar incompatibilidad de tipos entre ioredis directo y el que usa BullMQ internamente.
+  const connection = getRedisConnection() as any;
   const jobService = new CertificateProcessingJobService();
   const userService = new UserService();
 
   worker = new Worker<CertificateJobPayload>(
     QUEUE_NAME,
-    async (job) => {
+    async (job: Job<CertificateJobPayload>) => {
       const { jobId } = job.data;
       const record = await jobService.getById(jobId);
       if (!record) {
@@ -123,16 +125,18 @@ export function startCertificateProcessingWorker(): void {
     }
   );
 
-  worker.on('completed', (job) => {
+  worker.on('completed', (job: Job<CertificateJobPayload>) => {
     const jobId = job?.data?.jobId ?? job?.id;
     console.log(`[CertificateQueue] Job ${jobId} completado`);
   });
-  worker.on('failed', (job, err) => {
+  worker.on('failed', (job: Job<CertificateJobPayload> | undefined, err: unknown) => {
     const jobId = job?.data?.jobId ?? job?.id;
-    console.error(`[CertificateQueue] Job ${jobId} falló:`, err?.message ?? err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[CertificateQueue] Job ${jobId} falló:`, message);
   });
-  worker.on('error', (err) => {
-    console.error('[CertificateQueue] Error en worker:', err);
+  worker.on('error', (err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[CertificateQueue] Error en worker:', message);
   });
 
   console.log('[CertificateQueue] Worker de certificados energéticos iniciado');

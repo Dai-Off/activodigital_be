@@ -200,6 +200,54 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
         }
         return sections;
     }
+    async extractDocumentExpirationFromUrl(fileUrl) {
+        try {
+            const completion = await this.openai.chat.completions.create({
+                model: 'gpt-4o',
+                response_format: { type: 'json_object' },
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'Eres un asistente especializado en leer documentos de gestión de edificios (contratos, mantenimientos, seguros, licencias, etc.) y detectar su fecha de vencimiento. ' +
+                            'Tu respuesta debe ser SIEMPRE un JSON válido con el siguiente formato exacto: {"expiration_date": "YYYY-MM-DD" | null}. ' +
+                            'Si el documento no tiene una fecha de vencimiento clara, devuelve {"expiration_date": null}. No inventes fechas.'
+                    },
+                    {
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'Analiza este documento y detecta, si existe, la fecha de vencimiento principal del documento (por ejemplo, fin de contrato, fecha hasta la que es válido, fecha de caducidad). ' +
+                                    'Devuelve solo un JSON con la clave "expiration_date" en formato YYYY-MM-DD o null si no puedes determinarla con claridad.'
+                            },
+                            {
+                                type: 'image_url',
+                                image_url: { url: fileUrl }
+                            }
+                        ]
+                    }
+                ]
+            });
+            const content = completion.choices[0]?.message?.content;
+            if (!content) {
+                return null;
+            }
+            const parsed = JSON.parse(content);
+            if (!parsed || typeof parsed !== 'object')
+                return null;
+            const expiration = parsed.expiration_date ?? null;
+            if (!expiration || typeof expiration !== 'string') {
+                return null;
+            }
+            // Pequeña validación de formato básico YYYY-MM-DD
+            const isoMatch = /^\d{4}-\d{2}-\d{2}$/.test(expiration);
+            return isoMatch ? expiration : null;
+        }
+        catch (error) {
+            console.error('Error al extraer fecha de vencimiento con IA:', error);
+            return null;
+        }
+    }
     /**
      * Genera un UUID v4 simple
      */
