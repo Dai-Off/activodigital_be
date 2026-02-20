@@ -34,6 +34,11 @@ import { getDocumentExpirationCronJob } from "./services/documentExpirationCronJ
 const documentExpirationCronJob = getDocumentExpirationCronJob();
 documentExpirationCronJob.start();
 
+// Inicializar cronjob de Idealista (1ro de cada mes)
+import { getIdealistaCronJob } from "./services/idealistaCronJob";
+const idealistaCronJob = getIdealistaCronJob();
+idealistaCronJob.start();
+
 // Iniciar workers de cola (Redis/BullMQ). Si Redis no está, solo se registra un aviso.
 import { startInvoiceProcessingWorker } from "./services/invoiceProcessingQueue";
 import { startCertificateProcessingWorker } from "./services/certificateProcessingQueue";
