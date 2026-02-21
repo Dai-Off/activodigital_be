@@ -82,7 +82,7 @@ export class IdealistaCronJob {
 
                     const request: ScrapeIdealistaRequest = {
                         locationName: municipality,
-                        maxItems: 20 // Límite por defecto para no sobrecargar
+                        maxItems: 100 // Límite por defecto para no sobrecargar
                     };
 
                     const result = await this.apifyService.scrapeIdealistaProperties(request);
@@ -95,28 +95,30 @@ export class IdealistaCronJob {
 
                     // 4. Guardar resultados para cada edificio en este municipio
                     const buildingIds = buildingsByMunicipality.get(municipality) || [];
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    // Obtener número del mes (1-12)
+                    const mes = now.getMonth() + 1;
 
                     for (const buildingId of buildingIds) {
                         try {
-                            // Upsert en la tabla price_average_building_idealist
-                            const { error: upsertError } = await supabase
+                            // Insertar en la tabla price_average_building_idealist (Histórico)
+                            const { error: insertError } = await supabase
                                 .from('price_average_building_idealist')
-                                .upsert({
+                                .insert({
                                     building_id: buildingId,
                                     totalItems: result.totalItems,
                                     averagePrice: result.averagePrice,
                                     averagePricePerSqm: result.averagePricePerSqm,
-                                    // created_at se genera automáticamente o se mantiene si ya existe
-                                    // updated_at: new Date().toISOString() // Si existe columna updated_at
-                                }, {
-                                    onConflict: 'building_id'
+                                    year: year,
+                                    month: mes
                                 });
 
-                            if (upsertError) {
-                                logger.error(`❌ Error guardando datos para edificio ${buildingId}: ${upsertError.message}`);
+                            if (insertError) {
+                                logger.error(`❌ Error guardando datos para edificio ${buildingId}: ${insertError.message}`);
                             }
-                        } catch (upsertErr: any) {
-                            logger.error(`❌ Error inesperado guardando datos para edificio ${buildingId}: ${upsertErr.message}`);
+                        } catch (insertErr: any) {
+                            logger.error(`❌ Error inesperado guardando datos para edificio ${buildingId}: ${insertErr.message}`);
                         }
                     }
 
