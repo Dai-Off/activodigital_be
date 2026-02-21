@@ -1,6 +1,7 @@
 import * as cron from 'node-cron';
 import { getSupabaseClient } from '../lib/supabase';
 import { ApifyService } from '../domain/services/idealistaScraperService';
+import { getIdealistaPriceService } from '../domain/services/idealistaPriceService';
 import { ScrapeIdealistaRequest } from '../types/idealistaScraper';
 import logger from '../utils/logger';
 
@@ -24,7 +25,7 @@ export class IdealistaCronJob {
     start(): void {
         // "0 9 1 * *" = minuto 0, hora 9, día 1 del mes, todos los meses, todos los días de la semana
         this.task = cron.schedule('0 9 1 * *', async () => {
-        // this.task = cron.schedule('*/1 * * * *', async () => {
+            // this.task = cron.schedule('*/1 * * * *', async () => {
             await this.execute();
         }, {
             timezone: "Europe/Madrid"
@@ -36,19 +37,19 @@ export class IdealistaCronJob {
     /**
      * Ejecuta el proceso de scraping
      * 1. Obtiene municipios de los edificios
-     * 2. Ejecuta scraper para cada municipio
-     * 3. Guarda los resultados en la base de datos
+     * 2. Delega la sincronización al IdealistaPriceService
      */
     async execute(): Promise<void> {
         try {
             logger.info('🔄 Iniciando cronjob de Idealista...');
 
             const supabase = getSupabaseClient();
+            const priceService = new ApifyService(); // Debería usar el IdealistaPriceService para consistencia
 
             // 1. Obtener todos los edificios para extraer municipios
             const { data: buildings, error } = await supabase
                 .from('buildings')
-                .select('id, address_data, municipality');
+                .select('id, municipality');
 
             if (error) {
                 throw new Error(`Error al obtener edificios: ${error.message}`);
@@ -59,73 +60,12 @@ export class IdealistaCronJob {
                 return;
             }
 
-            // 2. Agrupar edificios por municipio
-            const buildingsByMunicipality = new Map<string, string[]>();
+            const idealistaPriceService = getIdealistaPriceService();
 
-            buildings.forEach((building: any) => {
-                const municipality = building.municipality;
-                if (municipality) {
-                    if (!buildingsByMunicipality.has(municipality)) {
-                        buildingsByMunicipality.set(municipality, []);
-                    }
-                    buildingsByMunicipality.get(municipality)?.push(building.id);
-                }
-            });
-
-            const uniqueMunicipalities = Array.from(buildingsByMunicipality.keys());
-            logger.info(`📍 Municipios encontrados: ${uniqueMunicipalities.length}`, uniqueMunicipalities);
-
-            // 3. Ejecutar scraper para cada municipio
-            for (const municipality of uniqueMunicipalities) {
-                try {
-                    logger.info(`🔎 Scraping Idealista para: ${municipality}`);
-
-                    const request: ScrapeIdealistaRequest = {
-                        locationName: municipality,
-                        maxItems: 100 // Límite por defecto para no sobrecargar
-                    };
-
-                    const result = await this.apifyService.scrapeIdealistaProperties(request);
-
-                    logger.info(`✅ Scraping completado para ${municipality}`, {
-                        totalItems: result.totalItems,
-                        averagePrice: result.averagePrice,
-                        averagePricePerSqm: result.averagePricePerSqm
-                    });
-
-                    // 4. Guardar resultados para cada edificio en este municipio
-                    const buildingIds = buildingsByMunicipality.get(municipality) || [];
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    // Obtener número del mes (1-12)
-                    const mes = now.getMonth() + 1;
-
-                    for (const buildingId of buildingIds) {
-                        try {
-                            // Insertar en la tabla price_average_building_idealist (Histórico)
-                            const { error: insertError } = await supabase
-                                .from('price_average_building_idealist')
-                                .insert({
-                                    building_id: buildingId,
-                                    totalItems: result.totalItems,
-                                    averagePrice: result.averagePrice,
-                                    averagePricePerSqm: result.averagePricePerSqm,
-                                    year: year,
-                                    month: mes
-                                });
-
-                            if (insertError) {
-                                logger.error(`❌ Error guardando datos para edificio ${buildingId}: ${insertError.message}`);
-                            }
-                        } catch (insertErr: any) {
-                            logger.error(`❌ Error inesperado guardando datos para edificio ${buildingId}: ${insertErr.message}`);
-                        }
-                    }
-
-                    logger.info(`💾 Datos guardados para ${buildingIds.length} edificios en ${municipality}`);
-
-                } catch (err: any) {
-                    logger.error(`❌ Error scraping ${municipality}: ${err.message}`);
+            // 2. Ejecutar sincronización para cada edificio que tenga municipio
+            for (const building of buildings) {
+                if (building.municipality) {
+                    await idealistaPriceService.syncPriceForBuilding(building.id, building.municipality);
                 }
             }
 
