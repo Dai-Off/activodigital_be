@@ -5,6 +5,8 @@ export enum NotificationType {
   RENEWAL = "renewal",
   BUILDING_ASSIGNMENT = "building_assignment",
   CERTIFICATE = "certificate",
+  DOCUMENT_REJECTED = "document_rejected",
+  DOCUMENT_APPROVED = "document_approved",
 }
 
 export interface Notification {
