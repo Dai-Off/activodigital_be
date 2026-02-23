@@ -4,16 +4,7 @@ import { UserService } from '../domain/services/userService';
 import { NotificationBus } from '../domain/events/notificationBus';
 import { NotificationEvents } from '../domain/events/notificationBus';
 import type { NotificationType } from '../types/notification';
-
-/** Registro mínimo que debe tener un job en BD para que el worker pueda procesarlo y notificar. */
-export interface ProcessingJobRecord {
-  id: string;
-  user_id: string;
-  building_id: string;
-  status: string;
-  document_filename?: string;
-  [key: string]: unknown;
-}
+import type { ProcessingJobRecord } from '../types/processing';
 
 /** Servicio que lee/actualiza el job en BD (por tipo de job). */
 export interface ProcessingJobService<R extends ProcessingJobRecord = ProcessingJobRecord> {
