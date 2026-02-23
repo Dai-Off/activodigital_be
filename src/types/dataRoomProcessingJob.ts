@@ -1,4 +1,4 @@
-import { ProcessingJobRecord } from '../lib/processingQueueFactory';
+import { ProcessingJobRecord } from "./processing";
 
 export type DataRoomJobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'rejected';
 
