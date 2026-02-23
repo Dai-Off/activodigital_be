@@ -1,4 +1,4 @@
-import { ProcessingJobRecord } from '../lib/processingQueueFactory';
+import type { ProcessingJobRecord } from './processing';
 
 export type InvoiceJobStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
