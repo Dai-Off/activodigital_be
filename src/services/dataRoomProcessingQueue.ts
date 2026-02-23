@@ -12,10 +12,6 @@ const dataRoomService = new DataRoomService();
  */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Contador global para simular el rechazo cada 3 documentos (testing).
- */
-let uploadCounter = 0;
 
 const dataRoomQueue = createProcessingQueue<DataRoomProcessingJob>({
   queueName: 'data-room-processing',
@@ -30,20 +26,6 @@ const dataRoomQueue = createProcessingQueue<DataRoomProcessingJob>({
     // 2. Simular retraso de 5 segundos solicitado por el usuario
     await delay(5000);
 
-    // 3. Lógica de rechazo para testing (cada 3 cargas)
-    uploadCounter++;
-    if (uploadCounter % 3 === 0) {
-      console.log(`[DataRoomQueue] Job ${record.id} RECHAZADO automáticamente por simulación.`);
-      
-      // Actualizar auditoría a rechazado
-      await dataRoomService.updateAuditStatus(record.building_id, record.checklist_id, 'rejected');
-
-      // Seteamos el estado del job manualmente a 'rejected' antes de lanzar el error
-      await dataRoomJobService.setStatus(record.id, 'rejected', { 
-        error_message: 'El documento ha sido rechazado automáticamente para fines de test.' 
-      });
-      throw new Error('REJECTED_SIMULATION');
-    }
 
     // 4. Marcar como verificado en la auditoría
     await dataRoomService.updateAuditStatus(record.building_id, record.checklist_id, 'verified');
@@ -65,7 +47,7 @@ const dataRoomQueue = createProcessingQueue<DataRoomProcessingJob>({
   buildErrorNotificationContent: (record, filename, error) => ({
     type: NotificationType.CERTIFICATE, // O un tipo específico de ERROR si existe
     title: 'Documento rechazado',
-    message: `El documento ${filename} ha sido rechazado: ${error === 'REJECTED_SIMULATION' ? 'Revisión automática fallida' : error}`,
+    message: `El documento ${filename} ha sido rechazado: ${error}`,
     metadata: { building_id: record.building_id, checklist_id: record.checklist_id, error },
   }),
   concurrency: 1, // Procesar uno por uno para mayor visibilidad de la cola
