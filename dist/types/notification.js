@@ -9,5 +9,7 @@ var NotificationType;
     NotificationType["RENEWAL"] = "renewal";
     NotificationType["BUILDING_ASSIGNMENT"] = "building_assignment";
     NotificationType["CERTIFICATE"] = "certificate";
+    NotificationType["DOCUMENT_REJECTED"] = "document_rejected";
+    NotificationType["DOCUMENT_APPROVED"] = "document_approved";
 })(NotificationType || (exports.NotificationType = NotificationType = {}));
 //# sourceMappingURL=notification.js.map

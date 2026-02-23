@@ -56,6 +56,11 @@ export interface ProcessingQueueConfig<R extends ProcessingJobRecord = Processin
    * filename suele ser record.document_filename ?? 'documento'.
    */
   buildNotificationContent: (record: R, filename: string) => NotificationContent | null;
+  /**
+   * Construye el contenido de la notificación en caso de error.
+   * Opcional.
+   */
+  buildErrorNotificationContent?: (record: R, filename: string, error: string) => NotificationContent | null;
   /** Concurrencia del worker (default 2). */
   concurrency?: number;
 }
@@ -86,6 +91,7 @@ export function createProcessingQueue<R extends ProcessingJobRecord = Processing
     filterRecord,
     processJob,
     buildNotificationContent,
+    buildErrorNotificationContent,
     concurrency = 2,
   } = config;
 
@@ -145,7 +151,7 @@ export function createProcessingQueue<R extends ProcessingJobRecord = Processing
             if (authUserId) {
               NotificationBus.getInstance().emit(NotificationEvents.NOTIFICATION_CREATED, {
                 user_id: authUserId,
-                socket_emit_user_id: record.user_id,
+                socket_emit_user_id: authUserId, // Pasamos el AuthId directamente para el socket
                 building_id: record.building_id,
                 type: content.type,
                 title: content.title,
@@ -159,6 +165,29 @@ export function createProcessingQueue<R extends ProcessingJobRecord = Processing
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Error desconocido';
           await jobService.setStatus(jobId, 'failed', { error_message: message });
+
+          // Notificar error si hay constructor de contenido para ello
+          if (buildErrorNotificationContent) {
+            const filename = record.document_filename ?? 'documento';
+            const content = buildErrorNotificationContent(record, filename, message);
+            if (content) {
+              const authUserId = await userService.getAuthUserIdByAppId(record.user_id);
+              if (authUserId) {
+                NotificationBus.getInstance().emit(NotificationEvents.NOTIFICATION_CREATED, {
+                  user_id: authUserId,
+                  socket_emit_user_id: authUserId, // Ahora pasamos el AuthId directamente
+                  building_id: record.building_id,
+                  type: content.type,
+                  title: content.title,
+                  message: content.message,
+                  expiration: null,
+                  priority: 1, // Prioridad algo mayor para errores
+                  metadata: content.metadata,
+                });
+              }
+            }
+          }
+
           throw err;
         }
       },

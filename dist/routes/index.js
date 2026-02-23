@@ -31,6 +31,7 @@ const ai_1 = __importDefault(require("./ai"));
 const buildingDocuments_1 = __importDefault(require("./buildingDocuments"));
 const unitDocuments_1 = __importDefault(require("./unitDocuments"));
 const documentExpirationAlerts_1 = __importDefault(require("./documentExpirationAlerts"));
+const dataRoom_1 = __importDefault(require("./dataRoom"));
 const router = (0, express_1.Router)();
 router.get("/", (_req, res) => {
     res.json({ message: "¡Bienvenido a la API de Activo Digital Backend!" });
@@ -62,5 +63,6 @@ router.use("/ai", ai_1.default);
 router.use("/building-documents", buildingDocuments_1.default);
 router.use("/unit-documents", unitDocuments_1.default);
 router.use("/document-expiration-alerts", documentExpirationAlerts_1.default);
+router.use("/data-room", dataRoom_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

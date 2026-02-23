@@ -1,6 +1,8 @@
+import { ProcessingJobRecord } from '../lib/processingQueueFactory';
+
 export type CertificateJobStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
-export interface CertificateProcessingJob {
+export interface CertificateProcessingJob extends ProcessingJobRecord {
   id: string;
   user_id: string;
   building_id: string;

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { NotificationService } from "../../domain/services/notificationService";
+import { BuildingService } from "../../domain/services/edificioService";
 import {
   NotificationFilters,
   NotificationType,
@@ -11,6 +12,7 @@ import {
 
 export class NotificationController {
   private notificationService = new NotificationService();
+  private buildingService = new BuildingService();
 
   /**
    * Obtiene las notificaciones NO LEÍDAS de un edificio para el usuario autenticado.
@@ -104,6 +106,13 @@ export class NotificationController {
 
       if (!building_id || !type || !title) {
         res.status(400).json({ error: "Faltan campos obligatorios" });
+        return;
+      }
+
+      // Validar que el edificio exista antes de emitir la notificación asíncrona
+      const building = await this.buildingService.getBuildingById(building_id, req.user?.id);
+      if (!building) {
+        res.status(404).json({ error: "El edificio especificado no existe" });
         return;
       }
 

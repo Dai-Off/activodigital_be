@@ -26,6 +26,7 @@ import aiRouter from "./ai";
 import buildingDocumentsRouter from "./buildingDocuments";
 import unitDocumentsRouter from "./unitDocuments";
 import documentExpirationAlertsRouter from "./documentExpirationAlerts";
+import dataRoomRouter from "./dataRoom";
 
 const router = Router();
 
@@ -60,5 +61,6 @@ router.use("/ai", aiRouter);
 router.use("/building-documents", buildingDocumentsRouter);
 router.use("/unit-documents", unitDocumentsRouter);
 router.use("/document-expiration-alerts", documentExpirationAlertsRouter);
+router.use("/data-room", dataRoomRouter);
 
 export default router;

@@ -32,6 +32,7 @@ documentExpirationCronJob.start();
 // Iniciar workers de cola (Redis/BullMQ). Si Redis no está, solo se registra un aviso.
 const invoiceProcessingQueue_1 = require("./services/invoiceProcessingQueue");
 const certificateProcessingQueue_1 = require("./services/certificateProcessingQueue");
+const dataRoomProcessingQueue_1 = require("./services/dataRoomProcessingQueue");
 try {
     (0, invoiceProcessingQueue_1.startInvoiceProcessingWorker)();
 }
@@ -43,6 +44,12 @@ try {
 }
 catch (e) {
     console.warn("[CertificateQueue] No se pudo iniciar el worker de certificados (¿Redis configurado? REDIS_URL):", e.message);
+}
+try {
+    (0, dataRoomProcessingQueue_1.startDataRoomProcessingWorker)();
+}
+catch (e) {
+    console.warn("[DataRoomQueue] No se pudo iniciar el worker de Data Room (¿Redis configurado? REDIS_URL):", e.message);
 }
 // Iniciar el servidor
 server.listen(port, () => {
