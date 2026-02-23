@@ -1,8 +1,10 @@
+import { ProcessingJobRecord } from '../lib/processingQueueFactory';
+
 export type InvoiceJobStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
 export type ProcessingJobType = 'invoice' | 'certificate';
 
-export interface InvoiceProcessingJob {
+export interface InvoiceProcessingJob extends ProcessingJobRecord {
   id: string;
   user_id: string;
   building_id: string;

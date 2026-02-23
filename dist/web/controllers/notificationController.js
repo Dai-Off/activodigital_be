@@ -2,10 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationController = void 0;
 const notificationService_1 = require("../../domain/services/notificationService");
+const edificioService_1 = require("../../domain/services/edificioService");
 const notificationBus_1 = require("../../domain/events/notificationBus");
 class NotificationController {
     constructor() {
         this.notificationService = new notificationService_1.NotificationService();
+        this.buildingService = new edificioService_1.BuildingService();
         /**
          * Obtiene las notificaciones NO LEÍDAS de un edificio para el usuario autenticado.
          * Requiere 'buildingId' como query param.
@@ -72,6 +74,12 @@ class NotificationController {
                 const { building_id, type, title } = req.body;
                 if (!building_id || !type || !title) {
                     res.status(400).json({ error: "Faltan campos obligatorios" });
+                    return;
+                }
+                // Validar que el edificio exista antes de emitir la notificación asíncrona
+                const building = await this.buildingService.getBuildingById(building_id, req.user?.id);
+                if (!building) {
+                    res.status(404).json({ error: "El edificio especificado no existe" });
                     return;
                 }
                 const notificationData = {

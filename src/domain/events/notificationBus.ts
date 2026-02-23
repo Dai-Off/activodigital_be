@@ -49,8 +49,23 @@ export class NotificationBus extends EventEmitter {
       NotificationEvents.NOTIFICATION_CREATED,
       async (payload: CreateNotificationRequest) => {
         try {
+          // Resolvemos el ID de usuario si es necesario (App ID -> Auth UUID)
+          // Esto asegura que tanto el socket como la DB usen el ID correcto.
+          let targetUserId = payload.socket_emit_user_id ?? payload.user_id;
+          
+          if (targetUserId && !targetUserId.includes('-')) {
+            const { UserService } = await import("../services/userService");
+            const userService = new UserService();
+            const resolved = await userService.getAuthUserIdByAppId(targetUserId);
+            if (resolved) {
+              targetUserId = resolved;
+              // Actualizamos el payload para que el service lo guarde bien
+              payload.user_id = resolved;
+              payload.socket_emit_user_id = resolved;
+            }
+          }
+
           // Importación dinámica para evitar dependencias circulares si las hubiera
-          // En este caso, importamos el servicio para persistir la notificación
           const { NotificationService } = await import(
             "../services/notificationService"
           );
@@ -61,8 +76,9 @@ export class NotificationBus extends EventEmitter {
             payload
           );
 
-          // Emitir evento via Socket.io en tiempo real (socket_emit_user_id = a quién enviar; user_id = para BD)
-          const emitToUserId = payload.socket_emit_user_id ?? payload.user_id;
+          // Emitir evento via Socket.io en tiempo real
+          const emitToUserId = targetUserId || payload.user_id;
+          
           if (emitToUserId) {
             SocketService.getInstance().emitToUser(
               emitToUserId,
