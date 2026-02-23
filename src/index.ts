@@ -34,9 +34,15 @@ import { getDocumentExpirationCronJob } from "./services/documentExpirationCronJ
 const documentExpirationCronJob = getDocumentExpirationCronJob();
 documentExpirationCronJob.start();
 
+// Inicializar cronjob de Idealista (1ro de cada mes)
+import { getIdealistaCronJob } from "./services/idealistaCronJob";
+const idealistaCronJob = getIdealistaCronJob();
+idealistaCronJob.start();
+
 // Iniciar workers de cola (Redis/BullMQ). Si Redis no está, solo se registra un aviso.
 import { startInvoiceProcessingWorker } from "./services/invoiceProcessingQueue";
 import { startCertificateProcessingWorker } from "./services/certificateProcessingQueue";
+import { startDataRoomProcessingWorker } from "./services/dataRoomProcessingQueue";
 try {
   startInvoiceProcessingWorker();
 } catch (e) {
@@ -46,6 +52,11 @@ try {
   startCertificateProcessingWorker();
 } catch (e) {
   console.warn("[CertificateQueue] No se pudo iniciar el worker de certificados (¿Redis configurado? REDIS_URL):", (e as Error).message);
+}
+try {
+  startDataRoomProcessingWorker();
+} catch (e) {
+  console.warn("[DataRoomQueue] No se pudo iniciar el worker de Data Room (¿Redis configurado? REDIS_URL):", (e as Error).message);
 }
 
 // Iniciar el servidor

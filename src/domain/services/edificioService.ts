@@ -16,6 +16,7 @@ import { generateBuildingEmbedding } from "../../lib/embeddingHelper";
 import { NotificationType } from "../../types/notification";
 import { NotificationBus, NotificationEvents } from "../events/notificationBus";
 import { BookSection } from "../../types/libroDigital";
+import { getIdealistaPriceService } from "../../domain/services/idealistaPriceService";
 
 export const calculateCompletionPercentage = (
   sections: BookSection[],
@@ -160,8 +161,7 @@ export class BuildingService {
           .eq("id", building.id);
 
         throw new Error(
-          `Error al asignar técnico: ${
-            error instanceof Error ? error.message : "Error desconocido"
+          `Error al asignar técnico: ${error instanceof Error ? error.message : "Error desconocido"
           }`,
         );
       }
@@ -174,8 +174,7 @@ export class BuildingService {
       } catch (error) {
         // Si falla la invitación CFO, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar CFO: ${
-            error instanceof Error ? error.message : "Error desconocido"
+          `Error al invitar CFO: ${error instanceof Error ? error.message : "Error desconocido"
           }`,
         );
       }
@@ -192,8 +191,7 @@ export class BuildingService {
       } catch (error) {
         // Si falla la invitación del propietario, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar propietario: ${
-            error instanceof Error ? error.message : "Error desconocido"
+          `Error al invitar propietario: ${error instanceof Error ? error.message : "Error desconocido"
           }`,
         );
       }
@@ -202,6 +200,13 @@ export class BuildingService {
     generateBuildingEmbedding(building.id).catch((err) => {
       console.error("Error generando embeddings:", err);
     });
+
+    // Sincronizar precios de Idealista (si tiene municipalidad)
+    getIdealistaPriceService()
+      .syncPriceForBuilding(building.id, building.municipality)
+      .catch((err) => {
+        console.error("Error sincronizando precios de Idealista al crear edificio:", err);
+      });
 
     return this.mapToBuilding(building);
   }
@@ -241,9 +246,9 @@ export class BuildingService {
         return [];
       }
 
-      
+
       let query = supabase.from('buildings').select('*, digital_books(sections)').eq('deleted', false);
-      
+
       // TODO: Replicar la lógica exacta de filtrado del Dashboard
       // const roleName = user.role.name;
       // const userId = user.id;
