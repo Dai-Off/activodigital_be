@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinancialSnapshotService = void 0;
 const supabase_1 = require("../../lib/supabase");
 const embeddingHelper_1 = require("../../lib/embeddingHelper");
+const tirCalculator_1 = require("../../utils/tirCalculator");
 class FinancialSnapshotService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
@@ -65,7 +66,7 @@ class FinancialSnapshotService {
     async getFinancialSnapshotsByBuilding(buildingId, userAuthId) {
         const { data: snapshots, error } = await this.getSupabase()
             .from("financial_snapshots")
-            .select("*")
+            .select("*, buildings(price, name, typology, address, images)")
             .eq("building_id", buildingId)
             .order("created_at", { ascending: false });
         if (error) {
@@ -80,7 +81,7 @@ class FinancialSnapshotService {
     async getAllFinancialSnapshotsBuilding() {
         const { data: snapshots, error } = await this.getSupabase()
             .from("financial_snapshots")
-            .select("*, buildings(name, typology, address, images )")
+            .select("*, buildings(price, name, typology, address, images)")
             .order("created_at", { ascending: false });
         if (error) {
             throw new Error(`Error al obtener financial snapshots: ${error.message}`);
@@ -94,7 +95,7 @@ class FinancialSnapshotService {
     async getFinancialSnapshotById(id, userAuthId) {
         const { data: snapshot, error } = await this.getSupabase()
             .from("financial_snapshots")
-            .select("*")
+            .select("*, buildings(price, name, typology, address, images)")
             .eq("id", id)
             .single();
         if (error) {
@@ -183,6 +184,35 @@ class FinancialSnapshotService {
         }
     }
     mapToFinancialSnapshot(dbRow) {
+        // Basic values from DB
+        const purchasePrice = dbRow?.buildings?.price ? parseFloat(dbRow.buildings.price) : 0;
+        const rehabCapex = dbRow.estimated_rehab_capex_eur ? parseFloat(dbRow.estimated_rehab_capex_eur) : 0;
+        const grossRevenue = dbRow.gross_annual_revenue_eur ? parseFloat(dbRow.gross_annual_revenue_eur) : 0;
+        const opex = dbRow.total_annual_opex_eur ? parseFloat(dbRow.total_annual_opex_eur) : 0;
+        // Deuda
+        const loanAmount = dbRow.outstanding_principal_eur ? parseFloat(dbRow.outstanding_principal_eur) : 0;
+        const interestRate = 3.5; // Placeholder since it's not in the snapshot directly, could be added later
+        const loanTermYears = 20; // Placeholder 
+        let calculatedProjectIRR = dbRow?.tir_value;
+        let calculatedCashOnCashIRR = dbRow?.cash_on_cash_value;
+        // Si hay datos financieros mínimos (Precio, Ingresos), calculamos la TIR al vuelo
+        const otherRevenue = dbRow.other_annual_revenue_eur ? parseFloat(dbRow.other_annual_revenue_eur) : 0;
+        if (purchasePrice > 0 && (grossRevenue > 0 || otherRevenue > 0)) {
+            const tirResults = (0, tirCalculator_1.calculate5YearTIR)({
+                purchasePrice,
+                rehabCapex,
+                annualRevenue: grossRevenue + otherRevenue,
+                annualOpex: opex,
+                // Optional debt params
+                ...(loanAmount > 0 && {
+                    loanAmount,
+                    interestRate,
+                    loanTermYears
+                })
+            });
+            calculatedProjectIRR = tirResults.projectIRR;
+            calculatedCashOnCashIRR = loanAmount > 0 ? tirResults.cashOnCashIRR : tirResults.projectIRR;
+        }
         return {
             id: dbRow.id,
             building_id: dbRow.building_id,
@@ -246,15 +276,17 @@ class FinancialSnapshotService {
                 letra: dbRow?.potencial_status_letter,
                 variacion: dbRow?.potential_variation,
             },
-            tir: { valor: dbRow?.tir_value, plazo: dbRow?.tir_term },
+            // Usamos los cálculos dinámicos o guardados:
+            tir: { valor: calculatedProjectIRR, plazo: dbRow?.tir_term || "5 años" },
             cash_on_cash: {
-                valor: dbRow?.cash_on_cash_value,
+                valor: calculatedCashOnCashIRR,
                 multiplicador: dbRow?.cash_on_cash_multiplicador,
             },
+            // Mapeo de CAPEX: usamos el total real o el estimado de rehabilitación como fallback
             capex: {
-                total: dbRow?.capex_total,
-                descripcion: dbRow?.capex_description,
-                estimated: dbRow?.estimated_rehab_capex_eur,
+                total: dbRow?.capex_total ?? (dbRow.estimated_rehab_capex_eur ? parseFloat(dbRow.estimated_rehab_capex_eur) : 0),
+                descripcion: dbRow?.capex_description || (dbRow.estimated_rehab_capex_eur ? "Estimación de rehabilitación" : "Sin datos"),
+                estimated: dbRow?.estimated_rehab_capex_eur ? parseFloat(dbRow.estimated_rehab_capex_eur) : 0,
             },
             subvencion: {
                 valor: dbRow?.subvention_value,

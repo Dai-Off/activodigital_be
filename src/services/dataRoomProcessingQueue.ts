@@ -3,6 +3,7 @@ import { DataRoomService } from '../domain/services/dataRoomService';
 import { NotificationType } from '../types/notification';
 import type { DataRoomProcessingJob } from '../types/dataRoomProcessingJob';
 import { createProcessingQueue } from '../lib/processingQueueFactory';
+import { getDataRoomLabel } from '../utils/dataRoomLabels';
 
 const dataRoomJobService = new DataRoomProcessingJobService();
 const dataRoomService = new DataRoomService();
@@ -38,38 +39,38 @@ const dataRoomQueue = createProcessingQueue<DataRoomProcessingJob>({
       file_name: record.file_name 
     };
   },
-  buildNotificationContent: (record, filename) => ({
-    type: NotificationType.CERTIFICATE,
-    title: 'Documento procesado',
-    message: `El documento ${filename} del Data Room ha sido procesado exitosamente.`,
-    metadata: { building_id: record.building_id, checklist_id: record.checklist_id },
-  }),
-  buildErrorNotificationContent: (record, filename, error) => ({
-    type: NotificationType.CERTIFICATE, // O un tipo específico de ERROR si existe
-    title: 'Documento rechazado',
-    message: `El documento ${filename} ha sido rechazado: ${error}`,
-    metadata: { building_id: record.building_id, checklist_id: record.checklist_id, error },
-  }),
+  buildNotificationContent: (record, filename) => {
+    const label = getDataRoomLabel(record.checklist_id);
+    return {
+      type: NotificationType.CERTIFICATE,
+      title: `${label} ha sido verificado`,
+      message: `El documento ${label} ha sido procesado y verificado correctamente.`,
+      metadata: { building_id: record.building_id, checklist_id: record.checklist_id },
+    };
+  },
+  buildErrorNotificationContent: (record, filename, error) => {
+    const label = getDataRoomLabel(record.checklist_id);
+    return {
+      type: NotificationType.CERTIFICATE,
+      title: `${label} ha sido rechazado`,
+      message: `El documento ${label} no ha podido ser verificado y ha sido rechazado.`,
+      metadata: { building_id: record.building_id, checklist_id: record.checklist_id, error },
+    };
+  },
   concurrency: 1, // Procesar uno por uno para mayor visibilidad de la cola
 });
 
 /**
  * Añade un job de procesamiento de Data Room a la cola.
  */
-export async function addDataRoomProcessingJob(jobId: string): Promise<string> {
-  return dataRoomQueue.addJob(jobId);
-}
+export const addDataRoomProcessingJob = (jobId: string) => dataRoomQueue.addJob(jobId);
 
 /**
- * Inicia el worker de la cola Data Room.
+ * Inicia el worker de procesamiento de Data Room.
  */
-export function startDataRoomProcessingWorker(): void {
-  dataRoomQueue.startWorker();
-}
+export const startDataRoomProcessingWorker = () => dataRoomQueue.startWorker();
 
 /**
- * Cierra la cola y el worker (graceful shutdown).
+ * Cierra la cola de procesamiento.
  */
-export async function closeDataRoomProcessingQueue(): Promise<void> {
-  await dataRoomQueue.close();
-}
+export const closeDataRoomQueue = () => dataRoomQueue.close();
