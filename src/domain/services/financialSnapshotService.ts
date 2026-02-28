@@ -6,6 +6,7 @@ import {
 } from "../../types/financialSnapshot";
 import { generateBuildingEmbedding } from "../../lib/embeddingHelper";
 import { calculate5YearTIR } from "../../utils/tirCalculator";
+import { calculatePotentialRating } from "../../utils/epbdCalculator";
 
 export class FinancialSnapshotService {
   getSupabase() {
@@ -89,7 +90,7 @@ export class FinancialSnapshotService {
   ): Promise<FinancialSnapshot[]> {
     const { data: snapshots, error } = await this.getSupabase()
       .from("financial_snapshots")
-      .select("*, buildings(price, name, typology, address, images)")
+      .select("*, buildings(price, name, typology, address, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
       .eq("building_id", buildingId)
       .order("created_at", { ascending: false });
 
@@ -108,7 +109,7 @@ export class FinancialSnapshotService {
   async getAllFinancialSnapshotsBuilding(): Promise<FinancialSnapshot[]> {
     const { data: snapshots, error } = await this.getSupabase()
       .from("financial_snapshots")
-      .select("*, buildings(price, name, typology, address, images)")
+      .select("*, buildings(price, name, typology, address, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -129,7 +130,7 @@ export class FinancialSnapshotService {
   ): Promise<FinancialSnapshot | null> {
     const { data: snapshot, error } = await this.getSupabase()
       .from("financial_snapshots")
-      .select("*, buildings(price, name, typology, address, images)")
+      .select("*, buildings(price, name, typology, address, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
       .eq("id", id)
       .single();
 
@@ -326,10 +327,26 @@ export class FinancialSnapshotService {
       })),
 
       estado_actual: dbRow?.current_status,
-      potencial: {
-        letra: dbRow?.potencial_status_letter,
-        variacion: dbRow?.potential_variation,
-      },
+      potencial: (() => {
+        let currentConsumption = null;
+        let currentRating = null;
+        const certs = dbRow?.buildings?.energy_certificates;
+        if (certs && Array.isArray(certs) && certs.length > 0) {
+          currentConsumption = parseFloat(certs[0].primary_energy_kwh_per_m2_year);
+          currentRating = certs[0].rating;
+        }
+        
+        const savingsPct = dbRow.estimated_energy_savings_pct ? parseFloat(dbRow.estimated_energy_savings_pct) : null;
+        let potentialLetter = dbRow?.potencial_status_letter;
+        
+        const calculatedLetter = calculatePotentialRating(currentConsumption, savingsPct, dbRow?.buildings?.typology, currentRating);
+        potentialLetter = (potentialLetter && potentialLetter !== "-") ? potentialLetter : calculatedLetter;
+        
+        return {
+          letra: potentialLetter,
+          variacion: dbRow?.potential_variation ?? savingsPct,
+        };
+      })(),
       // Usamos los cálculos dinámicos o guardados:
       tir: { valor: calculatedProjectIRR, plazo: dbRow?.tir_term || "5 años" },
       cash_on_cash: {
