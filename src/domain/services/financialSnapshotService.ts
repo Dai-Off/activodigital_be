@@ -6,7 +6,7 @@ import {
 } from "../../types/financialSnapshot";
 import { generateBuildingEmbedding } from "../../lib/embeddingHelper";
 import { calculate5YearTIR } from "../../utils/tirCalculator";
-import { calculatePotentialRating } from "../../utils/epbdCalculator";
+import { calculatePotentialRating, DEFAULT_SAVINGS_PCT } from "../../utils/epbdCalculator";
 
 export class FinancialSnapshotService {
   getSupabase() {
@@ -90,7 +90,7 @@ export class FinancialSnapshotService {
   ): Promise<FinancialSnapshot[]> {
     const { data: snapshots, error } = await this.getSupabase()
       .from("financial_snapshots")
-      .select("*, buildings(price, name, typology, address, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
+      .select("*, buildings(price, name, typology, address, province, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
       .eq("building_id", buildingId)
       .order("created_at", { ascending: false });
 
@@ -107,21 +107,111 @@ export class FinancialSnapshotService {
   }
 
   async getAllFinancialSnapshotsBuilding(): Promise<FinancialSnapshot[]> {
-    const { data: snapshots, error } = await this.getSupabase()
+    // 1. Obtener todos los edificios con su información base y certificados
+    const { data: buildings, error: bError } = await this.getSupabase()
+      .from("buildings")
+      .select("*, energy_certificates(primary_energy_kwh_per_m2_year, rating)")
+      .order("name", { ascending: true });
+
+    if (bError) {
+      throw new Error(`Error al obtener edificios: ${bError.message}`);
+    }
+
+    // 2. Obtener los últimos snapshots para cada edificio
+    const { data: snapshots, error: sError } = await this.getSupabase()
       .from("financial_snapshots")
-      .select("*, buildings(price, name, typology, address, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
+      .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      throw new Error(`Error al obtener financial snapshots: ${error.message}`);
+    if (sError) {
+      throw new Error(`Error al obtener financial snapshots: ${sError.message}`);
     }
 
-    // Si no hay snapshots, devolver array vacío
-    if (!snapshots || snapshots.length === 0) {
-      return [];
+    // 3. Mapear buildings -> snapshots (tomando el último snapshot de cada uno)
+    const buildingLatestSnapshot = new Map<string, any>();
+    for (const snap of snapshots || []) {
+      if (!buildingLatestSnapshot.has(snap.building_id)) {
+        buildingLatestSnapshot.set(snap.building_id, snap);
+      }
     }
 
-    return snapshots.map((s) => this.mapToFinancialSnapshot(s));
+    // 4. Construir la lista final de Snapshots (reales o virtuales)
+    const result: FinancialSnapshot[] = buildings.map((b) => {
+      const existingSnapshot = buildingLatestSnapshot.get(b.id);
+      
+      // Si existe el snapshot, lo mapeamos normalmente (incluye lógica de simulación interna)
+      if (existingSnapshot) {
+        // Inyectamos la relación buildings para que mapToFinancialSnapshot funcione igual
+        return this.mapToFinancialSnapshot({
+          ...existingSnapshot,
+          buildings: b
+        });
+      }
+
+      // Si NO existe, creamos un "Virtual Snapshot" para que el Radar tenga qué mostrar
+      return this.mapToVirtualSnapshot(b);
+    });
+
+    return result;
+  }
+
+  /**
+   * Crea un objeto FinancialSnapshot virtual para edificios que no tienen estudio cargado.
+   */
+  private mapToVirtualSnapshot(building: any): FinancialSnapshot {
+    const certs = building.energy_certificates;
+    let currentConsumption = null;
+    let currentRating = null;
+    if (certs && Array.isArray(certs) && certs.length > 0) {
+      currentConsumption = parseFloat(certs[0].primary_energy_kwh_per_m2_year);
+      currentRating = certs[0].rating;
+    }
+
+    const savingsPct = DEFAULT_SAVINGS_PCT;
+    const potentialLetter = calculatePotentialRating(
+      currentConsumption,
+      savingsPct,
+      building.typology,
+      currentRating,
+      building.province
+    );
+
+    return {
+      building_id: building.id,
+      period_start: new Date().toISOString(),
+      period_end: new Date().toISOString(),
+      currency: 'EUR',
+      ingresos_brutos_anuales_eur: 0,
+      walt_meses: 0,
+      concentracion_top1_pct_noi: 0,
+      opex_total_anual_eur: 0,
+      opex_energia_anual_eur: 0,
+      activo: building.name,
+      direccion: building.address,
+      topologia: building.typology,
+      images: (building.images || []).map((img: any) => ({
+        id: img.id,
+        url: img.url,
+        title: img.title,
+        filename: img.filename || img.title,
+        isMain: img.isMain,
+        uploadedAt: img.uploadedAt || new Date().toISOString(),
+      })),
+      estado_actual: currentRating || "-",
+      potencial: {
+        letra: potentialLetter,
+        variacion: savingsPct.toString(),
+        is_simulated: true
+      },
+      tir: { valor: 0, plazo: "-" },
+      cash_on_cash: { valor: 0, multiplicador: 0 },
+      capex: { total: 0, descripcion: "Sin datos", estimated: 0 },
+      subvencion: { valor: 0, porcentaje: 0 },
+      green_premium: { valor: 0, roi: 0 },
+      plazo: "-",
+      taxonomia: { porcentaje: 0 },
+      estado: { etiqueta: "Pendiente", score: 0, pendientes: "Crear snapshot" }
+    };
   }
 
   async getFinancialSnapshotById(
@@ -130,7 +220,7 @@ export class FinancialSnapshotService {
   ): Promise<FinancialSnapshot | null> {
     const { data: snapshot, error } = await this.getSupabase()
       .from("financial_snapshots")
-      .select("*, buildings(price, name, typology, address, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
+      .select("*, buildings(price, name, typology, address, province, images, energy_certificates(primary_energy_kwh_per_m2_year, rating))")
       .eq("id", id)
       .single();
 
@@ -265,6 +355,30 @@ export class FinancialSnapshotService {
       calculatedCashOnCashIRR = loanAmount > 0 ? tirResults.cashOnCashIRR : tirResults.projectIRR; 
     }
 
+    // 4. Calcular Potencial y Rating Actual
+    let currentConsumption = null;
+    let currentRating = null;
+    const certs = dbRow?.buildings?.energy_certificates;
+    if (certs && Array.isArray(certs) && certs.length > 0) {
+      currentConsumption = parseFloat(certs[0].primary_energy_kwh_per_m2_year);
+      currentRating = certs[0].rating;
+    }
+
+    const rawSavingsPct = dbRow.estimated_energy_savings_pct ? parseFloat(dbRow.estimated_energy_savings_pct) : null;
+    const isSimulated = rawSavingsPct === null || rawSavingsPct === undefined;
+    const savingsPct = isSimulated ? DEFAULT_SAVINGS_PCT : rawSavingsPct;
+    
+    let potentialLetter = dbRow?.potencial_status_letter;
+    
+    const calculatedLetter = calculatePotentialRating(
+      currentConsumption, 
+      savingsPct, 
+      dbRow?.buildings?.typology, 
+      currentRating, 
+      dbRow?.buildings?.province
+    );
+    potentialLetter = (potentialLetter && potentialLetter !== "-") ? potentialLetter : calculatedLetter;
+
     return {
       id: dbRow.id,
       building_id: dbRow.building_id,
@@ -325,28 +439,12 @@ export class FinancialSnapshotService {
         isMain: img.isMain,
         uploadedAt: img.uploadedAt || new Date().toISOString(),
       })),
-
-      estado_actual: dbRow?.current_status,
-      potencial: (() => {
-        let currentConsumption = null;
-        let currentRating = null;
-        const certs = dbRow?.buildings?.energy_certificates;
-        if (certs && Array.isArray(certs) && certs.length > 0) {
-          currentConsumption = parseFloat(certs[0].primary_energy_kwh_per_m2_year);
-          currentRating = certs[0].rating;
-        }
-        
-        const savingsPct = dbRow.estimated_energy_savings_pct ? parseFloat(dbRow.estimated_energy_savings_pct) : null;
-        let potentialLetter = dbRow?.potencial_status_letter;
-        
-        const calculatedLetter = calculatePotentialRating(currentConsumption, savingsPct, dbRow?.buildings?.typology, currentRating);
-        potentialLetter = (potentialLetter && potentialLetter !== "-") ? potentialLetter : calculatedLetter;
-        
-        return {
-          letra: potentialLetter,
-          variacion: dbRow?.potential_variation ?? savingsPct,
-        };
-      })(),
+      estado_actual: currentRating || "-",
+      potencial: {
+        letra: potentialLetter,
+        variacion: savingsPct?.toString() || "0",
+        is_simulated: isSimulated
+      },
       // Usamos los cálculos dinámicos o guardados:
       tir: { valor: calculatedProjectIRR, plazo: dbRow?.tir_term || "5 años" },
       cash_on_cash: {
@@ -369,7 +467,11 @@ export class FinancialSnapshotService {
       },
       plazo: dbRow?.term,
       taxonomia: { porcentaje: dbRow?.taxonomy },
-      estado: { etiqueta: dbRow?.status_tag, score: dbRow?.status_score },
+      estado: { 
+        etiqueta: "Pendiente", 
+        score: dbRow?.status_score || 0,
+        pendientes: dbRow?.status_tag || "Snapshot cargado"
+      },
       created_at: dbRow.created_at,
       updated_at: dbRow.updated_at,
     };

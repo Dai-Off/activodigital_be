@@ -50,7 +50,7 @@ export interface FinancialSnapshot {
   lead_time_rehab_semanas?: number | null;
 
   estado_actual?: String,
-  potencial?: { letra: String, variacion: String },
+  potencial?: { letra: String, variacion: String, is_simulated?: boolean },
   tir?: { valor: number, plazo: string },
   cash_on_cash?: { valor: number, multiplicador: number },
   capex?: { total: number, descripcion: string, estimated: number },

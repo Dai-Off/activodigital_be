@@ -29,6 +29,10 @@ socketService_1.SocketService.getInstance().initialize(server);
 const documentExpirationCronJob_1 = require("./services/documentExpirationCronJob");
 const documentExpirationCronJob = (0, documentExpirationCronJob_1.getDocumentExpirationCronJob)();
 documentExpirationCronJob.start();
+// Inicializar cronjob de Idealista (1ro de cada mes)
+const idealistaCronJob_1 = require("./services/idealistaCronJob");
+const idealistaCronJob = (0, idealistaCronJob_1.getIdealistaCronJob)();
+idealistaCronJob.start();
 // Iniciar workers de cola (Redis/BullMQ). Si Redis no está, solo se registra un aviso.
 const invoiceProcessingQueue_1 = require("./services/invoiceProcessingQueue");
 const certificateProcessingQueue_1 = require("./services/certificateProcessingQueue");

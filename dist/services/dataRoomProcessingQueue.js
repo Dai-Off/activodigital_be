@@ -1,8 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addDataRoomProcessingJob = addDataRoomProcessingJob;
-exports.startDataRoomProcessingWorker = startDataRoomProcessingWorker;
-exports.closeDataRoomProcessingQueue = closeDataRoomProcessingQueue;
+exports.closeDataRoomQueue = exports.startDataRoomProcessingWorker = exports.addDataRoomProcessingJob = void 0;
 const dataRoomProcessingJobService_1 = require("../domain/services/dataRoomProcessingJobService");
 const dataRoomService_1 = require("../domain/services/dataRoomService");
 const notification_1 = require("../types/notification");
@@ -39,7 +37,7 @@ const dataRoomQueue = (0, processingQueueFactory_1.createProcessingQueue)({
         const label = (0, dataRoomLabels_1.getDataRoomLabel)(record.checklist_id);
         return {
             type: notification_1.NotificationType.CERTIFICATE,
-            title: 'Documento verificado',
+            title: `${label} ha sido verificado`,
             message: `El documento ${label} ha sido procesado y verificado correctamente.`,
             metadata: { building_id: record.building_id, checklist_id: record.checklist_id },
         };
@@ -48,7 +46,7 @@ const dataRoomQueue = (0, processingQueueFactory_1.createProcessingQueue)({
         const label = (0, dataRoomLabels_1.getDataRoomLabel)(record.checklist_id);
         return {
             type: notification_1.NotificationType.CERTIFICATE,
-            title: 'Documento rechazado',
+            title: `${label} ha sido rechazado`,
             message: `El documento ${label} no ha podido ser verificado y ha sido rechazado.`,
             metadata: { building_id: record.building_id, checklist_id: record.checklist_id, error },
         };
@@ -58,19 +56,16 @@ const dataRoomQueue = (0, processingQueueFactory_1.createProcessingQueue)({
 /**
  * Añade un job de procesamiento de Data Room a la cola.
  */
-async function addDataRoomProcessingJob(jobId) {
-    return dataRoomQueue.addJob(jobId);
-}
+const addDataRoomProcessingJob = (jobId) => dataRoomQueue.addJob(jobId);
+exports.addDataRoomProcessingJob = addDataRoomProcessingJob;
 /**
- * Inicia el worker de la cola Data Room.
+ * Inicia el worker de procesamiento de Data Room.
  */
-function startDataRoomProcessingWorker() {
-    dataRoomQueue.startWorker();
-}
+const startDataRoomProcessingWorker = () => dataRoomQueue.startWorker();
+exports.startDataRoomProcessingWorker = startDataRoomProcessingWorker;
 /**
- * Cierra la cola y el worker (graceful shutdown).
+ * Cierra la cola de procesamiento.
  */
-async function closeDataRoomProcessingQueue() {
-    await dataRoomQueue.close();
-}
+const closeDataRoomQueue = () => dataRoomQueue.close();
+exports.closeDataRoomQueue = closeDataRoomQueue;
 //# sourceMappingURL=dataRoomProcessingQueue.js.map

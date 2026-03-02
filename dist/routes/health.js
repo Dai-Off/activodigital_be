@@ -4,11 +4,14 @@ const express_1 = require("express");
 const supabase_1 = require("../lib/supabase");
 const authMiddleware_1 = require("../web/middlewares/authMiddleware");
 const requestLogger_1 = require("../web/middlewares/requestLogger");
+const catastroApiController_1 = require("../web/controllers/catastroApiController");
 const router = (0, express_1.Router)();
 // Healthcheck básico sin autenticación (para detección automática del frontend)
 router.get('/', (_req, res) => {
     res.json({ ok: true, status: 'healthy' });
 });
+// Verificación de salud de la API de Catastro — sin autenticación (consulta del frontend al montar componente)
+router.get('/catastro', catastroApiController_1.checkCatastroHealth);
 router.use(authMiddleware_1.requireAuth);
 router.use(requestLogger_1.requestLogger);
 router.get('/supabase', async (_req, res) => {

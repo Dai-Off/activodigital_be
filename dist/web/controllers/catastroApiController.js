@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUnidadesPorRc = exports.getUnidadesPorDireccion = exports.getInmuebleXY = exports.getInmuebleLoc = exports.getInmuebleRc = exports.getVias = exports.getMunicipios = exports.getAllProvincias = void 0;
+exports.checkCatastroHealth = exports.getUnidadesPorRc = exports.getUnidadesPorDireccion = exports.getInmuebleXY = exports.getInmuebleLoc = exports.getInmuebleRc = exports.getVias = exports.getMunicipios = exports.getAllProvincias = void 0;
 const catastroApiService_1 = require("../../domain/services/catastroApiService");
 const catastroApiService = new catastroApiService_1.CatastroApiService();
 const handleExternalApiError = (res, error) => {
@@ -188,4 +188,25 @@ const getUnidadesPorRc = async (req, res) => {
     }
 };
 exports.getUnidadesPorRc = getUnidadesPorRc;
+/**
+ * Endpoint de verificación de salud de la API de Catastro.
+ * No requiere autenticación — pensado para consultas del frontend al montar el componente.
+ *
+ * Siempre devuelve HTTP 200 con un JSON que contiene:
+ *  { online: boolean, latencyMs: number, status: string }
+ * De esta forma el frontend nunca recibe un error HTTP y puede leer el diagnóstico.
+ */
+const checkCatastroHealth = async (_req, res) => {
+    try {
+        const resultado = await catastroApiService.checkHealth();
+        // Registrar latencia para métricas (compatible con Winston u otro logger)
+        console.info(`[CatastroHealth] online=${resultado.online} status=${resultado.status} latencyMs=${resultado.latencyMs}`);
+        res.status(200).json(resultado);
+    }
+    catch (error) {
+        console.error("[CatastroApiController] Error en verificación de salud:", error);
+        res.status(200).json({ online: false, latencyMs: 0, status: "error_red" });
+    }
+};
+exports.checkCatastroHealth = checkCatastroHealth;
 //# sourceMappingURL=catastroApiController.js.map

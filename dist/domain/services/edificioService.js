@@ -42,6 +42,7 @@ const user_1 = require("../../types/user");
 const embeddingHelper_1 = require("../../lib/embeddingHelper");
 const notification_1 = require("../../types/notification");
 const notificationBus_1 = require("../events/notificationBus");
+const idealistaPriceService_1 = require("../../domain/services/idealistaPriceService");
 const calculateCompletionPercentage = (sections) => {
     try {
         if (!sections || sections.length === 0)
@@ -179,6 +180,12 @@ class BuildingService {
         }
         (0, embeddingHelper_1.generateBuildingEmbedding)(building.id).catch((err) => {
             console.error("Error generando embeddings:", err);
+        });
+        // Sincronizar precios de Idealista (si tiene municipalidad)
+        (0, idealistaPriceService_1.getIdealistaPriceService)()
+            .syncPriceForBuilding(building.id, building.municipality)
+            .catch((err) => {
+            console.error("Error sincronizando precios de Idealista al crear edificio:", err);
         });
         return this.mapToBuilding(building);
     }
