@@ -232,3 +232,25 @@ export const getUnidadesPorRc = async (req: Request, res: Response) => {
     handleExternalApiError(res, error);
   }
 };
+
+/**
+ * Endpoint de verificación de salud de la API de Catastro.
+ * No requiere autenticación — pensado para consultas del frontend al montar el componente.
+ *
+ * Siempre devuelve HTTP 200 con un JSON que contiene:
+ *  { online: boolean, latencyMs: number, status: string }
+ * De esta forma el frontend nunca recibe un error HTTP y puede leer el diagnóstico.
+ */
+export const checkCatastroHealth = async (_req: Request, res: Response) => {
+  try {
+    const resultado = await catastroApiService.checkHealth();
+    // Registrar latencia para métricas (compatible con Winston u otro logger)
+    console.info(
+      `[CatastroHealth] online=${resultado.online} status=${resultado.status} latencyMs=${resultado.latencyMs}`
+    );
+    res.status(200).json(resultado);
+  } catch (error: any) {
+    console.error("[CatastroApiController] Error en verificación de salud:", error);
+    res.status(200).json({ online: false, latencyMs: 0, status: "error_red" });
+  }
+};
