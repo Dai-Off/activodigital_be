@@ -1,22 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addDataRoomProcessingJob = addDataRoomProcessingJob;
-exports.startDataRoomProcessingWorker = startDataRoomProcessingWorker;
-exports.closeDataRoomProcessingQueue = closeDataRoomProcessingQueue;
+exports.closeDataRoomQueue = exports.startDataRoomProcessingWorker = exports.addDataRoomProcessingJob = void 0;
 const dataRoomProcessingJobService_1 = require("../domain/services/dataRoomProcessingJobService");
 const dataRoomService_1 = require("../domain/services/dataRoomService");
 const notification_1 = require("../types/notification");
 const processingQueueFactory_1 = require("../lib/processingQueueFactory");
+const dataRoomLabels_1 = require("../utils/dataRoomLabels");
 const dataRoomJobService = new dataRoomProcessingJobService_1.DataRoomProcessingJobService();
 const dataRoomService = new dataRoomService_1.DataRoomService();
 /**
  * Simulación de retraso para el procesamiento.
  */
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-/**
- * Contador global para simular el rechazo cada 3 documentos (testing).
- */
-let uploadCounter = 0;
 const dataRoomQueue = (0, processingQueueFactory_1.createProcessingQueue)({
     queueName: 'data-room-processing',
     jobName: 'process-data-room-file',
@@ -28,18 +23,6 @@ const dataRoomQueue = (0, processingQueueFactory_1.createProcessingQueue)({
         console.log(`[DataRoomQueue] Iniciando simulación de 5 segundos para job: ${record.id}`);
         // 2. Simular retraso de 5 segundos solicitado por el usuario
         await delay(5000);
-        // 3. Lógica de rechazo para testing (cada 3 cargas)
-        uploadCounter++;
-        if (uploadCounter % 3 === 0) {
-            console.log(`[DataRoomQueue] Job ${record.id} RECHAZADO automáticamente por simulación.`);
-            // Actualizar auditoría a rechazado
-            await dataRoomService.updateAuditStatus(record.building_id, record.checklist_id, 'rejected');
-            // Seteamos el estado del job manualmente a 'rejected' antes de lanzar el error
-            await dataRoomJobService.setStatus(record.id, 'rejected', {
-                error_message: 'El documento ha sido rechazado automáticamente para fines de test.'
-            });
-            throw new Error('REJECTED_SIMULATION');
-        }
         // 4. Marcar como verificado en la auditoría
         await dataRoomService.updateAuditStatus(record.building_id, record.checklist_id, 'verified');
         // 5. Confirmamos que el proceso ha terminado exitosamente
@@ -50,36 +33,39 @@ const dataRoomQueue = (0, processingQueueFactory_1.createProcessingQueue)({
             file_name: record.file_name
         };
     },
-    buildNotificationContent: (record, filename) => ({
-        type: notification_1.NotificationType.CERTIFICATE,
-        title: 'Documento procesado',
-        message: `El documento ${filename} del Data Room ha sido procesado exitosamente.`,
-        metadata: { building_id: record.building_id, checklist_id: record.checklist_id },
-    }),
-    buildErrorNotificationContent: (record, filename, error) => ({
-        type: notification_1.NotificationType.CERTIFICATE, // O un tipo específico de ERROR si existe
-        title: 'Documento rechazado',
-        message: `El documento ${filename} ha sido rechazado: ${error === 'REJECTED_SIMULATION' ? 'Revisión automática fallida' : error}`,
-        metadata: { building_id: record.building_id, checklist_id: record.checklist_id, error },
-    }),
+    buildNotificationContent: (record, filename) => {
+        const label = (0, dataRoomLabels_1.getDataRoomLabel)(record.checklist_id);
+        return {
+            type: notification_1.NotificationType.CERTIFICATE,
+            title: `${label} ha sido verificado`,
+            message: `El documento ${label} ha sido procesado y verificado correctamente.`,
+            metadata: { building_id: record.building_id, checklist_id: record.checklist_id },
+        };
+    },
+    buildErrorNotificationContent: (record, filename, error) => {
+        const label = (0, dataRoomLabels_1.getDataRoomLabel)(record.checklist_id);
+        return {
+            type: notification_1.NotificationType.CERTIFICATE,
+            title: `${label} ha sido rechazado`,
+            message: `El documento ${label} no ha podido ser verificado y ha sido rechazado.`,
+            metadata: { building_id: record.building_id, checklist_id: record.checklist_id, error },
+        };
+    },
     concurrency: 1, // Procesar uno por uno para mayor visibilidad de la cola
 });
 /**
  * Añade un job de procesamiento de Data Room a la cola.
  */
-async function addDataRoomProcessingJob(jobId) {
-    return dataRoomQueue.addJob(jobId);
-}
+const addDataRoomProcessingJob = (jobId) => dataRoomQueue.addJob(jobId);
+exports.addDataRoomProcessingJob = addDataRoomProcessingJob;
 /**
- * Inicia el worker de la cola Data Room.
+ * Inicia el worker de procesamiento de Data Room.
  */
-function startDataRoomProcessingWorker() {
-    dataRoomQueue.startWorker();
-}
+const startDataRoomProcessingWorker = () => dataRoomQueue.startWorker();
+exports.startDataRoomProcessingWorker = startDataRoomProcessingWorker;
 /**
- * Cierra la cola y el worker (graceful shutdown).
+ * Cierra la cola de procesamiento.
  */
-async function closeDataRoomProcessingQueue() {
-    await dataRoomQueue.close();
-}
+const closeDataRoomQueue = () => dataRoomQueue.close();
+exports.closeDataRoomQueue = closeDataRoomQueue;
 //# sourceMappingURL=dataRoomProcessingQueue.js.map

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getSupabaseClient } from '../lib/supabase';
 import { requireAuth } from '../web/middlewares/authMiddleware';
 import { requestLogger } from '../web/middlewares/requestLogger';
+import { checkCatastroHealth } from '../web/controllers/catastroApiController';
 
 const router = Router();
 
@@ -9,6 +10,9 @@ const router = Router();
 router.get('/', (_req: Request, res: Response) => {
   res.json({ ok: true, status: 'healthy' });
 });
+
+// Verificación de salud de la API de Catastro — sin autenticación (consulta del frontend al montar componente)
+router.get('/catastro', checkCatastroHealth);
 
 router.use(requireAuth);
 router.use(requestLogger);
