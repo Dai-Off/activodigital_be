@@ -180,14 +180,81 @@ export class DataRoomService {
     return Buffer.from(pdfBytes);
   }
 
+  /**
+   * Sube un archivo a Storage sin crear registro de auditoría.
+   * Usado para batch uploads donde el checklistId lo asigna la IA.
+   */
+  async uploadToStorageTemp(
+    buildingId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const supabase = this.getSupabase();
+    const timestamp = Date.now();
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const storagePath = `${buildingId}/data-room/auto_${timestamp}_${sanitizedName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(storagePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Error subiendo archivo temporal a Storage:", uploadError);
+      throw uploadError;
+    }
+
+    return storagePath;
+  }
+
+  /**
+   * Crea o actualiza un registro de auditoría con el checklistId detectado por la IA.
+   */
+  async createOrUpdateAudit(
+    buildingId: string,
+    checklistId: string,
+    storagePath: string,
+    fileName: string,
+    status: string,
+    extractedData?: Record<string, unknown> | null,
+  ) {
+    const payload: Record<string, unknown> = {
+      building_id: buildingId,
+      checklist_id: checklistId,
+      storage_path: storagePath,
+      file_name: fileName,
+      status,
+      uploaded_at: new Date().toISOString(),
+    };
+    if (extractedData !== undefined) {
+      payload.extracted_data = extractedData;
+    }
+
+    const { error } = await this.getSupabase()
+      .from("data-room-audit")
+      .upsert(payload, { onConflict: "building_id,checklist_id" });
+
+    if (error) {
+      console.error("Error creando/actualizando auditoría:", error);
+      throw error;
+    }
+  }
+
   async updateAuditStatus(
     buildingId: string,
     checklistId: string,
-    status: string
+    status: string,
+    extractedData?: Record<string, unknown> | null,
   ) {
+    const updatePayload: Record<string, unknown> = { status };
+    if (extractedData !== undefined) {
+      updatePayload.extracted_data = extractedData;
+    }
+
     const { error } = await this.getSupabase()
       .from("data-room-audit")
-      .update({ status })
+      .update(updatePayload)
       .eq("building_id", buildingId)
       .eq("checklist_id", checklistId);
 

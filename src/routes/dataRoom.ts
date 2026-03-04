@@ -34,6 +34,24 @@ router.post(
   controller.uploadFileAsync,
 );
 
+// POST /api/data-room/upload-batch — sube hasta 5 archivos para clasificación IA automática
+router.post(
+  "/upload-batch",
+  authenticateToken,
+  upload.array("files", 5),
+  controller.uploadFileBatch,
+);
+
+// GET /api/data-room/batch-jobs/:buildingId — lista de jobs del drag & drop
+router.get(
+  "/batch-jobs/:buildingId",
+  authenticateToken,
+  controller.getBatchJobs,
+);
+
+// POST /api/data-room/classify-job — clasifica manualmente un documento batch
+router.post("/classify-job", authenticateToken, controller.classifyJob);
+
 // GET /api/data-room/job/:jobId — consulta el estado de un job de Data Room
 router.get("/job/:jobId", authenticateToken, controller.getJobStatus);
 
