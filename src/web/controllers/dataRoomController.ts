@@ -301,9 +301,23 @@ export class DataRoomController {
         return res.status(404).json({ error: "Job no encontrado" });
       }
 
+      // IMPORTANTE: Si el job ya tenía un checklistId asignado (ya sea por IA o manual)
+      // y lo estamos cambiando, debemos borrar el registro de auditoría previo para evitar duplicados.
+      const oldChecklistId = job.checklist_id;
+      if (oldChecklistId !== "__auto__" && oldChecklistId !== checklistId) {
+        await this.service.deleteAuditRecord(job.building_id, oldChecklistId);
+      }
+
       // Actualizar el job con el checklistId manual
       await this.jobService.setChecklistId(jobId, checklistId);
       await this.jobService.setStatus(jobId, "completed");
+
+      // Si el job original falló, el registro de auditoría debe reflejar que está rechazado/fallido
+      // en la nueva categoría, no que está verificado automáticamente.
+      const auditStatus =
+        job.status === "failed" || job.status === "rejected"
+          ? "rejected"
+          : "verified";
 
       // Crear/actualizar registro de auditoría con el tipo asignado manualmente
       await this.service.createOrUpdateAudit(
@@ -311,7 +325,7 @@ export class DataRoomController {
         checklistId,
         job.temp_storage_path,
         job.file_name,
-        "verified",
+        auditStatus,
       );
 
       res.json({

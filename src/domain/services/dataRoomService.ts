@@ -98,9 +98,17 @@ export class DataRoomService {
       throw new Error("No hay documentos subidos para este edificio");
     }
 
+    // Deduplicar por storage_path para evitar que un mismo archivo aparezca más de una vez
+    const seen = new Set<string>();
+    const uniqueRecords = records.filter((r) => {
+      if (!r.storage_path || seen.has(r.storage_path)) return false;
+      seen.add(r.storage_path);
+      return true;
+    });
+
     const mergedPdf = await PDFDocument.create();
 
-    for (const record of records) {
+    for (const record of uniqueRecords) {
       if (!record.storage_path) continue;
 
       // 2. Descargar el archivo desde Storage
@@ -260,6 +268,19 @@ export class DataRoomService {
 
     if (error) {
       console.error("Error al actualizar estado de auditoría:", error);
+      throw error;
+    }
+  }
+
+  async deleteAuditRecord(buildingId: string, checklistId: string) {
+    const { error } = await this.getSupabase()
+      .from("data-room-audit")
+      .delete()
+      .eq("building_id", buildingId)
+      .eq("checklist_id", checklistId);
+
+    if (error) {
+      console.error("Error al eliminar registro de auditoría:", error);
       throw error;
     }
   }
