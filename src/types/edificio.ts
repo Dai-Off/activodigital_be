@@ -1,13 +1,13 @@
 export enum BuildingTypology {
-  RESIDENTIAL = 'residential',
-  MIXED = 'mixed',
-  COMMERCIAL = 'commercial'
+  RESIDENTIAL = "residential",
+  MIXED = "mixed",
+  COMMERCIAL = "commercial",
 }
 
 export enum BuildingStatus {
-  DRAFT = 'draft',
-  READY_BOOK = 'ready_book',
-  WITH_BOOK = 'with_book'
+  DRAFT = "draft",
+  READY_BOOK = "ready_book",
+  WITH_BOOK = "with_book",
 }
 
 export interface BuildingImage {
@@ -69,7 +69,7 @@ export interface Building {
 
   // Nuevos campos financieros
   rehabilitationCost?: number; // Coste de Rehabilitación (por defecto 0)
-  potentialValue?: number;     // Valor potencial (por defecto 0)
+  potentialValue?: number; // Valor potencial (por defecto 0)
 
   // Metros cuadrados
   squareMeters?: number; // Superficie en metros cuadrados
@@ -77,8 +77,9 @@ export interface Building {
   createdAt?: string;
   updatedAt?: string;
   userId?: string; // Mantener por compatibilidad temporal
-  porcentBook?: number; 
+  porcentBook?: number;
   deleted?: boolean;
+  customData?: Record<string, any>;
 }
 
 export interface BuildingUnit {
@@ -132,11 +133,12 @@ export interface CreateBuildingRequest {
   cfoEmail?: string;
   propietarioEmail?: string;
   images?: BuildingImage[];
-  
+
   // Nuevos campos financieros opcionales
   rehabilitationCost?: number; // Coste de Rehabilitación
-  potentialValue?: number;     // Valor potencial
-  squareMeters?: number;       // Superficie en metros cuadrados
+  potentialValue?: number; // Valor potencial
+  squareMeters?: number; // Superficie en metros cuadrados
+  customData?: Record<string, any>;
 }
 
 export interface UpdateBuildingRequest extends Partial<CreateBuildingRequest> {

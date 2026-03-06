@@ -54,7 +54,7 @@ class CertificateEnergeticoService {
             errorMessage: dbSession.error_message,
             userId: dbSession.user_id,
             createdAt: dbSession.created_at,
-            updatedAt: dbSession.updated_at
+            updatedAt: dbSession.updated_at,
         };
     }
     // Mapear datos de BD a tipo EnergyCertificate
@@ -81,26 +81,28 @@ class CertificateEnergeticoService {
             imageUploadedAt: dbCert.image_uploaded_at || null,
             userId: dbCert.user_id,
             createdAt: dbCert.created_at,
-            updatedAt: dbCert.updated_at
+            updatedAt: dbCert.updated_at,
         };
     }
     /**
      * Crear sesión de certificado energético con documentos
      */
     async createEnergyCertificateSession(data, userAuthId, token) {
-        const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
+        const supabase = token
+            ? (0, supabase_1.getSupabaseClientForToken)(token)
+            : this.getSupabase();
         // Crear documentos primero
         const documentIds = [];
         for (const docData of data.documents) {
             const { data: doc, error: docError } = await supabase
-                .from('energy_certificate_documents')
+                .from("energy_certificate_documents")
                 .insert({
                 building_id: data.buildingId,
                 filename: docData.filename,
                 url: docData.url,
                 mime_type: docData.mimeType,
                 uploaded_at: docData.uploadedAt,
-                user_id: userAuthId
+                user_id: userAuthId,
             })
                 .select()
                 .single();
@@ -111,13 +113,13 @@ class CertificateEnergeticoService {
         }
         // Crear sesión
         const { data: session, error: sessionError } = await supabase
-            .from('energy_certificate_sessions')
+            .from("energy_certificate_sessions")
             .insert({
             building_id: data.buildingId,
             kind: data.kind,
             status: certificateEnergetico_1.AIExtractionStatus.UPLOADED,
             documents: documentIds,
-            user_id: userAuthId
+            user_id: userAuthId,
         })
             .select(`
         id,
@@ -143,7 +145,9 @@ class CertificateEnergeticoService {
      * Actualizar sesión de certificado energético (para extracción por IA)
      */
     async updateEnergyCertificateSession(sessionId, data, userAuthId, token) {
-        const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
+        const supabase = token
+            ? (0, supabase_1.getSupabaseClientForToken)(token)
+            : this.getSupabase();
         // Todos los usuarios pueden actualizar cualquier sesión
         const updateData = {};
         if (data.status !== undefined)
@@ -155,9 +159,9 @@ class CertificateEnergeticoService {
         if (data.errorMessage !== undefined)
             updateData.error_message = data.errorMessage;
         const { data: session, error: updateError } = await supabase
-            .from('energy_certificate_sessions')
+            .from("energy_certificate_sessions")
             .update(updateData)
-            .eq('id', sessionId)
+            .eq("id", sessionId)
             .select(`
         id,
         building_id,
@@ -185,18 +189,18 @@ class CertificateEnergeticoService {
         const supabase = this.getSupabase();
         // Primero obtener los IDs de documentos de la sesión
         const { data: session, error: sessionError } = await supabase
-            .from('energy_certificate_sessions')
-            .select('documents')
-            .eq('id', sessionId)
+            .from("energy_certificate_sessions")
+            .select("documents")
+            .eq("id", sessionId)
             .single();
         if (sessionError || !session?.documents || session.documents.length === 0) {
             return null;
         }
         // Obtener el primer documento (principal)
         const { data: document, error: docError } = await supabase
-            .from('energy_certificate_documents')
-            .select('url')
-            .eq('id', session.documents[0])
+            .from("energy_certificate_documents")
+            .select("url")
+            .eq("id", session.documents[0])
             .single();
         if (docError || !document) {
             return null;
@@ -207,25 +211,35 @@ class CertificateEnergeticoService {
      * Confirmar certificado energético y guardarlo definitivamente
      */
     async confirmEnergyCertificate(data, userAuthId, token) {
-        const supabase = token ? (0, supabase_1.getSupabaseClientForToken)(token) : this.getSupabase();
+        const supabase = token
+            ? (0, supabase_1.getSupabaseClientForToken)(token)
+            : this.getSupabase();
         // Obtener la sesión - Todos los usuarios pueden confirmar cualquier sesión
         const { data: session, error: sessionError } = await supabase
-            .from('energy_certificate_sessions')
-            .select('*')
-            .eq('id', data.sessionId)
+            .from("energy_certificate_sessions")
+            .select("*")
+            .eq("id", data.sessionId)
             .single();
         if (sessionError || !session) {
-            throw new Error('Sesión no encontrada');
+            throw new Error("Sesión no encontrada");
         }
         // Validar que los datos requeridos estén presentes
-        const requiredFields = ['rating', 'primaryEnergyKwhPerM2Year', 'emissionsKgCo2PerM2Year', 'certificateNumber', 'issuerName', 'issueDate', 'expiryDate'];
-        const missingFields = requiredFields.filter(field => !data.finalData[field]);
+        const requiredFields = [
+            "rating",
+            "primaryEnergyKwhPerM2Year",
+            "emissionsKgCo2PerM2Year",
+            "certificateNumber",
+            "issuerName",
+            "issueDate",
+            "expiryDate",
+        ];
+        const missingFields = requiredFields.filter((field) => !data.finalData[field]);
         if (missingFields.length > 0) {
-            throw new Error(`Faltan campos requeridos: ${missingFields.join(', ')}`);
+            throw new Error(`Faltan campos requeridos: ${missingFields.join(", ")}`);
         }
         // Crear certificado energético
         const { data: certificate, error: certError } = await supabase
-            .from('energy_certificates')
+            .from("energy_certificates")
             .insert({
             building_id: session.building_id,
             kind: session.kind,
@@ -243,8 +257,10 @@ class CertificateEnergeticoService {
             // Campos de imagen
             image_url: data.finalData.imageUrl,
             image_filename: data.finalData.imageFilename,
-            image_uploaded_at: data.finalData.imageUploadedAt ? new Date(data.finalData.imageUploadedAt) : null,
-            user_id: userAuthId
+            image_uploaded_at: data.finalData.imageUploadedAt
+                ? new Date(data.finalData.imageUploadedAt)
+                : null,
+            user_id: userAuthId,
         })
             .select(`
         id,
@@ -274,16 +290,16 @@ class CertificateEnergeticoService {
         }
         // Actualizar estado de la sesión a confirmado
         await supabase
-            .from('energy_certificate_sessions')
+            .from("energy_certificate_sessions")
             .update({
             status: certificateEnergetico_1.AIExtractionStatus.CONFIRMED,
             edited_data: data.finalData,
-            reviewer_user_id: session.user_id
+            reviewer_user_id: session.user_id,
         })
-            .eq('id', data.sessionId);
-        const { generateBuildingEmbedding } = await Promise.resolve().then(() => __importStar(require('../../lib/embeddingHelper')));
-        generateBuildingEmbedding(certificate.building_id).catch(err => {
-            console.error('Error generando embeddings:', err);
+            .eq("id", data.sessionId);
+        const { generateBuildingEmbedding } = await Promise.resolve().then(() => __importStar(require("../../lib/embeddingHelper")));
+        generateBuildingEmbedding(certificate.building_id).catch((err) => {
+            console.error("Error generando embeddings:", err);
         });
         return this.mapDbToEnergyCertificate(certificate);
     }
@@ -295,26 +311,26 @@ class CertificateEnergeticoService {
         // Verificar que el usuario tiene permisos sobre el edificio
         // (es propietario o técnico asignado)
         const { data: building, error: buildingError } = await supabase
-            .from('buildings')
-            .select('owner_id, technician_email, cfo_email')
-            .eq('id', buildingId)
+            .from("buildings")
+            .select("owner_id, technician_email, cfo_email")
+            .eq("id", buildingId)
             .single();
         if (buildingError || !building) {
-            throw new Error('Edificio no encontrado');
+            throw new Error("Edificio no encontrado");
         }
         // Obtener email e id del usuario actual
         const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, email')
-            .eq('user_id', userAuthId)
+            .from("users")
+            .select("id, email")
+            .eq("user_id", userAuthId)
             .single();
         if (userError || !userData) {
-            throw new Error('Usuario no encontrado');
+            throw new Error("Usuario no encontrado");
         }
         // Todos los usuarios pueden ver certificados de cualquier edificio
         // Obtener sesiones (sin filtrar por user_id, solo por building_id)
         const { data: sessions, error: sessionsError } = await supabase
-            .from('energy_certificate_sessions')
+            .from("energy_certificate_sessions")
             .select(`
         id,
         building_id,
@@ -329,14 +345,14 @@ class CertificateEnergeticoService {
         created_at,
         updated_at
       `)
-            .eq('building_id', buildingId)
-            .order('created_at', { ascending: false });
+            .eq("building_id", buildingId)
+            .order("created_at", { ascending: false });
         if (sessionsError) {
             throw new Error(`Error obteniendo sesiones: ${sessionsError.message}`);
         }
         // Obtener certificados confirmados (sin filtrar por user_id, solo por building_id)
         const { data: certificates, error: certificatesError } = await supabase
-            .from('energy_certificates')
+            .from("energy_certificates")
             .select(`
         id,
         building_id,
@@ -359,28 +375,28 @@ class CertificateEnergeticoService {
         created_at,
         updated_at
       `)
-            .eq('building_id', buildingId)
-            .order('created_at', { ascending: false });
+            .eq("building_id", buildingId)
+            .order("created_at", { ascending: false });
         if (certificatesError) {
             throw new Error(`Error obteniendo certificados: ${certificatesError.message}`);
         }
         return {
-            sessions: sessions.map(s => this.mapDbToEnergyCertificateSession(s)),
-            certificates: certificates.map(c => this.mapDbToEnergyCertificate(c))
+            sessions: sessions.map((s) => this.mapDbToEnergyCertificateSession(s)),
+            certificates: certificates.map((c) => this.mapDbToEnergyCertificate(c)),
         };
     }
     async getEnergyCertificatesByCertificatedId(certificateId) {
         const supabase = this.getSupabase();
         const { data, error: sessionError } = await supabase
-            .from('energy_certificates')
-            .select('building_id')
-            .eq('id', certificateId)
+            .from("energy_certificates")
+            .select("building_id")
+            .eq("id", certificateId)
             .single();
         if (sessionError) {
             throw new Error(`Error obteniendo certificados: ${sessionError.message}`);
         }
         return {
-            buildingId: data?.building_id
+            buildingId: data?.building_id,
         };
     }
     /**
@@ -389,7 +405,7 @@ class CertificateEnergeticoService {
     async getAllEnergyCertificatesForUser(userAuthId) {
         const supabase = this.getSupabase();
         const { data: certificates, error } = await supabase
-            .from('energy_certificates')
+            .from("energy_certificates")
             .select(`
         id,
         building_id,
@@ -413,12 +429,12 @@ class CertificateEnergeticoService {
         updated_at,
         buildings!inner(name, address)
       `)
-            .eq('user_id', userAuthId)
-            .order('created_at', { ascending: false });
+            .eq("user_id", userAuthId)
+            .order("created_at", { ascending: false });
         if (error) {
             throw new Error(`Error obteniendo certificados: ${error.message}`);
         }
-        return certificates.map(c => this.mapDbToEnergyCertificate(c));
+        return certificates.map((c) => this.mapDbToEnergyCertificate(c));
     }
     /**
      * Eliminar sesión de certificado energético
@@ -427,28 +443,28 @@ class CertificateEnergeticoService {
         const supabase = this.getSupabase();
         // Todos los usuarios pueden eliminar cualquier sesión
         const { data: session, error: sessionError } = await supabase
-            .from('energy_certificate_sessions')
-            .select('documents')
-            .eq('id', sessionId)
+            .from("energy_certificate_sessions")
+            .select("documents")
+            .eq("id", sessionId)
             .single();
         if (sessionError || !session) {
-            throw new Error('Sesión no encontrada');
+            throw new Error("Sesión no encontrada");
         }
         // Eliminar documentos asociados
         if (session.documents && session.documents.length > 0) {
             const { error: docsError } = await supabase
-                .from('energy_certificate_documents')
+                .from("energy_certificate_documents")
                 .delete()
-                .in('id', session.documents);
+                .in("id", session.documents);
             if (docsError) {
                 throw new Error(`Error eliminando documentos: ${docsError.message}`);
             }
         }
         // Eliminar sesión
         const { error: deleteError } = await supabase
-            .from('energy_certificate_sessions')
+            .from("energy_certificate_sessions")
             .delete()
-            .eq('id', sessionId);
+            .eq("id", sessionId);
         if (deleteError) {
             throw new Error(`Error eliminando sesión: ${deleteError.message}`);
         }
@@ -460,12 +476,28 @@ class CertificateEnergeticoService {
         const supabase = this.getSupabase();
         // Todos los usuarios pueden eliminar cualquier certificado
         const { error } = await supabase
-            .from('energy_certificates')
+            .from("energy_certificates")
             .delete()
-            .eq('id', certificateId);
+            .eq("id", certificateId);
         if (error) {
             throw new Error(`Error eliminando certificado: ${error.message}`);
         }
+    }
+    /**
+     * Actualizar certificado energético confirmado (edición inline)
+     */
+    async updateEnergyCertificate(certificateId, data, userAuthId) {
+        const supabase = this.getSupabase();
+        const { data: updated, error } = await supabase
+            .from("energy_certificates")
+            .update({ ...data, updated_at: new Date().toISOString() })
+            .eq("id", certificateId)
+            .select()
+            .single();
+        if (error) {
+            throw new Error(`Error actualizando certificado: ${error.message}`);
+        }
+        return this.mapDbToEnergyCertificate(updated);
     }
     /**
      * Obtener documentos de una sesión específica
@@ -474,19 +506,19 @@ class CertificateEnergeticoService {
         const supabase = this.getSupabase();
         // Todos los usuarios pueden ver documentos de cualquier sesión
         const { data: session, error: sessionError } = await supabase
-            .from('energy_certificate_sessions')
-            .select('documents')
-            .eq('id', sessionId)
+            .from("energy_certificate_sessions")
+            .select("documents")
+            .eq("id", sessionId)
             .single();
         if (sessionError || !session) {
-            throw new Error('Sesión no encontrada');
+            throw new Error("Sesión no encontrada");
         }
         if (!session.documents || session.documents.length === 0) {
             return [];
         }
         // Obtener documentos
         const { data: documents, error: docsError } = await supabase
-            .from('energy_certificate_documents')
+            .from("energy_certificate_documents")
             .select(`
         id,
         building_id,
@@ -497,11 +529,11 @@ class CertificateEnergeticoService {
         uploaded_at,
         user_id
       `)
-            .in('id', session.documents);
+            .in("id", session.documents);
         if (docsError) {
             throw new Error(`Error obteniendo documentos: ${docsError.message}`);
         }
-        return documents.map(doc => ({
+        return documents.map((doc) => ({
             id: doc.id,
             buildingId: doc.building_id,
             kind: doc.kind,
@@ -509,7 +541,7 @@ class CertificateEnergeticoService {
             url: doc.url,
             mimeType: doc.mime_type,
             uploadedAt: doc.uploaded_at,
-            userId: doc.user_id
+            userId: doc.user_id,
         }));
     }
 }
