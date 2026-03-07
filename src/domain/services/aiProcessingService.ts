@@ -1,5 +1,5 @@
-import OpenAI from 'openai';
-import { BookSection, SectionType } from '../../types/libroDigital';
+import OpenAI from "openai";
+import { BookSection, SectionType } from "../../types/libroDigital";
 
 export class AIProcessingService {
   private openai: OpenAI;
@@ -7,7 +7,9 @@ export class AIProcessingService {
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY no está configurada en las variables de entorno');
+      throw new Error(
+        "OPENAI_API_KEY no está configurada en las variables de entorno",
+      );
     }
     this.openai = new OpenAI({ apiKey });
   }
@@ -18,35 +20,37 @@ export class AIProcessingService {
   async processDocumentText(documentText: string): Promise<BookSection[]> {
     try {
       const prompt = this.buildPrompt(documentText);
-      
+
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o', // Modelo más potente para máxima precisión
+        model: "gpt-4o", // Modelo más potente para máxima precisión
         messages: [
           {
-            role: 'system',
-            content: 'Eres un asistente especializado en extraer información estructurada de documentos de libros digitales de edificios. Debes analizar TODO el documento (todas las páginas) y extraer datos para las 8 secciones: general_data, construction_features, certificates_and_licenses, maintenance_and_conservation, facilities_and_consumption, renovations_and_rehabilitations, sustainability_and_esg, annex_documents. Tu respuesta SIEMPRE debe ser un JSON válido que incluya las 8 claves; si una sección no tiene datos en el documento, inclúyela con {}.'
+            role: "system",
+            content:
+              "Eres un asistente especializado en extraer información estructurada de documentos de libros digitales de edificios. Debes analizar TODO el documento (todas las páginas) y extraer datos para las 8 secciones: general_data, construction_features, certificates_and_licenses, maintenance_and_conservation, facilities_and_consumption, renovations_and_rehabilitations, sustainability_and_esg, annex_documents. Tu respuesta SIEMPRE debe ser un JSON válido que incluya las 8 claves; si una sección no tiene datos en el documento, inclúyela con {}.",
           },
           {
-            role: 'user',
-            content: prompt
-          }
+            role: "user",
+            content: prompt,
+          },
         ],
         temperature: 0.1, // Más determinístico para extracción de datos
         max_tokens: 8000, // Suficiente para las 8 secciones completas (evitar truncado)
-        response_format: { type: 'json_object' }
+        response_format: { type: "json_object" },
       });
 
       const responseText = completion.choices[0]?.message?.content;
       if (!responseText) {
-        throw new Error('No se recibió respuesta de OpenAI');
+        throw new Error("No se recibió respuesta de OpenAI");
       }
 
       const parsedData = JSON.parse(responseText);
       return this.convertToBookSections(parsedData);
-
     } catch (error) {
-      console.error('Error al procesar documento con IA:', error);
-      throw new Error(`Error en el procesamiento con IA: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      console.error("Error al procesar documento con IA:", error);
+      throw new Error(
+        `Error en el procesamiento con IA: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      );
     }
   }
 
@@ -182,14 +186,15 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
 
     // Mapeo de claves del JSON a SectionType
     const sectionMapping: Record<string, SectionType> = {
-      'general_data': SectionType.GENERAL_DATA,
-      'construction_features': SectionType.CONSTRUCTION_FEATURES,
-      'certificates_and_licenses': SectionType.CERTIFICATES_AND_LICENSES,
-      'maintenance_and_conservation': SectionType.MAINTENANCE_AND_CONSERVATION,
-      'facilities_and_consumption': SectionType.FACILITIES_AND_CONSUMPTION,
-      'renovations_and_rehabilitations': SectionType.RENOVATIONS_AND_REHABILITATIONS,
-      'sustainability_and_esg': SectionType.SUSTAINABILITY_AND_ESG,
-      'annex_documents': SectionType.ANNEX_DOCUMENTS
+      general_data: SectionType.GENERAL_DATA,
+      construction_features: SectionType.CONSTRUCTION_FEATURES,
+      certificates_and_licenses: SectionType.CERTIFICATES_AND_LICENSES,
+      maintenance_and_conservation: SectionType.MAINTENANCE_AND_CONSERVATION,
+      facilities_and_consumption: SectionType.FACILITIES_AND_CONSUMPTION,
+      renovations_and_rehabilitations:
+        SectionType.RENOVATIONS_AND_REHABILITATIONS,
+      sustainability_and_esg: SectionType.SUSTAINABILITY_AND_ESG,
+      annex_documents: SectionType.ANNEX_DOCUMENTS,
     };
 
     // Crear las 8 secciones
@@ -201,42 +206,44 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
         id: this.generateUUID(),
         type: sectionType,
         complete: hasContent,
-        content: content
+        content: content,
       });
     }
 
     return sections;
   }
 
-  async extractDocumentExpirationFromUrl(fileUrl: string): Promise<string | null> {
+  async extractDocumentExpirationFromUrl(
+    fileUrl: string,
+  ): Promise<string | null> {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        response_format: { type: 'json_object' },
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
         messages: [
           {
-            role: 'system',
+            role: "system",
             content:
-              'Eres un asistente especializado en leer documentos de gestión de edificios (contratos, mantenimientos, seguros, licencias, etc.) y detectar su fecha de vencimiento. ' +
+              "Eres un asistente especializado en leer documentos de gestión de edificios (contratos, mantenimientos, seguros, licencias, etc.) y detectar su fecha de vencimiento. " +
               'Tu respuesta debe ser SIEMPRE un JSON válido con el siguiente formato exacto: {"expiration_date": "YYYY-MM-DD" | null}. ' +
-              'Si el documento no tiene una fecha de vencimiento clara, devuelve {"expiration_date": null}. No inventes fechas.'
+              'Si el documento no tiene una fecha de vencimiento clara, devuelve {"expiration_date": null}. No inventes fechas.',
           },
           {
-            role: 'user',
+            role: "user",
             content: [
               {
-                type: 'text',
+                type: "text",
                 text:
-                  'Analiza este documento y detecta, si existe, la fecha de vencimiento principal del documento (por ejemplo, fin de contrato, fecha hasta la que es válido, fecha de caducidad). ' +
-                  'Devuelve solo un JSON con la clave "expiration_date" en formato YYYY-MM-DD o null si no puedes determinarla con claridad.'
+                  "Analiza este documento y detecta, si existe, la fecha de vencimiento principal del documento (por ejemplo, fin de contrato, fecha hasta la que es válido, fecha de caducidad). " +
+                  'Devuelve solo un JSON con la clave "expiration_date" en formato YYYY-MM-DD o null si no puedes determinarla con claridad.',
               },
               {
-                type: 'image_url',
-                image_url: { url: fileUrl }
-              }
-            ]
-          }
-        ]
+                type: "image_url",
+                image_url: { url: fileUrl },
+              },
+            ],
+          },
+        ],
       });
 
       const content = completion.choices[0]?.message?.content;
@@ -245,10 +252,10 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
       }
 
       const parsed = JSON.parse(content);
-      if (!parsed || typeof parsed !== 'object') return null;
+      if (!parsed || typeof parsed !== "object") return null;
 
       const expiration = parsed.expiration_date ?? null;
-      if (!expiration || typeof expiration !== 'string') {
+      if (!expiration || typeof expiration !== "string") {
         return null;
       }
 
@@ -256,7 +263,7 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
       const isoMatch = /^\d{4}-\d{2}-\d{2}$/.test(expiration);
       return isoMatch ? expiration : null;
     } catch (error) {
-      console.error('Error al extraer fecha de vencimiento con IA:', error);
+      console.error("Error al extraer fecha de vencimiento con IA:", error);
       return null;
     }
   }
@@ -265,11 +272,14 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
    * Genera un UUID v4 simple
    */
   private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      },
+    );
   }
 
   /**
@@ -281,28 +291,29 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
     }
 
     const requiredTypes = Object.values(SectionType);
-    const sectionTypes = sections.map(s => s.type);
+    const sectionTypes = sections.map((s) => s.type);
 
-    return requiredTypes.every(type => sectionTypes.includes(type));
+    return requiredTypes.every((type) => sectionTypes.includes(type));
   }
 
   async extractInvoiceData(imageBuffer: Buffer): Promise<any> {
     try {
-      const base64Image = imageBuffer.toString('base64');
-      const mimeType = 'image/jpeg';
+      const base64Image = imageBuffer.toString("base64");
+      const mimeType = "image/jpeg";
 
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: "gpt-4o",
         messages: [
           {
-            role: 'system',
-            content: 'Eres un asistente especializado en extraer información de facturas de servicios. Extrae los datos y responde SIEMPRE con un JSON válido.'
+            role: "system",
+            content:
+              "Eres un asistente especializado en extraer información de facturas de servicios. Extrae los datos y responde SIEMPRE con un JSON válido.",
           },
           {
-            role: 'user',
+            role: "user",
             content: [
               {
-                type: 'text',
+                type: "text",
                 text: `Analiza esta factura y extrae la siguiente información en formato JSON:
 {
   "invoice_number": "número de factura (string o null)",
@@ -324,33 +335,92 @@ REGLAS:
 - service_type debe ser uno de: electricity, water, gas, ibi, waste
 - Las fechas deben estar en formato YYYY-MM-DD
 - is_overdue debe ser true o false (booleano)
-- Para calcular is_overdue: compara expiration_date con la fecha actual (${new Date().toISOString().split('T')[0]})
-- Responde SOLO con el JSON, sin texto adicional`
+- Para calcular is_overdue: compara expiration_date con la fecha actual (${new Date().toISOString().split("T")[0]})
+- Responde SOLO con el JSON, sin texto adicional`,
               },
               {
-                type: 'image_url',
+                type: "image_url",
                 image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`
-                }
-              }
-            ]
-          }
+                  url: `data:${mimeType};base64,${base64Image}`,
+                },
+              },
+            ],
+          },
         ],
         temperature: 0.1,
         max_tokens: 1000,
-        response_format: { type: 'json_object' }
+        response_format: { type: "json_object" },
       });
 
       const responseText = completion.choices[0]?.message?.content;
       if (!responseText) {
-        throw new Error('No se recibió respuesta de OpenAI');
+        throw new Error("No se recibió respuesta de OpenAI");
       }
 
       return JSON.parse(responseText);
     } catch (error) {
-      console.error('Error al extraer datos de factura con IA:', error);
-      throw new Error(`Error en extracción de factura: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      console.error("Error al extraer datos de factura con IA:", error);
+      throw new Error(
+        `Error en extracción de factura: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      );
+    }
+  }
+  async extractMemoriaCalidadesData(documentText: string): Promise<any> {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Eres un experto en construcción y arquitectura técnica. Tu tarea es analizar una Memoria de Calidades de un edificio y determinar si cumple con una serie de especificaciones técnicas. Responde siempre en formato JSON.",
+          },
+          {
+            role: "user",
+            content: `Analiza la siguiente Memoria de Calidades y para cada una de las claves del checklist, determina si el edificio lo cumple (true) o no (false) basándote en el texto.
+            
+Checklist de Especificaciones Técnicas:
+1. "sate": SATE - Aislamiento térmico (fachadas con aislamiento exterior).
+2. "ventanas": Ventanas - PVC bajo emisivo (o aluminio con rotura de puente térmico y vidrios bajo emisivos).
+3. "calefaccion": Calefacción - Aerotermia (o sistemas de alta eficiencia con bomba de calor).
+4. "fotovoltaica": Fotovoltaica - Paneles solares (instalación de paneles solares fotovoltaicos).
+5. "griferia": Grifería - Bajo consumo agua (monomandos con aireadores o sistemas de ahorro).
+6. "acabados": Acabados - Sin COVs (pinturas o materiales ecológicos/sin compuestos orgánicos volátiles).
+
+Responde ÚNICAMENTE con un JSON con este formato:
+{
+  "checklist": {
+    "sate": boolean,
+    "ventanas": boolean,
+    "calefaccion": boolean,
+    "fotovoltaica": boolean,
+    "griferia": boolean,
+    "acabados": boolean
+  },
+  "summary": "Breve resumen de por qué cumple o no (máx 200 caracteres)"
+}
+
+TEXTO DEL DOCUMENTO:
+---
+${documentText.slice(0, 40000)}
+---`,
+          },
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" },
+      });
+
+      const responseText = completion.choices[0]?.message?.content;
+      if (!responseText) {
+        throw new Error("No se recibió respuesta de OpenAI");
+      }
+
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.error("Error al analizar Memoria de Calidades:", error);
+      throw new Error(
+        `Error en el análisis de Memoria de Calidades: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      );
     }
   }
 }
-
