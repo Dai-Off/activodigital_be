@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getSupabaseClient, getSupabaseServiceRoleClient } from "../../lib/supabase";
 import { BookSection, SectionType } from "../../types/libroDigital";
 
 export class AIProcessingService {
@@ -421,6 +422,287 @@ ${documentText.slice(0, 40000)}
       throw new Error(
         `Error en el análisis de Memoria de Calidades: ${error instanceof Error ? error.message : "Error desconocido"}`,
       );
+    }
+  }
+
+  async extractLicenciaDRRequirements(documentText: string): Promise<any> {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "Eres un experto legal y técnico en normativas municipales de construcción. Tu objetivo es procesar las normativas o requisitos de Licencias/Declaraciones Responsables y extraer los requisitos estructurados."
+          },
+          {
+            role: "user",
+            content: `Analiza el siguiente texto de un documento de normativa municipal para Licencias o Declaraciones Responsables (DR) y extrae lo siguiente en formato JSON:
+1. "summary": Un resumen claro de lo que exige la normativa.
+2. "work_type": El tipo de obra principal detectada (ej. Obra Menor, Obra Mayor, Declaración Responsable).
+3. "requirements": Un arreglo de requisitos. Cada requisito debe tener:
+   - "key": identificador único en minúsculas y sin acentos (ej. "proyecto_tecnico", "pem").
+   - "label": Nombre legible del requisito.
+   - "description": Descripción detallada del requisito.
+   - "type": "document" si se requiere subir un archivo, "data" si es información de texto, monetaria o numérica que pueda verificarse contra los datos del edificio.
+
+RESPONDE ÚNICAMENTE CON UN JSON VÁLIDO.
+EJEMPLO:
+{
+  "summary": "Requisitos para solicitar...",
+  "work_type": "Declaración Responsable",
+  "requirements": [
+     {"key": "presupuesto", "label": "Presupuesto de ejecución material", "description": "Indicación del PEM", "type": "data"},
+     {"key": "proyecto_tecnico", "label": "Proyecto Técnico", "description": "Proyecto firmado por técnico competente", "type": "document"}
+  ]
+}
+
+TEXTO DEL DOCUMENTO:
+---
+${documentText.slice(0, 40000)}
+---`
+          }
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" }
+      });
+
+      const responseText = completion.choices[0]?.message?.content;
+      if (!responseText) throw new Error("No se recibió respuesta de OpenAI");
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.error("Error al extraer requisitos con IA:", error);
+      throw new Error("Error en la extracción de requisitos");
+    }
+  }
+
+  async extractLicenciaDRDocData(documentText: string, requirementName: string): Promise<any> {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "Eres un asistente especializado en revisar documentos técnicos y extraer datos clave."
+          },
+          {
+            role: "user",
+            content: `Revisa este documento aportado para el requisito "${requirementName}".
+Extrae los parámetros clave en formato JSON.
+1. "summary_data": Resumen indicando si el documento parece válido para el requisito.
+2. "extracted_parameters": Objeto clave-valor con los datos extraídos (ej. pem, tecnicos_firmantes, descripcion_obra).
+
+RESPONDE ÚNICAMENTE CON UN JSON VÁLIDO.
+TEXTO DEL DOCUMENTO:
+---
+${documentText.slice(0, 40000)}
+---`
+          }
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" }
+      });
+
+      const responseText = completion.choices[0]?.message?.content;
+      if (!responseText) throw new Error("No se recibió respuesta de OpenAI");
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.error("Error al extraer datos del documento con IA:", error);
+      throw new Error("Error en la extracción de datos del documento");
+    }
+  }
+
+  async generateLicenciaDraft(buildingData: any, extractedData: any): Promise<Buffer> {
+    try {
+      // 1. Generar texto con OpenAI
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "Eres un asistente técnico-administrativo redactor de RESOLUCIONES municipales de urbanismo en España. Tu objetivo es generar el borrador de la LICENCIA CONCEDIDA o la RESOLUCIÓN FAVORABLE de una declaración responsable, lista para su revisión, sin usar marcadores de posición como [...] o [fecha]."
+          },
+          {
+            role: "user",
+            content: `Redacta el borrador de la RESOLUCIÓN de Licencia Urbanística / Declaración Responsable. 
+El documento debe redactarse desde la perspectiva del Ayuntamiento (Administración) concediendo o validando la actuación.
+
+ESTRUCTURA OBLIGATORIA:
+1. ENCABEZADO: Ayuntamiento correspondiente, Área de Urbanismo.
+2. ANTECEDENTES/IDENTIFICACIÓN: Datos del edificio, propietario/interesado y referencia catastral.
+3. RESOLUCIÓN: Declarar la concesión de la Licencia o la toma de razón favorable de la Declaración Responsable para la obra descrita.
+4. CONDICIONANTES Y DOCUMENTACIÓN: Lista numerada de los requisitos técnicos CUMPLIDOS (ver status_summary). Incluye referencias a los archivos aportados (PEM, planos, memorias, etc.).
+5. CIERRE: Lugar y fecha (usa la fecha actual: ${new Date().toLocaleDateString('es-ES')}).
+IMPORTANTE: NO escribas nada referente a la firma, ya que el sistema añadirá automáticamente un espacio reservado para "Firma de la Autoridad Competente" al final.
+
+DATOS DISPONIBLES:
+Edificio: ${JSON.stringify(buildingData)}
+Datos aportados: ${JSON.stringify(extractedData)}
+
+REGLAS ADICIONALES:
+- Usa un lenguaje administrativo, formal y resolutivo.
+- No uses formato Markdown.
+- Responde ÚNICAMENTE con texto plano.
+- Solo incluye documentación marcada como 'satisfied: true' en status_summary.`
+          }
+        ],
+        temperature: 0.2
+      });
+
+      const draftText = completion.choices[0]?.message?.content || "Borrador generado por IA";
+      
+      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+      const pdfDoc = await PDFDocument.create();
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      
+      // Función para agregar nueva página y dibujar encabezado
+      const addPageWithHeaders = () => {
+        const page = pdfDoc.addPage([595.28, 841.89]); // A4
+        const { height, width } = page.getSize();
+        
+        // Header
+        page.drawText('Borrador - Concesión de Licencia / Resolución DR', {
+          x: 50,
+          y: height - 50,
+          size: 16,
+          font: boldFont,
+          color: rgb(0, 0, 0)
+        });
+        
+        page.drawText(`Documento Administrativo | Fecha: ${new Date().toLocaleDateString('es-ES')}`, {
+          x: 50,
+          y: height - 70,
+          size: 10,
+          font: font,
+          color: rgb(0.5, 0.5, 0.5)
+        });
+        
+        // Footer
+        page.drawText('ActivoDigital - Borrador de resolución para fines informativos.', {
+          x: 50,
+          y: 30,
+          size: 8,
+          font: font,
+          color: rgb(0.5, 0.5, 0.5)
+        });
+        
+        return { page, height, width, currentY: height - 120 };
+      };
+
+      let { page, width, currentY } = addPageWithHeaders();
+      const margin = 50;
+      const maxWidth = width - 2 * margin;
+
+      // Reemplaza posibles asteriscos Markdown
+      const cleanText = draftText.replace(/\*\*/g, '').replace(/\*/g, '');
+      const paragraphs = cleanText.split('\n');
+      
+      for (const p of paragraphs) {
+        if (p.trim() === '') {
+          currentY -= 15;
+          continue;
+        }
+        
+        const words = p.split(' ');
+        let currentLine = '';
+        
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const textWidth = font.widthOfTextAtSize(testLine, 11);
+          
+          if (textWidth > maxWidth && currentLine) {
+            page.drawText(currentLine, { x: margin, y: currentY, size: 11, font, color: rgb(0,0,0) });
+            currentY -= 15;
+            currentLine = word;
+            
+            if (currentY < 60) {
+              const res = addPageWithHeaders();
+              page = res.page;
+              currentY = res.currentY;
+            }
+          } else {
+            currentLine = testLine;
+          }
+        }
+        
+        if (currentLine) {
+          if (currentY < 60) {
+            const res = addPageWithHeaders();
+            page = res.page;
+            currentY = res.currentY;
+          }
+          page.drawText(currentLine, { x: margin, y: currentY, size: 11, font, color: rgb(0,0,0) });
+          currentY -= 25; // espacio después de párrafo
+        }
+      }
+
+      // Add Signature Area
+      if (currentY < 120) {
+        const res = addPageWithHeaders();
+        page = res.page;
+        currentY = res.currentY;
+      }
+      
+      currentY -= 40;
+      page.drawLine({
+        start: { x: margin + 100, y: currentY },
+        end: { x: width - margin - 100, y: currentY },
+        thickness: 1,
+        color: rgb(0, 0, 0),
+        opacity: 0.8,
+      });
+      
+      const signatureText = "Firma de la Autoridad Competente / Concejal Delegado";
+      const sigWidth = font.widthOfTextAtSize(signatureText, 9);
+      page.drawText(signatureText, {
+        x: (width / 2) - (sigWidth / 2),
+        y: currentY - 15,
+        size: 9,
+        font,
+        color: rgb(0.3, 0.3, 0.3)
+      });
+      
+      const pdfBytes = await pdfDoc.save();
+      
+      // 5. Merge additional documents if provided
+      const docPaths = extractedData.doc_paths || [];
+      console.log(`[AIProcessingService] Doc paths to merge:`, docPaths);
+
+      if (docPaths.length > 0) {
+        const mergedDoc = await PDFDocument.load(pdfBytes);
+        const supabase = getSupabaseServiceRoleClient(); // Use service role to bypass RLS
+
+        for (const path of docPaths) {
+          try {
+            console.log(`[AIProcessingService] Attempting to download: ${path}`);
+            const { data, error } = await supabase.storage
+              .from("building-documents")
+              .download(path);
+
+            if (error || !data) {
+              console.error(`[AIProcessingService] Failed to download ${path}:`, error);
+              continue;
+            }
+
+            const arrayBuffer = await data.arrayBuffer();
+            const externalDoc = await PDFDocument.load(arrayBuffer);
+            const copiedPages = await mergedDoc.copyPages(externalDoc, externalDoc.getPageIndices());
+            copiedPages.forEach((page) => mergedDoc.addPage(page));
+            console.log(`[AIProcessingService] Merged ${copiedPages.length} pages from ${path}`);
+          } catch (err) {
+            console.error(`Error merging document at ${path}:`, err);
+          }
+        }
+        
+        const finalPdfBytes = await mergedDoc.save();
+        return Buffer.from(finalPdfBytes);
+      }
+
+      return Buffer.from(pdfBytes);
+      
+    } catch (error) {
+      console.error("Error al generar borrador de licencia con IA:", error);
+      throw new Error("Error en la generación de borrador PDF");
     }
   }
 }

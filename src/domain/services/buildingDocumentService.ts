@@ -79,7 +79,9 @@ export class BuildingDocumentService {
 
     query = query.order("uploaded_at", { ascending: false });
 
+    console.log(`[DEBUG] getBuildingDocumentsByBuilding: buildingId=${buildingId}, category=${category}`);
     const { data, error } = await query;
+    console.log(`[DEBUG] Supabase result: count=${data?.length || 0}, error=${error?.message || 'none'}`);
 
     if (error) {
       throw new Error(
