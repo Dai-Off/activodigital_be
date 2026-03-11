@@ -513,156 +513,121 @@ ${documentText.slice(0, 40000)}
 
   async generateLicenciaDraft(buildingData: any, extractedData: any): Promise<Buffer> {
     try {
-      // 1. Generar texto con OpenAI
+      // 1. Generar texto con OpenAI en formato Markdown
       const completion = await this.openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: "Eres un asistente técnico-administrativo redactor de RESOLUCIONES municipales de urbanismo en España. Tu objetivo es generar el borrador de la LICENCIA CONCEDIDA o la RESOLUCIÓN FAVORABLE de una declaración responsable, lista para su revisión, sin usar marcadores de posición como [...] o [fecha]."
+            content: "Actúa como un experto en Derecho Administrativo y Urbanismo en España. Tu objetivo es generar un borrador de \"Declaración Responsable Urbanística\" que sea visualmente profesional, fácil de leer y legalmente robusto, combinando los estándares de Soto del Real, Benavente y Madrid."
           },
           {
             role: "user",
-            content: `Redacta el borrador de la RESOLUCIÓN de Licencia Urbanística / Declaración Responsable. 
-El documento debe redactarse desde la perspectiva del Ayuntamiento (Administración) concediendo o validando la actuación.
+            content: `# DIRECTRICES DE FORMATO (OBLIGATORIO)
+1. Usa **Tablas de Markdown** para todos los bloques de datos (Interesado, Emplazamiento, Presupuesto).
+2. Utiliza **Títulos (H1, H2, H3)** y líneas horizontales (---) para separar secciones.
+3. Emplea **Casillas de verificación** [ ] (o [x] si aplican) para opciones y tipos de obra.
+4. Aplica **Negrita** en términos clave legales y plazos.
+5. El tono debe ser formal, técnico y administrativo.
+6. Devuelve ÚNICAMENTE el código Markdown, sin estar envuelto en bloques de código markdown, solo el texto Markdown final.
 
-ESTRUCTURA OBLIGATORIA:
-1. ENCABEZADO: Ayuntamiento correspondiente, Área de Urbanismo.
-2. ANTECEDENTES/IDENTIFICACIÓN: Datos del edificio, propietario/interesado y referencia catastral.
-3. RESOLUCIÓN: Declarar la concesión de la Licencia o la toma de razón favorable de la Declaración Responsable para la obra descrita.
-4. CONDICIONANTES Y DOCUMENTACIÓN: Lista numerada de los requisitos técnicos CUMPLIDOS (ver status_summary). Incluye referencias a los archivos aportados (PEM, planos, memorias, etc.).
-5. CIERRE: Lugar y fecha (usa la fecha actual: ${new Date().toLocaleDateString('es-ES')}).
-IMPORTANTE: NO escribas nada referente a la firma, ya que el sistema añadirá automáticamente un espacio reservado para "Firma de la Autoridad Competente" al final.
+# ESTRUCTURA DEL DOCUMENTO
+Genera el borrador siguiendo estrictamente este orden:
 
-DATOS DISPONIBLES:
+1. **ENCABEZADO:** Título principal y espacio para el Ayuntamiento/Organismo.
+2. **SECCIÓN I: DATOS PERSONALES:** Tablas separadas para: El Declarante/Interesado, El Representante (si aplica), y El Contratista/Constructor.
+3. **SECCIÓN II: UBICACIÓN Y OBJETO:** Tabla con Dirección, Referencia Catastral y características del inmueble (m², uso actual).
+4. **SECCIÓN III: CLASIFICACIÓN DE LA ACTUACIÓN:** Listado con casillas de verificación para seleccionar el tipo de obra (Ej: Obras menores, energía fotovoltaica, primera ocupación, etc., marcando con una X las pertinentes a la actuación).
+5. **SECCIÓN IV: DATOS TÉCNICOS Y ECONÓMICOS:** Tabla con: Presupuesto (PEM), Fecha inicio/fin, y Medios auxiliares (Andamios, contenedores).
+6. **SECCIÓN V: CUERPO DE DECLARACIÓN (EL "DECLARO BAJO MI RESPONSABILIDAD"):** Puntos numerados legales sobre la veracidad, posesión de proyecto/memoria y cumplimiento de normativa.
+7. **SECCIÓN VI: DOCUMENTACIÓN ADJUNTA:** Check-list de lo que el usuario aporta. Incluye referencias a los archivos aportados (solo la documentación marcada como 'satisfied: true' en status_summary).
+8. **PIE DE PÁGINA:** Lugar, fecha (usa la fecha actual: ${new Date().toLocaleDateString('es-ES')}), espacio explícito para Firma (dibuja la línea ________) y cláusula de Protección de Datos (RGPD).
+
+# DATOS DE ENTRADA PARA EL BORRADOR
 Edificio: ${JSON.stringify(buildingData)}
-Datos aportados: ${JSON.stringify(extractedData)}
-
-REGLAS ADICIONALES:
-- Usa un lenguaje administrativo, formal y resolutivo.
-- No uses formato Markdown.
-- Responde ÚNICAMENTE con texto plano.
-- Solo incluye documentación marcada como 'satisfied: true' en status_summary.`
+Datos aportados: ${JSON.stringify(extractedData)}`
           }
         ],
         temperature: 0.2
       });
 
-      const draftText = completion.choices[0]?.message?.content || "Borrador generado por IA";
+      let draftText = completion.choices[0]?.message?.content || "# Borrador generado por IA";
       
-      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
-      const pdfDoc = await PDFDocument.create();
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      
-      // Función para agregar nueva página y dibujar encabezado
-      const addPageWithHeaders = () => {
-        const page = pdfDoc.addPage([595.28, 841.89]); // A4
-        const { height, width } = page.getSize();
-        
-        // Header
-        page.drawText('Borrador - Concesión de Licencia / Resolución DR', {
-          x: 50,
-          y: height - 50,
-          size: 16,
-          font: boldFont,
-          color: rgb(0, 0, 0)
-        });
-        
-        page.drawText(`Documento Administrativo | Fecha: ${new Date().toLocaleDateString('es-ES')}`, {
-          x: 50,
-          y: height - 70,
-          size: 10,
-          font: font,
-          color: rgb(0.5, 0.5, 0.5)
-        });
-        
-        // Footer
-        page.drawText('ActivoDigital - Borrador de resolución para fines informativos.', {
-          x: 50,
-          y: 30,
-          size: 8,
-          font: font,
-          color: rgb(0.5, 0.5, 0.5)
-        });
-        
-        return { page, height, width, currentY: height - 120 };
-      };
+      // Limpiar posibles bloques markdown envolventes
+      if (draftText.startsWith('```markdown')) {
+          draftText = draftText.replace(/^```markdown\n?/, '').replace(/\n?```$/, '');
+      } else if (draftText.startsWith('```')) {
+          draftText = draftText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      }
 
-      let { page, width, currentY } = addPageWithHeaders();
-      const margin = 50;
-      const maxWidth = width - 2 * margin;
+      // 2. Convertir Markdown a HTML
+      const { parse } = await import('marked');
+      const markdownHtml = await parse(draftText);
 
-      // Reemplaza posibles asteriscos Markdown
-      const cleanText = draftText.replace(/\*\*/g, '').replace(/\*/g, '');
-      const paragraphs = cleanText.split('\n');
+      // 3. Usar Puppeteer para generar el PDF desde HTML
+      const puppeteer = await import('puppeteer');
+      const browser = await puppeteer.launch({
+        headless: true, // "new" headless mode is standard now
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      });
+      const page = await browser.newPage();
       
-      for (const p of paragraphs) {
-        if (p.trim() === '') {
-          currentY -= 15;
-          continue;
-        }
-        
-        const words = p.split(' ');
-        let currentLine = '';
-        
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          const textWidth = font.widthOfTextAtSize(testLine, 11);
-          
-          if (textWidth > maxWidth && currentLine) {
-            page.drawText(currentLine, { x: margin, y: currentY, size: 11, font, color: rgb(0,0,0) });
-            currentY -= 15;
-            currentLine = word;
-            
-            if (currentY < 60) {
-              const res = addPageWithHeaders();
-              page = res.page;
-              currentY = res.currentY;
+      // Inyectar HTML y CSS básico profesional
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: 'Helvetica', 'Arial', sans-serif;
+              color: #333;
+              line-height: 1.5;
+              padding: 40px;
+              font-size: 14px;
             }
-          } else {
-            currentLine = testLine;
+            h1 { text-align: center; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 30px; font-size: 24px; text-transform: uppercase; }
+            h2 { color: #222; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-size: 18px; }
+            h3 { color: #444; margin-top: 20px; font-size: 16px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; font-size: 13px; }
+            th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+            th { background-color: #f7f9fa; color: #333; font-weight: bold; width: 35%; }
+            tr:nth-child(even) { background-color: #fcfcfc; }
+            ul, ol { padding-left: 20px; }
+            li { margin-bottom: 8px; text-align: justify; }
+            p { margin-bottom: 12px; text-align: justify; }
+            hr { border: 0; border-top: 1px solid #eee; margin: 30px 0; }
+            strong { color: #111; }
+            .checkbox { font-family: monospace; font-size: 16px; margin-right: 5px; color: #555; }
+            
+            /* Footer styles */
+            .footer-legal { margin-top: 50px; font-size: 11px; color: #777; text-align: justify; }
+            .signature-area { margin-top: 60px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          ${(markdownHtml as string)
+              .replace(/\[ \]/g, '<span class="checkbox">☐</span>')
+              .replace(/\[x\]/gi, '<span class="checkbox">☑</span>')
           }
-        }
-        
-        if (currentLine) {
-          if (currentY < 60) {
-            const res = addPageWithHeaders();
-            page = res.page;
-            currentY = res.currentY;
-          }
-          page.drawText(currentLine, { x: margin, y: currentY, size: 11, font, color: rgb(0,0,0) });
-          currentY -= 25; // espacio después de párrafo
-        }
-      }
+        </body>
+        </html>
+      `;
 
-      // Add Signature Area
-      if (currentY < 120) {
-        const res = addPageWithHeaders();
-        page = res.page;
-        currentY = res.currentY;
-      }
+      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
       
-      currentY -= 40;
-      page.drawLine({
-        start: { x: margin + 100, y: currentY },
-        end: { x: width - margin - 100, y: currentY },
-        thickness: 1,
-        color: rgb(0, 0, 0),
-        opacity: 0.8,
+      const generatedPdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+        displayHeaderFooter: true,
+        headerTemplate: '<div style="font-size: 8px; width: 100%; text-align: right; padding-right: 20px; color: #aaa;">Borrador - Concesión de Licencia / Resolución DR</div>',
+        footerTemplate: '<div style="font-size: 8px; width: 100%; text-align: center; color: #aaa;">ActivoDigital - Borrador de resolución para fines informativos (Pág. <span class="pageNumber"></span>/<span class="totalPages"></span>)</div>'
       });
       
-      const signatureText = "Firma de la Autoridad Competente / Concejal Delegado";
-      const sigWidth = font.widthOfTextAtSize(signatureText, 9);
-      page.drawText(signatureText, {
-        x: (width / 2) - (sigWidth / 2),
-        y: currentY - 15,
-        size: 9,
-        font,
-        color: rgb(0.3, 0.3, 0.3)
-      });
-      
-      const pdfBytes = await pdfDoc.save();
+      await browser.close();
+      const pdfBytes = Uint8Array.from(generatedPdfBuffer);
+      const { PDFDocument } = await import('pdf-lib');
       
       // 5. Merge additional documents if provided
       const docPaths = extractedData.doc_paths || [];

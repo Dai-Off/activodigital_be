@@ -1,16 +1,50 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AIProcessingService = void 0;
 const openai_1 = __importDefault(require("openai"));
+const supabase_1 = require("../../lib/supabase");
 const libroDigital_1 = require("../../types/libroDigital");
 class AIProcessingService {
     constructor() {
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            throw new Error('OPENAI_API_KEY no está configurada en las variables de entorno');
+            throw new Error("OPENAI_API_KEY no está configurada en las variables de entorno");
         }
         this.openai = new openai_1.default({ apiKey });
     }
@@ -21,31 +55,31 @@ class AIProcessingService {
         try {
             const prompt = this.buildPrompt(documentText);
             const completion = await this.openai.chat.completions.create({
-                model: 'gpt-4o', // Modelo más potente para máxima precisión
+                model: "gpt-4o", // Modelo más potente para máxima precisión
                 messages: [
                     {
-                        role: 'system',
-                        content: 'Eres un asistente especializado en extraer información estructurada de documentos de libros digitales de edificios. Debes analizar TODO el documento (todas las páginas) y extraer datos para las 8 secciones: general_data, construction_features, certificates_and_licenses, maintenance_and_conservation, facilities_and_consumption, renovations_and_rehabilitations, sustainability_and_esg, annex_documents. Tu respuesta SIEMPRE debe ser un JSON válido que incluya las 8 claves; si una sección no tiene datos en el documento, inclúyela con {}.'
+                        role: "system",
+                        content: "Eres un asistente especializado en extraer información estructurada de documentos de libros digitales de edificios. Debes analizar TODO el documento (todas las páginas) y extraer datos para las 8 secciones: general_data, construction_features, certificates_and_licenses, maintenance_and_conservation, facilities_and_consumption, renovations_and_rehabilitations, sustainability_and_esg, annex_documents. Tu respuesta SIEMPRE debe ser un JSON válido que incluya las 8 claves; si una sección no tiene datos en el documento, inclúyela con {}.",
                     },
                     {
-                        role: 'user',
-                        content: prompt
-                    }
+                        role: "user",
+                        content: prompt,
+                    },
                 ],
                 temperature: 0.1, // Más determinístico para extracción de datos
                 max_tokens: 8000, // Suficiente para las 8 secciones completas (evitar truncado)
-                response_format: { type: 'json_object' }
+                response_format: { type: "json_object" },
             });
             const responseText = completion.choices[0]?.message?.content;
             if (!responseText) {
-                throw new Error('No se recibió respuesta de OpenAI');
+                throw new Error("No se recibió respuesta de OpenAI");
             }
             const parsedData = JSON.parse(responseText);
             return this.convertToBookSections(parsedData);
         }
         catch (error) {
-            console.error('Error al procesar documento con IA:', error);
-            throw new Error(`Error en el procesamiento con IA: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+            console.error("Error al procesar documento con IA:", error);
+            throw new Error(`Error en el procesamiento con IA: ${error instanceof Error ? error.message : "Error desconocido"}`);
         }
     }
     /**
@@ -178,14 +212,14 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
         const sections = [];
         // Mapeo de claves del JSON a SectionType
         const sectionMapping = {
-            'general_data': libroDigital_1.SectionType.GENERAL_DATA,
-            'construction_features': libroDigital_1.SectionType.CONSTRUCTION_FEATURES,
-            'certificates_and_licenses': libroDigital_1.SectionType.CERTIFICATES_AND_LICENSES,
-            'maintenance_and_conservation': libroDigital_1.SectionType.MAINTENANCE_AND_CONSERVATION,
-            'facilities_and_consumption': libroDigital_1.SectionType.FACILITIES_AND_CONSUMPTION,
-            'renovations_and_rehabilitations': libroDigital_1.SectionType.RENOVATIONS_AND_REHABILITATIONS,
-            'sustainability_and_esg': libroDigital_1.SectionType.SUSTAINABILITY_AND_ESG,
-            'annex_documents': libroDigital_1.SectionType.ANNEX_DOCUMENTS
+            general_data: libroDigital_1.SectionType.GENERAL_DATA,
+            construction_features: libroDigital_1.SectionType.CONSTRUCTION_FEATURES,
+            certificates_and_licenses: libroDigital_1.SectionType.CERTIFICATES_AND_LICENSES,
+            maintenance_and_conservation: libroDigital_1.SectionType.MAINTENANCE_AND_CONSERVATION,
+            facilities_and_consumption: libroDigital_1.SectionType.FACILITIES_AND_CONSUMPTION,
+            renovations_and_rehabilitations: libroDigital_1.SectionType.RENOVATIONS_AND_REHABILITATIONS,
+            sustainability_and_esg: libroDigital_1.SectionType.SUSTAINABILITY_AND_ESG,
+            annex_documents: libroDigital_1.SectionType.ANNEX_DOCUMENTS,
         };
         // Crear las 8 secciones
         for (const [key, sectionType] of Object.entries(sectionMapping)) {
@@ -195,7 +229,7 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
                 id: this.generateUUID(),
                 type: sectionType,
                 complete: hasContent,
-                content: content
+                content: content,
             });
         }
         return sections;
@@ -203,40 +237,40 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
     async extractDocumentExpirationFromUrl(fileUrl) {
         try {
             const completion = await this.openai.chat.completions.create({
-                model: 'gpt-4o',
-                response_format: { type: 'json_object' },
+                model: "gpt-4o",
+                response_format: { type: "json_object" },
                 messages: [
                     {
-                        role: 'system',
-                        content: 'Eres un asistente especializado en leer documentos de gestión de edificios (contratos, mantenimientos, seguros, licencias, etc.) y detectar su fecha de vencimiento. ' +
+                        role: "system",
+                        content: "Eres un asistente especializado en leer documentos de gestión de edificios (contratos, mantenimientos, seguros, licencias, etc.) y detectar su fecha de vencimiento. " +
                             'Tu respuesta debe ser SIEMPRE un JSON válido con el siguiente formato exacto: {"expiration_date": "YYYY-MM-DD" | null}. ' +
-                            'Si el documento no tiene una fecha de vencimiento clara, devuelve {"expiration_date": null}. No inventes fechas.'
+                            'Si el documento no tiene una fecha de vencimiento clara, devuelve {"expiration_date": null}. No inventes fechas.',
                     },
                     {
-                        role: 'user',
+                        role: "user",
                         content: [
                             {
-                                type: 'text',
-                                text: 'Analiza este documento y detecta, si existe, la fecha de vencimiento principal del documento (por ejemplo, fin de contrato, fecha hasta la que es válido, fecha de caducidad). ' +
-                                    'Devuelve solo un JSON con la clave "expiration_date" en formato YYYY-MM-DD o null si no puedes determinarla con claridad.'
+                                type: "text",
+                                text: "Analiza este documento y detecta, si existe, la fecha de vencimiento principal del documento (por ejemplo, fin de contrato, fecha hasta la que es válido, fecha de caducidad). " +
+                                    'Devuelve solo un JSON con la clave "expiration_date" en formato YYYY-MM-DD o null si no puedes determinarla con claridad.',
                             },
                             {
-                                type: 'image_url',
-                                image_url: { url: fileUrl }
-                            }
-                        ]
-                    }
-                ]
+                                type: "image_url",
+                                image_url: { url: fileUrl },
+                            },
+                        ],
+                    },
+                ],
             });
             const content = completion.choices[0]?.message?.content;
             if (!content) {
                 return null;
             }
             const parsed = JSON.parse(content);
-            if (!parsed || typeof parsed !== 'object')
+            if (!parsed || typeof parsed !== "object")
                 return null;
             const expiration = parsed.expiration_date ?? null;
-            if (!expiration || typeof expiration !== 'string') {
+            if (!expiration || typeof expiration !== "string") {
                 return null;
             }
             // Pequeña validación de formato básico YYYY-MM-DD
@@ -244,7 +278,7 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
             return isoMatch ? expiration : null;
         }
         catch (error) {
-            console.error('Error al extraer fecha de vencimiento con IA:', error);
+            console.error("Error al extraer fecha de vencimiento con IA:", error);
             return null;
         }
     }
@@ -252,9 +286,9 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
      * Genera un UUID v4 simple
      */
     generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c === "x" ? r : (r & 0x3) | 0x8;
             return v.toString(16);
         });
     }
@@ -266,25 +300,25 @@ Responde ÚNICAMENTE con el JSON estructurado con las 8 secciones, sin texto adi
             return false;
         }
         const requiredTypes = Object.values(libroDigital_1.SectionType);
-        const sectionTypes = sections.map(s => s.type);
-        return requiredTypes.every(type => sectionTypes.includes(type));
+        const sectionTypes = sections.map((s) => s.type);
+        return requiredTypes.every((type) => sectionTypes.includes(type));
     }
     async extractInvoiceData(imageBuffer) {
         try {
-            const base64Image = imageBuffer.toString('base64');
-            const mimeType = 'image/jpeg';
+            const base64Image = imageBuffer.toString("base64");
+            const mimeType = "image/jpeg";
             const completion = await this.openai.chat.completions.create({
-                model: 'gpt-4o',
+                model: "gpt-4o",
                 messages: [
                     {
-                        role: 'system',
-                        content: 'Eres un asistente especializado en extraer información de facturas de servicios. Extrae los datos y responde SIEMPRE con un JSON válido.'
+                        role: "system",
+                        content: "Eres un asistente especializado en extraer información de facturas de servicios. Extrae los datos y responde SIEMPRE con un JSON válido.",
                     },
                     {
-                        role: 'user',
+                        role: "user",
                         content: [
                             {
-                                type: 'text',
+                                type: "text",
                                 text: `Analiza esta factura y extrae la siguiente información en formato JSON:
 {
   "invoice_number": "número de factura (string o null)",
@@ -306,31 +340,316 @@ REGLAS:
 - service_type debe ser uno de: electricity, water, gas, ibi, waste
 - Las fechas deben estar en formato YYYY-MM-DD
 - is_overdue debe ser true o false (booleano)
-- Para calcular is_overdue: compara expiration_date con la fecha actual (${new Date().toISOString().split('T')[0]})
-- Responde SOLO con el JSON, sin texto adicional`
+- Para calcular is_overdue: compara expiration_date con la fecha actual (${new Date().toISOString().split("T")[0]})
+- Responde SOLO con el JSON, sin texto adicional`,
                             },
                             {
-                                type: 'image_url',
+                                type: "image_url",
                                 image_url: {
-                                    url: `data:${mimeType};base64,${base64Image}`
-                                }
-                            }
-                        ]
-                    }
+                                    url: `data:${mimeType};base64,${base64Image}`,
+                                },
+                            },
+                        ],
+                    },
                 ],
                 temperature: 0.1,
                 max_tokens: 1000,
-                response_format: { type: 'json_object' }
+                response_format: { type: "json_object" },
             });
             const responseText = completion.choices[0]?.message?.content;
             if (!responseText) {
-                throw new Error('No se recibió respuesta de OpenAI');
+                throw new Error("No se recibió respuesta de OpenAI");
             }
             return JSON.parse(responseText);
         }
         catch (error) {
-            console.error('Error al extraer datos de factura con IA:', error);
-            throw new Error(`Error en extracción de factura: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+            console.error("Error al extraer datos de factura con IA:", error);
+            throw new Error(`Error en extracción de factura: ${error instanceof Error ? error.message : "Error desconocido"}`);
+        }
+    }
+    async extractMemoriaCalidadesData(documentText) {
+        try {
+            const completion = await this.openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: "Eres un experto en construcción y arquitectura técnica. Tu tarea es analizar una Memoria de Calidades de un edificio y determinar si cumple con una serie de especificaciones técnicas. Responde siempre en formato JSON.",
+                    },
+                    {
+                        role: "user",
+                        content: `Analiza la siguiente Memoria de Calidades y para cada una de las claves del checklist, determina si el edificio lo cumple (true) o no (false) basándote en el texto.
+            
+Checklist de Especificaciones Técnicas:
+1. "sate": SATE - Aislamiento térmico (fachadas con aislamiento exterior).
+2. "ventanas": Ventanas - PVC bajo emisivo (o aluminio con rotura de puente térmico y vidrios bajo emisivos).
+3. "calefaccion": Calefacción - Aerotermia (o sistemas de alta eficiencia con bomba de calor).
+4. "fotovoltaica": Fotovoltaica - Paneles solares (instalación de paneles solares fotovoltaicos).
+5. "griferia": Grifería - Bajo consumo agua (monomandos con aireadores o sistemas de ahorro).
+6. "acabados": Acabados - Sin COVs (pinturas o materiales ecológicos/sin compuestos orgánicos volátiles).
+
+Responde ÚNICAMENTE con un JSON con este formato:
+{
+  "checklist": {
+    "sate": boolean,
+    "ventanas": boolean,
+    "calefaccion": boolean,
+    "fotovoltaica": boolean,
+    "griferia": boolean,
+    "acabados": boolean
+  },
+  "summary": "Breve resumen de por qué cumple o no (máx 200 caracteres)"
+}
+
+TEXTO DEL DOCUMENTO:
+---
+${documentText.slice(0, 40000)}
+---`,
+                    },
+                ],
+                temperature: 0,
+                response_format: { type: "json_object" },
+            });
+            const responseText = completion.choices[0]?.message?.content;
+            if (!responseText) {
+                throw new Error("No se recibió respuesta de OpenAI");
+            }
+            return JSON.parse(responseText);
+        }
+        catch (error) {
+            console.error("Error al analizar Memoria de Calidades:", error);
+            throw new Error(`Error en el análisis de Memoria de Calidades: ${error instanceof Error ? error.message : "Error desconocido"}`);
+        }
+    }
+    async extractLicenciaDRRequirements(documentText) {
+        try {
+            const completion = await this.openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: "Eres un experto legal y técnico en normativas municipales de construcción. Tu objetivo es procesar las normativas o requisitos de Licencias/Declaraciones Responsables y extraer los requisitos estructurados."
+                    },
+                    {
+                        role: "user",
+                        content: `Analiza el siguiente texto de un documento de normativa municipal para Licencias o Declaraciones Responsables (DR) y extrae lo siguiente en formato JSON:
+1. "summary": Un resumen claro de lo que exige la normativa.
+2. "work_type": El tipo de obra principal detectada (ej. Obra Menor, Obra Mayor, Declaración Responsable).
+3. "requirements": Un arreglo de requisitos. Cada requisito debe tener:
+   - "key": identificador único en minúsculas y sin acentos (ej. "proyecto_tecnico", "pem").
+   - "label": Nombre legible del requisito.
+   - "description": Descripción detallada del requisito.
+   - "type": "document" si se requiere subir un archivo, "data" si es información de texto, monetaria o numérica que pueda verificarse contra los datos del edificio.
+
+RESPONDE ÚNICAMENTE CON UN JSON VÁLIDO.
+EJEMPLO:
+{
+  "summary": "Requisitos para solicitar...",
+  "work_type": "Declaración Responsable",
+  "requirements": [
+     {"key": "presupuesto", "label": "Presupuesto de ejecución material", "description": "Indicación del PEM", "type": "data"},
+     {"key": "proyecto_tecnico", "label": "Proyecto Técnico", "description": "Proyecto firmado por técnico competente", "type": "document"}
+  ]
+}
+
+TEXTO DEL DOCUMENTO:
+---
+${documentText.slice(0, 40000)}
+---`
+                    }
+                ],
+                temperature: 0,
+                response_format: { type: "json_object" }
+            });
+            const responseText = completion.choices[0]?.message?.content;
+            if (!responseText)
+                throw new Error("No se recibió respuesta de OpenAI");
+            return JSON.parse(responseText);
+        }
+        catch (error) {
+            console.error("Error al extraer requisitos con IA:", error);
+            throw new Error("Error en la extracción de requisitos");
+        }
+    }
+    async extractLicenciaDRDocData(documentText, requirementName) {
+        try {
+            const completion = await this.openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: "Eres un asistente especializado en revisar documentos técnicos y extraer datos clave."
+                    },
+                    {
+                        role: "user",
+                        content: `Revisa este documento aportado para el requisito "${requirementName}".
+Extrae los parámetros clave en formato JSON.
+1. "summary_data": Resumen indicando si el documento parece válido para el requisito.
+2. "extracted_parameters": Objeto clave-valor con los datos extraídos (ej. pem, tecnicos_firmantes, descripcion_obra).
+
+RESPONDE ÚNICAMENTE CON UN JSON VÁLIDO.
+TEXTO DEL DOCUMENTO:
+---
+${documentText.slice(0, 40000)}
+---`
+                    }
+                ],
+                temperature: 0,
+                response_format: { type: "json_object" }
+            });
+            const responseText = completion.choices[0]?.message?.content;
+            if (!responseText)
+                throw new Error("No se recibió respuesta de OpenAI");
+            return JSON.parse(responseText);
+        }
+        catch (error) {
+            console.error("Error al extraer datos del documento con IA:", error);
+            throw new Error("Error en la extracción de datos del documento");
+        }
+    }
+    async generateLicenciaDraft(buildingData, extractedData) {
+        try {
+            // 1. Generar texto con OpenAI en formato Markdown
+            const completion = await this.openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: "Actúa como un experto en Derecho Administrativo y Urbanismo en España. Tu objetivo es generar un borrador de \"Declaración Responsable Urbanística\" que sea visualmente profesional, fácil de leer y legalmente robusto, combinando los estándares de Soto del Real, Benavente y Madrid."
+                    },
+                    {
+                        role: "user",
+                        content: `# DIRECTRICES DE FORMATO (OBLIGATORIO)
+1. Usa **Tablas de Markdown** para todos los bloques de datos (Interesado, Emplazamiento, Presupuesto).
+2. Utiliza **Títulos (H1, H2, H3)** y líneas horizontales (---) para separar secciones.
+3. Emplea **Casillas de verificación** [ ] (o [x] si aplican) para opciones y tipos de obra.
+4. Aplica **Negrita** en términos clave legales y plazos.
+5. El tono debe ser formal, técnico y administrativo.
+6. Devuelve ÚNICAMENTE el código Markdown, sin estar envuelto en bloques de código markdown, solo el texto Markdown final.
+
+# ESTRUCTURA DEL DOCUMENTO
+Genera el borrador siguiendo estrictamente este orden:
+
+1. **ENCABEZADO:** Título principal y espacio para el Ayuntamiento/Organismo.
+2. **SECCIÓN I: DATOS PERSONALES:** Tablas separadas para: El Declarante/Interesado, El Representante (si aplica), y El Contratista/Constructor.
+3. **SECCIÓN II: UBICACIÓN Y OBJETO:** Tabla con Dirección, Referencia Catastral y características del inmueble (m², uso actual).
+4. **SECCIÓN III: CLASIFICACIÓN DE LA ACTUACIÓN:** Listado con casillas de verificación para seleccionar el tipo de obra (Ej: Obras menores, energía fotovoltaica, primera ocupación, etc., marcando con una X las pertinentes a la actuación).
+5. **SECCIÓN IV: DATOS TÉCNICOS Y ECONÓMICOS:** Tabla con: Presupuesto (PEM), Fecha inicio/fin, y Medios auxiliares (Andamios, contenedores).
+6. **SECCIÓN V: CUERPO DE DECLARACIÓN (EL "DECLARO BAJO MI RESPONSABILIDAD"):** Puntos numerados legales sobre la veracidad, posesión de proyecto/memoria y cumplimiento de normativa.
+7. **SECCIÓN VI: DOCUMENTACIÓN ADJUNTA:** Check-list de lo que el usuario aporta. Incluye referencias a los archivos aportados (solo la documentación marcada como 'satisfied: true' en status_summary).
+8. **PIE DE PÁGINA:** Lugar, fecha (usa la fecha actual: ${new Date().toLocaleDateString('es-ES')}), espacio explícito para Firma (dibuja la línea ________) y cláusula de Protección de Datos (RGPD).
+
+# DATOS DE ENTRADA PARA EL BORRADOR
+Edificio: ${JSON.stringify(buildingData)}
+Datos aportados: ${JSON.stringify(extractedData)}`
+                    }
+                ],
+                temperature: 0.2
+            });
+            let draftText = completion.choices[0]?.message?.content || "# Borrador generado por IA";
+            // Limpiar posibles bloques markdown envolventes
+            if (draftText.startsWith('```markdown')) {
+                draftText = draftText.replace(/^```markdown\n?/, '').replace(/\n?```$/, '');
+            }
+            else if (draftText.startsWith('```')) {
+                draftText = draftText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+            }
+            // 2. Convertir Markdown a HTML
+            const { parse } = await Promise.resolve().then(() => __importStar(require('marked')));
+            const markdownHtml = await parse(draftText);
+            // 3. Usar Puppeteer para generar el PDF desde HTML
+            const puppeteer = await Promise.resolve().then(() => __importStar(require('puppeteer')));
+            const browser = await puppeteer.launch({
+                headless: true, // "new" headless mode is standard now
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            });
+            const page = await browser.newPage();
+            // Inyectar HTML y CSS básico profesional
+            const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: 'Helvetica', 'Arial', sans-serif;
+              color: #333;
+              line-height: 1.5;
+              padding: 40px;
+              font-size: 14px;
+            }
+            h1 { text-align: center; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 30px; font-size: 24px; text-transform: uppercase; }
+            h2 { color: #222; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-size: 18px; }
+            h3 { color: #444; margin-top: 20px; font-size: 16px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; font-size: 13px; }
+            th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+            th { background-color: #f7f9fa; color: #333; font-weight: bold; width: 35%; }
+            tr:nth-child(even) { background-color: #fcfcfc; }
+            ul, ol { padding-left: 20px; }
+            li { margin-bottom: 8px; text-align: justify; }
+            p { margin-bottom: 12px; text-align: justify; }
+            hr { border: 0; border-top: 1px solid #eee; margin: 30px 0; }
+            strong { color: #111; }
+            .checkbox { font-family: monospace; font-size: 16px; margin-right: 5px; color: #555; }
+            
+            /* Footer styles */
+            .footer-legal { margin-top: 50px; font-size: 11px; color: #777; text-align: justify; }
+            .signature-area { margin-top: 60px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          ${markdownHtml
+                .replace(/\[ \]/g, '<span class="checkbox">☐</span>')
+                .replace(/\[x\]/gi, '<span class="checkbox">☑</span>')}
+        </body>
+        </html>
+      `;
+            await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+            const generatedPdfBuffer = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+                displayHeaderFooter: true,
+                headerTemplate: '<div style="font-size: 8px; width: 100%; text-align: right; padding-right: 20px; color: #aaa;">Borrador - Concesión de Licencia / Resolución DR</div>',
+                footerTemplate: '<div style="font-size: 8px; width: 100%; text-align: center; color: #aaa;">ActivoDigital - Borrador de resolución para fines informativos (Pág. <span class="pageNumber"></span>/<span class="totalPages"></span>)</div>'
+            });
+            await browser.close();
+            const pdfBytes = Uint8Array.from(generatedPdfBuffer);
+            const { PDFDocument } = await Promise.resolve().then(() => __importStar(require('pdf-lib')));
+            // 5. Merge additional documents if provided
+            const docPaths = extractedData.doc_paths || [];
+            console.log(`[AIProcessingService] Doc paths to merge:`, docPaths);
+            if (docPaths.length > 0) {
+                const mergedDoc = await PDFDocument.load(pdfBytes);
+                const supabase = (0, supabase_1.getSupabaseServiceRoleClient)(); // Use service role to bypass RLS
+                for (const path of docPaths) {
+                    try {
+                        console.log(`[AIProcessingService] Attempting to download: ${path}`);
+                        const { data, error } = await supabase.storage
+                            .from("building-documents")
+                            .download(path);
+                        if (error || !data) {
+                            console.error(`[AIProcessingService] Failed to download ${path}:`, error);
+                            continue;
+                        }
+                        const arrayBuffer = await data.arrayBuffer();
+                        const externalDoc = await PDFDocument.load(arrayBuffer);
+                        const copiedPages = await mergedDoc.copyPages(externalDoc, externalDoc.getPageIndices());
+                        copiedPages.forEach((page) => mergedDoc.addPage(page));
+                        console.log(`[AIProcessingService] Merged ${copiedPages.length} pages from ${path}`);
+                    }
+                    catch (err) {
+                        console.error(`Error merging document at ${path}:`, err);
+                    }
+                }
+                const finalPdfBytes = await mergedDoc.save();
+                return Buffer.from(finalPdfBytes);
+            }
+            return Buffer.from(pdfBytes);
+        }
+        catch (error) {
+            console.error("Error al generar borrador de licencia con IA:", error);
+            throw new Error("Error en la generación de borrador PDF");
         }
     }
 }

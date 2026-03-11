@@ -16,12 +16,13 @@ class BuildingDocumentService {
             file_name: data.file_name,
             file_size: data.file_size,
             mime_type: data.mime_type,
-            storage_bucket: data.storage_bucket || 'building-documents',
+            storage_bucket: data.storage_bucket || "building-documents",
             storage_path: data.storage_path,
             storage_file_name: data.storage_file_name,
             category: data.category,
             expiration_date: data.expiration_date || null,
             uploaded_by: userAuthId,
+            metadata: data.metadata || {},
         };
         const { data: document, error } = await this.getSupabase()
             .from("building_documents")
@@ -31,7 +32,17 @@ class BuildingDocumentService {
         if (error) {
             throw new Error(`Error al crear documento de edificio: ${error.message}`);
         }
-        if (document && document.category && document.category !== "financial") {
+        const allowedVisionTypes = [
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "image/gif",
+            "image/webp",
+        ];
+        if (document &&
+            document.category &&
+            document.category !== "financial" &&
+            allowedVisionTypes.includes(document.mime_type)) {
             this.updateExpirationDateWithAI(document).catch((err) => {
                 console.error("Error actualizando expiration_date con IA:", err);
             });
@@ -47,7 +58,9 @@ class BuildingDocumentService {
             query = query.eq("category", category);
         }
         query = query.order("uploaded_at", { ascending: false });
+        console.log(`[DEBUG] getBuildingDocumentsByBuilding: buildingId=${buildingId}, category=${category}`);
         const { data, error } = await query;
+        console.log(`[DEBUG] Supabase result: count=${data?.length || 0}, error=${error?.message || 'none'}`);
         if (error) {
             throw new Error(`Error al obtener documentos de edificio: ${error.message}`);
         }
@@ -60,7 +73,7 @@ class BuildingDocumentService {
             .eq("id", documentId)
             .single();
         if (error) {
-            if (error.code === 'PGRST116') {
+            if (error.code === "PGRST116") {
                 return null; // Documento no encontrado
             }
             throw new Error(`Error al obtener documento: ${error.message}`);
@@ -73,6 +86,8 @@ class BuildingDocumentService {
             updateData.expiration_date = data.expiration_date;
         if (data.category !== undefined)
             updateData.category = data.category;
+        if (data.metadata !== undefined)
+            updateData.metadata = data.metadata;
         const { data: document, error } = await this.getSupabase()
             .from("building_documents")
             .update(updateData)
@@ -104,11 +119,14 @@ class BuildingDocumentService {
             storage_path: dbDoc.storage_path,
             storage_file_name: dbDoc.storage_file_name,
             category: dbDoc.category,
-            expiration_date: dbDoc.expiration_date ? new Date(dbDoc.expiration_date).toISOString().split('T')[0] : null,
+            expiration_date: dbDoc.expiration_date
+                ? new Date(dbDoc.expiration_date).toISOString().split("T")[0]
+                : null,
             uploaded_by: dbDoc.uploaded_by,
             uploaded_at: dbDoc.uploaded_at,
             created_at: dbDoc.created_at,
             updated_at: dbDoc.updated_at,
+            metadata: dbDoc.metadata || {},
         };
     }
     async updateExpirationDateWithAI(dbDoc) {
