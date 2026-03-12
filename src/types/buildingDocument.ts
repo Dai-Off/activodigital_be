@@ -3,28 +3,31 @@
 export interface BuildingDocument {
   id: string;
   building_id: string;
-  
+
   // Información del archivo
   file_name: string;
   file_size: number; // bytes
   mime_type: string;
-  
+
   // Información de almacenamiento
   storage_bucket: string;
   storage_path: string;
   storage_file_name: string;
-  
+
   // Categorización
   category: string; // Valor: financial, contracts, maintenance, etc.
-  
+
   // Vencimiento (campo principal para el cronjob)
   expiration_date?: string | null; // ISO date YYYY-MM-DD
-  
+
   // Audit
   uploaded_by?: string | null;
   uploaded_at: string;
   created_at?: string;
   updated_at?: string;
+
+  // Metadata (IA, etc)
+  metadata?: Record<string, any>;
 }
 
 export interface CreateBuildingDocumentRequest {
@@ -38,10 +41,11 @@ export interface CreateBuildingDocumentRequest {
   category: string;
   expiration_date?: string | null;
   uploaded_by?: string | null;
+  metadata?: Record<string, any>;
 }
 
 export interface UpdateBuildingDocumentRequest {
   expiration_date?: string | null;
   category?: string;
+  metadata?: Record<string, any>;
 }
-

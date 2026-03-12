@@ -111,7 +111,7 @@ class FinancialSnapshotService {
                 // Inyectamos la relación buildings para que mapToFinancialSnapshot funcione igual
                 return this.mapToFinancialSnapshot({
                     ...existingSnapshot,
-                    buildings: b
+                    buildings: b,
                 });
             }
             // Si NO existe, creamos un "Virtual Snapshot" para que el Radar tenga qué mostrar
@@ -136,7 +136,7 @@ class FinancialSnapshotService {
             building_id: building.id,
             period_start: new Date().toISOString(),
             period_end: new Date().toISOString(),
-            currency: 'EUR',
+            currency: "EUR",
             ingresos_brutos_anuales_eur: 0,
             walt_meses: 0,
             concentracion_top1_pct_noi: 0,
@@ -157,7 +157,7 @@ class FinancialSnapshotService {
             potencial: {
                 letra: potentialLetter,
                 variacion: savingsPct.toString(),
-                is_simulated: true
+                is_simulated: true,
             },
             tir: { valor: 0, plazo: "-" },
             cash_on_cash: { valor: 0, multiplicador: 0 },
@@ -166,7 +166,7 @@ class FinancialSnapshotService {
             green_premium: { valor: 0, roi: 0 },
             plazo: "-",
             taxonomia: { porcentaje: 0 },
-            estado: { etiqueta: "Pendiente", score: 0, pendientes: "Crear snapshot" }
+            estado: { etiqueta: "Pendiente", score: 0, pendientes: "Crear snapshot" },
         };
     }
     async getFinancialSnapshotById(id, userAuthId) {
@@ -262,18 +262,31 @@ class FinancialSnapshotService {
     }
     mapToFinancialSnapshot(dbRow) {
         // Basic values from DB
-        const purchasePrice = dbRow?.buildings?.price ? parseFloat(dbRow.buildings.price) : 0;
-        const rehabCapex = dbRow.estimated_rehab_capex_eur ? parseFloat(dbRow.estimated_rehab_capex_eur) : 0;
-        const grossRevenue = dbRow.gross_annual_revenue_eur ? parseFloat(dbRow.gross_annual_revenue_eur) : 0;
-        const opex = dbRow.total_annual_opex_eur ? parseFloat(dbRow.total_annual_opex_eur) : 0;
+        const purchasePrice = dbRow?.buildings?.price
+            ? parseFloat(dbRow.buildings.price)
+            : 0;
+        const rehabCapex = dbRow.estimated_rehab_capex_eur
+            ? parseFloat(dbRow.estimated_rehab_capex_eur)
+            : 0;
+        const grossRevenue = dbRow.gross_annual_revenue_eur
+            ? parseFloat(dbRow.gross_annual_revenue_eur)
+            : 0;
+        const opex = dbRow.total_annual_opex_eur
+            ? parseFloat(dbRow.total_annual_opex_eur)
+            : 0;
         // Deuda
-        const loanAmount = dbRow.outstanding_principal_eur ? parseFloat(dbRow.outstanding_principal_eur) : 0;
+        const loanAmount = dbRow.outstanding_principal_eur
+            ? parseFloat(dbRow.outstanding_principal_eur)
+            : 0;
         const interestRate = 3.5; // Placeholder since it's not in the snapshot directly, could be added later
-        const loanTermYears = 20; // Placeholder 
+        const loanTermYears = 20; // Placeholder
         let calculatedProjectIRR = dbRow?.tir_value;
         let calculatedCashOnCashIRR = dbRow?.cash_on_cash_value;
+        let calculatedCashOnCashMultiplicador = dbRow?.cash_on_cash_multiplicador;
         // Si hay datos financieros mínimos (Precio, Ingresos), calculamos la TIR al vuelo
-        const otherRevenue = dbRow.other_annual_revenue_eur ? parseFloat(dbRow.other_annual_revenue_eur) : 0;
+        const otherRevenue = dbRow.other_annual_revenue_eur
+            ? parseFloat(dbRow.other_annual_revenue_eur)
+            : 0;
         if (purchasePrice > 0 && (grossRevenue > 0 || otherRevenue > 0)) {
             const tirResults = (0, tirCalculator_1.calculate5YearTIR)({
                 purchasePrice,
@@ -284,11 +297,25 @@ class FinancialSnapshotService {
                 ...(loanAmount > 0 && {
                     loanAmount,
                     interestRate,
-                    loanTermYears
-                })
+                    loanTermYears,
+                }),
             });
             calculatedProjectIRR = tirResults.projectIRR;
-            calculatedCashOnCashIRR = loanAmount > 0 ? tirResults.cashOnCashIRR : tirResults.projectIRR;
+            calculatedCashOnCashMultiplicador = tirResults.equityMultiple;
+            // Cálculo de Cash on Cash como Yield Anual (Rentabilidad sobre el capital desembolsado)
+            // CoC = (Net Operating Income - ServicioDeuda) / (Inversion inicial - Préstamo)
+            const totalInvestment = purchasePrice + rehabCapex;
+            const equity = totalInvestment - loanAmount;
+            const netOperatingIncome = grossRevenue + otherRevenue - opex;
+            const annualDebtService = dbRow.annual_debt_service_eur
+                ? parseFloat(dbRow.annual_debt_service_eur)
+                : 0;
+            if (equity > 0) {
+                calculatedCashOnCashIRR = Number((((netOperatingIncome - annualDebtService) / equity) * 100).toFixed(2));
+            }
+            else {
+                calculatedCashOnCashIRR = 0;
+            }
         }
         // 4. Calcular Potencial y Rating Actual
         let currentConsumption = null;
@@ -298,12 +325,17 @@ class FinancialSnapshotService {
             currentConsumption = parseFloat(certs[0].primary_energy_kwh_per_m2_year);
             currentRating = certs[0].rating;
         }
-        const rawSavingsPct = dbRow.estimated_energy_savings_pct ? parseFloat(dbRow.estimated_energy_savings_pct) : null;
+        const rawSavingsPct = dbRow.estimated_energy_savings_pct
+            ? parseFloat(dbRow.estimated_energy_savings_pct)
+            : null;
         const isSimulated = rawSavingsPct === null || rawSavingsPct === undefined;
         const savingsPct = isSimulated ? epbdCalculator_1.DEFAULT_SAVINGS_PCT : rawSavingsPct;
         let potentialLetter = dbRow?.potencial_status_letter;
         const calculatedLetter = (0, epbdCalculator_1.calculatePotentialRating)(currentConsumption, savingsPct, dbRow?.buildings?.typology, currentRating, dbRow?.buildings?.province);
-        potentialLetter = (potentialLetter && potentialLetter !== "-") ? potentialLetter : calculatedLetter;
+        potentialLetter =
+            potentialLetter && potentialLetter !== "-"
+                ? potentialLetter
+                : calculatedLetter;
         return {
             id: dbRow.id,
             building_id: dbRow.building_id,
@@ -366,19 +398,29 @@ class FinancialSnapshotService {
             potencial: {
                 letra: potentialLetter,
                 variacion: savingsPct?.toString() || "0",
-                is_simulated: isSimulated
+                is_simulated: isSimulated,
             },
             // Usamos los cálculos dinámicos o guardados:
             tir: { valor: calculatedProjectIRR, plazo: dbRow?.tir_term || "5 años" },
             cash_on_cash: {
                 valor: calculatedCashOnCashIRR,
-                multiplicador: dbRow?.cash_on_cash_multiplicador,
+                multiplicador: calculatedCashOnCashMultiplicador !== undefined
+                    ? calculatedCashOnCashMultiplicador
+                    : dbRow?.cash_on_cash_multiplicador,
             },
             // Mapeo de CAPEX: usamos el total real o el estimado de rehabilitación como fallback
             capex: {
-                total: dbRow?.capex_total ?? (dbRow.estimated_rehab_capex_eur ? parseFloat(dbRow.estimated_rehab_capex_eur) : 0),
-                descripcion: dbRow?.capex_description || (dbRow.estimated_rehab_capex_eur ? "Estimación de rehabilitación" : "Sin datos"),
-                estimated: dbRow?.estimated_rehab_capex_eur ? parseFloat(dbRow.estimated_rehab_capex_eur) : 0,
+                total: dbRow?.capex_total ??
+                    (dbRow.estimated_rehab_capex_eur
+                        ? parseFloat(dbRow.estimated_rehab_capex_eur)
+                        : 0),
+                descripcion: dbRow?.capex_description ||
+                    (dbRow.estimated_rehab_capex_eur
+                        ? "Estimación de rehabilitación"
+                        : "Sin datos"),
+                estimated: dbRow?.estimated_rehab_capex_eur
+                    ? parseFloat(dbRow.estimated_rehab_capex_eur)
+                    : 0,
             },
             subvencion: {
                 valor: dbRow?.subvention_value,
@@ -393,7 +435,7 @@ class FinancialSnapshotService {
             estado: {
                 etiqueta: "Pendiente",
                 score: dbRow?.status_score || 0,
-                pendientes: dbRow?.status_tag || "Snapshot cargado"
+                pendientes: dbRow?.status_tag || "Snapshot cargado",
             },
             created_at: dbRow.created_at,
             updated_at: dbRow.updated_at,

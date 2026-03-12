@@ -119,6 +119,7 @@ export class BuildingService {
       rehabilitation_cost: data.rehabilitationCost || 0,
       potential_value: data.potentialValue || 0,
       square_meters: data.squareMeters,
+      custom_data: data.customData || {},
     };
 
     // Solo incluir campos opcionales si tienen valor
@@ -161,7 +162,8 @@ export class BuildingService {
           .eq("id", building.id);
 
         throw new Error(
-          `Error al asignar técnico: ${error instanceof Error ? error.message : "Error desconocido"
+          `Error al asignar técnico: ${
+            error instanceof Error ? error.message : "Error desconocido"
           }`,
         );
       }
@@ -174,7 +176,8 @@ export class BuildingService {
       } catch (error) {
         // Si falla la invitación CFO, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar CFO: ${error instanceof Error ? error.message : "Error desconocido"
+          `Error al invitar CFO: ${
+            error instanceof Error ? error.message : "Error desconocido"
           }`,
         );
       }
@@ -191,7 +194,8 @@ export class BuildingService {
       } catch (error) {
         // Si falla la invitación del propietario, no eliminar el edificio (es menos crítico)
         throw new Error(
-          `Error al invitar propietario: ${error instanceof Error ? error.message : "Error desconocido"
+          `Error al invitar propietario: ${
+            error instanceof Error ? error.message : "Error desconocido"
           }`,
         );
       }
@@ -205,8 +209,15 @@ export class BuildingService {
     getIdealistaPriceService()
       .syncPriceForBuilding(building.id, building.municipality)
       .catch((err) => {
-        console.error("Error sincronizando precios de Idealista al crear edificio:", err);
+        console.error(
+          "Error sincronizando precios de Idealista al crear edificio:",
+          err,
+        );
       });
+
+    if (data.customData && Object.keys(data.customData).length > 0) {
+      await this.ensureCustomFieldDefinitions(data.customData, userAuthId);
+    }
 
     return this.mapToBuilding(building);
   }
@@ -242,12 +253,14 @@ export class BuildingService {
       const user = await userService.getUserByAuthId(userAuthId);
 
       if (!user) {
-        console.error('[getBuildingsByUser] Usuario no encontrado');
+        console.error("[getBuildingsByUser] Usuario no encontrado");
         return [];
       }
 
-
-      let query = supabase.from('buildings').select('*, digital_books(sections)').eq('deleted', false);
+      let query = supabase
+        .from("buildings")
+        .select("*, digital_books(sections)")
+        .eq("deleted", false);
 
       // TODO: Replicar la lógica exacta de filtrado del Dashboard
       // const roleName = user.role.name;
@@ -281,22 +294,22 @@ export class BuildingService {
       //   query = query.in('id', ids);
       // }
 
-      const { data, error } = await query.order("created_at", { ascending: false });
+      const { data, error } = await query.order("created_at", {
+        ascending: false,
+      });
 
       if (error) {
-        console.error('Error de Supabase en buildings:', error.message);
+        console.error("Error de Supabase en buildings:", error.message);
         throw error;
       }
 
-      return (data || []).map(b => this.mapToBuilding(b));
-
+      return (data || []).map((b) => this.mapToBuilding(b));
     } catch (error) {
-      console.error('Error crítico en getBuildingsByUser:', error);
+      console.error("Error crítico en getBuildingsByUser:", error);
       // No lanzamos error para evitar el 500, devolvemos array vacío si falla la lógica
       return [];
     }
   }
-
 
   async updateBuilding(
     id: string,
@@ -331,6 +344,9 @@ export class BuildingService {
       updateData.potential_value = data.potentialValue;
     if (data.squareMeters !== undefined)
       updateData.square_meters = data.squareMeters;
+    if (data.customData !== undefined) {
+      updateData.custom_data = data.customData;
+    }
 
     // Actualizar JSON de dirección si corresponde:
     // - Si llega addressData explícito
@@ -347,7 +363,7 @@ export class BuildingService {
     if (hasAddressDataField || hasAddressField) {
       const newAddressData = this.buildAddressData(
         hasAddressField ? data.address : undefined,
-        hasAddressDataField ? data.addressData ?? null : undefined,
+        hasAddressDataField ? (data.addressData ?? null) : undefined,
       );
       updateData.address_data = newAddressData;
     }
@@ -366,6 +382,10 @@ export class BuildingService {
     generateBuildingEmbedding(id).catch((err) => {
       console.error("Error generando embeddings:", err);
     });
+
+    if (data.customData && Object.keys(data.customData).length > 0) {
+      await this.ensureCustomFieldDefinitions(data.customData, userAuthId);
+    }
 
     return this.mapToBuilding(building);
   }
@@ -820,7 +840,10 @@ export class BuildingService {
       .eq("id", buildingId);
 
     if (updateError) {
-      console.error("Error al actualizar technician_id en edificio:", updateError);
+      console.error(
+        "Error al actualizar technician_id en edificio:",
+        updateError,
+      );
       // No lanzamos error para no interrumpir el flujo si la asignación principal funcionó
     }
   }
@@ -1224,6 +1247,60 @@ export class BuildingService {
     return { isValid: true };
   }
 
+  public async ensureCustomFieldDefinitions(
+    customData: Record<string, any>,
+    userAuthId: string,
+  ): Promise<void> {
+    if (!customData || Object.keys(customData).length === 0) return;
+
+    try {
+      const user = await this.userService.getUserByAuthId(userAuthId);
+      if (!user) return;
+
+      const formatKeyToLabel = (key: string) => {
+        return key
+          .split("_")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+      };
+
+      const keys = Object.keys(customData);
+
+      const { data: existingFields } = await this.getSupabase()
+        .from("asset_custom_fields")
+        .select("field_name")
+        .eq("user_id", user.id)
+        .in("field_name", keys);
+
+      const existingKeys = new Set(
+        existingFields?.map((f: any) => f.field_name) || [],
+      );
+
+      const definitionsToInsert = keys
+        .filter((key) => !existingKeys.has(key))
+        .map((key) => ({
+          field_name: key,
+          field_label: { es: formatKeyToLabel(key) },
+          section_name: { es: "Datos Adicionales" },
+          field_type:
+            typeof customData[key] === "number"
+              ? "number"
+              : typeof customData[key] === "boolean"
+                ? "boolean"
+                : "text",
+          user_id: user.id,
+        }));
+
+      if (definitionsToInsert.length > 0) {
+        await this.getSupabase()
+          .from("asset_custom_fields")
+          .insert(definitionsToInsert);
+      }
+    } catch (error) {
+      console.error("Error al asegurar definiciones de campos custom:", error);
+    }
+  }
+
   private mapToBuilding(data: any): Building {
     const digitalBook = Array.isArray(data.digital_books)
       ? data.digital_books[0]
@@ -1260,6 +1337,7 @@ export class BuildingService {
       rehabilitationCost: data.rehabilitation_cost || 0,
       potentialValue: data.potential_value || 0,
       squareMeters: data.square_meters,
+      customData: data.custom_data,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       userId: data.user_id, // Mantener por compatibilidad

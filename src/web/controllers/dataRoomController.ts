@@ -90,7 +90,7 @@ export class DataRoomController {
 
       res.status(202).json({
         success: true,
-        message: "Archivo encolado para procesamiento (simulando 5s)",
+        message: "Archivo encolado para validación con IA",
         jobId: job.id,
         data,
       });
@@ -174,6 +174,170 @@ export class DataRoomController {
       console.error("Error generando dossier PDF:", error);
       res.status(error.message.includes("No hay documentos") ? 404 : 500).json({
         error: error.message || "Error interno al generar el dossier",
+      });
+    }
+  };
+
+  /**
+   * Devuelve los jobs de procesamiento de un edificio (para la lista de batch uploads).
+   */
+  getBatchJobs = async (req: Request, res: Response) => {
+    try {
+      const { buildingId } = req.params;
+
+      if (!buildingId) {
+        return res.status(400).json({ error: "buildingId es requerido" });
+      }
+
+      const jobs = await this.jobService.getByBuildingId(buildingId);
+
+      res.json({
+        success: true,
+        data: jobs.map((j) => ({
+          id: j.id,
+          fileName: j.file_name,
+          status: j.status,
+          checklistId: j.checklist_id,
+          errorMessage: j.error_message,
+          createdAt: j.created_at,
+          updatedAt: j.updated_at,
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error en getBatchJobs controller:", error);
+      res.status(500).json({
+        error: "Error al obtener jobs del edificio",
+        details: error.message,
+      });
+    }
+  };
+
+  /**
+   * Sube hasta 5 archivos sin checklistId. La IA los clasifica automáticamente.
+   */
+  uploadFileBatch = async (req: Request, res: Response) => {
+    try {
+      const { buildingId } = req.body;
+      const authUserId = req.user?.id;
+      const files = req.files as Express.Multer.File[] | undefined;
+
+      if (!buildingId) {
+        return res
+          .status(400)
+          .json({ error: "Falta parámetro requerido: buildingId" });
+      }
+
+      if (!files || files.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "No se han proporcionado archivos" });
+      }
+
+      if (files.length > 5) {
+        return res.status(400).json({ error: "Máximo 5 archivos por lote" });
+      }
+
+      if (!authUserId) {
+        return res.status(401).json({ error: "Usuario no autenticado" });
+      }
+
+      const user = await this.userService.getUserByAuthId(authUserId);
+      if (!user) {
+        return res.status(401).json({ error: "Usuario no encontrado" });
+      }
+
+      const jobs = [];
+      for (const file of files) {
+        // 1. Subir a Storage sin registro de auditoría
+        const storagePath = await this.service.uploadToStorageTemp(
+          buildingId,
+          file,
+        );
+
+        // 2. Crear job con checklist_id "__auto__" (la IA lo asignará)
+        const job = await this.jobService.create({
+          user_id: user.id,
+          building_id: buildingId,
+          checklist_id: "__auto__",
+          temp_storage_path: storagePath,
+          file_name: file.originalname,
+          mime_type: file.mimetype,
+        });
+
+        // 3. Encolar para procesamiento con IA
+        await addDataRoomProcessingJob(job.id);
+        jobs.push({ jobId: job.id, fileName: file.originalname });
+      }
+
+      res.status(202).json({
+        success: true,
+        message: `${files.length} archivo(s) encolado(s) para clasificación con IA`,
+        jobs,
+      });
+    } catch (error: any) {
+      console.error("Error en uploadFileBatch controller:", error);
+      res.status(500).json({
+        error: "Error interno al encolar los archivos",
+        details: error.message,
+      });
+    }
+  };
+
+  /**
+   * Clasifica manualmente un job asignándole un checklistId.
+   */
+  classifyJob = async (req: Request, res: Response) => {
+    try {
+      const { jobId, checklistId } = req.body;
+
+      if (!jobId || !checklistId) {
+        return res.status(400).json({
+          error: "Faltan parámetros requeridos: jobId o checklistId",
+        });
+      }
+
+      const job = await this.jobService.getById(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job no encontrado" });
+      }
+
+      // IMPORTANTE: Si el job ya tenía un checklistId asignado (ya sea por IA o manual)
+      // y lo estamos cambiando, debemos borrar el registro de auditoría previo para evitar duplicados.
+      const oldChecklistId = job.checklist_id;
+      if (oldChecklistId !== "__auto__" && oldChecklistId !== checklistId) {
+        await this.service.deleteAuditRecord(job.building_id, oldChecklistId);
+      }
+
+      // Actualizar el job con el checklistId manual
+      await this.jobService.setChecklistId(jobId, checklistId);
+      await this.jobService.setStatus(jobId, "completed");
+
+      // Si el job original falló, el registro de auditoría debe reflejar que está rechazado/fallido
+      // en la nueva categoría, no que está verificado automáticamente.
+      const auditStatus =
+        job.status === "failed" || job.status === "rejected"
+          ? "rejected"
+          : "verified";
+
+      // Crear/actualizar registro de auditoría con el tipo asignado manualmente
+      await this.service.createOrUpdateAudit(
+        job.building_id,
+        checklistId,
+        job.temp_storage_path,
+        job.file_name,
+        auditStatus,
+      );
+
+      res.json({
+        success: true,
+        message: "Documento clasificado manualmente",
+        data: { jobId, checklistId },
+      });
+    } catch (error: any) {
+      console.error("Error en classifyJob controller:", error);
+      res.status(500).json({
+        error: "Error al clasificar el documento",
+        details: error.message,
       });
     }
   };
