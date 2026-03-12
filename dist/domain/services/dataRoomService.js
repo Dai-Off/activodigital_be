@@ -76,8 +76,16 @@ class DataRoomService {
         if (!records || records.length === 0) {
             throw new Error("No hay documentos subidos para este edificio");
         }
+        // Deduplicar por storage_path para evitar que un mismo archivo aparezca más de una vez
+        const seen = new Set();
+        const uniqueRecords = records.filter((r) => {
+            if (!r.storage_path || seen.has(r.storage_path))
+                return false;
+            seen.add(r.storage_path);
+            return true;
+        });
         const mergedPdf = await pdf_lib_1.PDFDocument.create();
-        for (const record of records) {
+        for (const record of uniqueRecords) {
             if (!record.storage_path)
                 continue;
             // 2. Descargar el archivo desde Storage
@@ -138,14 +146,73 @@ class DataRoomService {
         const pdfBytes = await mergedPdf.save();
         return Buffer.from(pdfBytes);
     }
-    async updateAuditStatus(buildingId, checklistId, status) {
+    /**
+     * Sube un archivo a Storage sin crear registro de auditoría.
+     * Usado para batch uploads donde el checklistId lo asigna la IA.
+     */
+    async uploadToStorageTemp(buildingId, file) {
+        const supabase = this.getSupabase();
+        const timestamp = Date.now();
+        const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const storagePath = `${buildingId}/data-room/auto_${timestamp}_${sanitizedName}`;
+        const { error: uploadError } = await supabase.storage
+            .from(BUCKET)
+            .upload(storagePath, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true,
+        });
+        if (uploadError) {
+            console.error("Error subiendo archivo temporal a Storage:", uploadError);
+            throw uploadError;
+        }
+        return storagePath;
+    }
+    /**
+     * Crea o actualiza un registro de auditoría con el checklistId detectado por la IA.
+     */
+    async createOrUpdateAudit(buildingId, checklistId, storagePath, fileName, status, extractedData) {
+        const payload = {
+            building_id: buildingId,
+            checklist_id: checklistId,
+            storage_path: storagePath,
+            file_name: fileName,
+            status,
+            uploaded_at: new Date().toISOString(),
+        };
+        if (extractedData !== undefined) {
+            payload.extracted_data = extractedData;
+        }
         const { error } = await this.getSupabase()
             .from("data-room-audit")
-            .update({ status })
+            .upsert(payload, { onConflict: "building_id,checklist_id" });
+        if (error) {
+            console.error("Error creando/actualizando auditoría:", error);
+            throw error;
+        }
+    }
+    async updateAuditStatus(buildingId, checklistId, status, extractedData) {
+        const updatePayload = { status };
+        if (extractedData !== undefined) {
+            updatePayload.extracted_data = extractedData;
+        }
+        const { error } = await this.getSupabase()
+            .from("data-room-audit")
+            .update(updatePayload)
             .eq("building_id", buildingId)
             .eq("checklist_id", checklistId);
         if (error) {
             console.error("Error al actualizar estado de auditoría:", error);
+            throw error;
+        }
+    }
+    async deleteAuditRecord(buildingId, checklistId) {
+        const { error } = await this.getSupabase()
+            .from("data-room-audit")
+            .delete()
+            .eq("building_id", buildingId)
+            .eq("checklist_id", checklistId);
+        if (error) {
+            console.error("Error al eliminar registro de auditoría:", error);
             throw error;
         }
     }

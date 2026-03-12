@@ -13,8 +13,8 @@ const calculate5YearTIR = (inputs) => {
     for (let year = 1; year < yearsToProject; year++) {
         const netOperatingIncome = currentRevenue - currentOpex;
         projectCashflows.push(netOperatingIncome);
-        currentRevenue *= (1 + revGrowth);
-        currentOpex *= (1 + opexGrowth);
+        currentRevenue *= 1 + revGrowth;
+        currentOpex *= 1 + opexGrowth;
     }
     const year5NOI = currentRevenue - currentOpex;
     let exitValue = 0;
@@ -22,7 +22,9 @@ const calculate5YearTIR = (inputs) => {
         exitValue = year5NOI / (inputs.exitCapRate / 100);
     }
     else if (inputs.appreciationRate && inputs.appreciationRate > 0) {
-        exitValue = inputs.purchasePrice * Math.pow(1 + (inputs.appreciationRate / 100), yearsToProject);
+        exitValue =
+            inputs.purchasePrice *
+                Math.pow(1 + inputs.appreciationRate / 100, yearsToProject);
     }
     else {
         exitValue = inputs.purchasePrice + inputs.rehabCapex;
@@ -59,12 +61,24 @@ const calculate5YearTIR = (inputs) => {
     else {
         equityCashflows.push(projectCashflows[yearsToProject]);
     }
+    let equityInvested = 0;
+    let equityReturned = 0;
+    for (const cf of equityCashflows) {
+        if (cf < 0)
+            equityInvested += Math.abs(cf);
+        else
+            equityReturned += cf;
+    }
+    const equityMultiple = equityInvested > 0
+        ? Number((equityReturned / equityInvested).toFixed(2))
+        : 0;
     return {
         projectIRR: calculateIRR(projectCashflows),
         cashOnCashIRR: calculateIRR(equityCashflows),
-        cashFlowsProject: projectCashflows.map(v => Math.round(v)),
-        cashFlowsEquity: equityCashflows.map(v => Math.round(v)),
-        exitValue: Math.round(exitValue)
+        equityMultiple,
+        cashFlowsProject: projectCashflows.map((v) => Math.round(v)),
+        cashFlowsEquity: equityCashflows.map((v) => Math.round(v)),
+        exitValue: Math.round(exitValue),
     };
 };
 exports.calculate5YearTIR = calculate5YearTIR;
@@ -72,8 +86,8 @@ exports.calculate5YearTIR = calculate5YearTIR;
 function calculateIRR(values, guess = 0.1) {
     if (values.length === 0)
         return 0;
-    const hasPositive = values.some(v => v > 0);
-    const hasNegative = values.some(v => v < 0);
+    const hasPositive = values.some((v) => v > 0);
+    const hasNegative = values.some((v) => v < 0);
     if (!hasPositive || !hasNegative)
         return 0;
     const maxIter = 1000;

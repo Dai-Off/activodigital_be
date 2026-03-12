@@ -1,14 +1,17 @@
-import { Request, Response } from 'express';
-import { CertificateEnergeticoService } from '../../domain/services/certificateEnergeticoService';
+import { Request, Response } from "express";
+import { CertificateEnergeticoService } from "../../domain/services/certificateEnergeticoService";
 import {
   CreateEnergyCertificateSessionRequest,
   UpdateEnergyCertificateSessionRequest,
   ConfirmEnergyCertificateRequest,
   AIExtractionStatus,
-  EnergyCertificateKind
-} from '../../types/certificateEnergetico';
-import { trazabilityService } from '../../domain/trazability/TrazabilityService';
-import { ActionsValues, ModuleValues } from '../../domain/trazability/interfaceTrazability';
+  EnergyCertificateKind,
+} from "../../types/certificateEnergetico";
+import { trazabilityService } from "../../domain/trazability/TrazabilityService";
+import {
+  ActionsValues,
+  ModuleValues,
+} from "../../domain/trazability/interfaceTrazability";
 
 export class CertificateEnergeticoController {
   private getCertificateService() {
@@ -23,35 +26,48 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       const { buildingId } = req.body;
       if (!buildingId) {
-        res.status(400).json({ error: 'Falta el campo requerido: buildingId' });
+        res.status(400).json({ error: "Falta el campo requerido: buildingId" });
         return;
       }
 
       // Crear sesión simple usando el método existente pero con datos mínimos
       const simpleRequest = {
         buildingId,
-        kind: 'building' as EnergyCertificateKind, // Default kind
-        documents: [] // Sin documentos inicialmente
+        kind: "building" as EnergyCertificateKind, // Default kind
+        documents: [], // Sin documentos inicialmente
       };
 
-      const session = await this.getCertificateService().createEnergyCertificateSession(
-        simpleRequest,
-        userId
-      );
+      const session =
+        await this.getCertificateService().createEnergyCertificateSession(
+          simpleRequest,
+          userId,
+        );
 
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId, action: ActionsValues['CREAR'], module: ModuleValues.DOCUMENTOS, description: "Creo sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId,
+          action: ActionsValues["CREAR"],
+          module: ModuleValues.DOCUMENTOS,
+          description: "Creo sesión de Certificado energético",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
 
       res.json({ data: session });
     } catch (error) {
-      console.error('Error al crear sesión simple de certificado energético:', error);
+      console.error(
+        "Error al crear sesión simple de certificado energético:",
+        error,
+      );
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -64,34 +80,55 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       // Obtener el token del usuario para respetar RLS
-      const token = req.headers.authorization?.split(' ')[1];
+      const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
-        res.status(401).json({ error: 'Token no encontrado' });
+        res.status(401).json({ error: "Token no encontrado" });
         return;
       }
 
       const data: CreateEnergyCertificateSessionRequest = req.body;
 
       // Validación básica
-      if (!data.buildingId || !data.kind || !data.documents || data.documents.length === 0) {
-        res.status(400).json({ error: 'Faltan campos requeridos: buildingId, kind, documents' });
+      if (
+        !data.buildingId ||
+        !data.kind ||
+        !data.documents ||
+        data.documents.length === 0
+      ) {
+        res.status(400).json({
+          error: "Faltan campos requeridos: buildingId, kind, documents",
+        });
         return;
       }
 
-      const session = await this.getCertificateService().createEnergyCertificateSession(data, userId, token);
+      const session =
+        await this.getCertificateService().createEnergyCertificateSession(
+          data,
+          userId,
+          token,
+        );
 
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.buildingId, action: ActionsValues['CREAR'], module: ModuleValues.DOCUMENTOS, description: "Creo sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId: data?.buildingId,
+          action: ActionsValues["CREAR"],
+          module: ModuleValues.DOCUMENTOS,
+          description: "Creo sesión de Certificado energético",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
 
       res.status(201).json({ data: session });
     } catch (error) {
-      console.error('Error al crear sesión de certificado energético:', error);
+      console.error("Error al crear sesión de certificado energético:", error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -104,34 +141,47 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       // Obtener el token del usuario para respetar RLS
-      const token = req.headers.authorization?.split(' ')[1];
+      const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
-        res.status(401).json({ error: 'Token no encontrado' });
+        res.status(401).json({ error: "Token no encontrado" });
         return;
       }
 
       const sessionId = req.params.sessionId;
       const data: UpdateEnergyCertificateSessionRequest = req.body;
 
-      const session = await this.getCertificateService().updateEnergyCertificateSession(
-        sessionId,
-        data,
-        userId,
-        token
-      );
+      const session =
+        await this.getCertificateService().updateEnergyCertificateSession(
+          sessionId,
+          data,
+          userId,
+          token,
+        );
 
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: session.buildingId, action: ActionsValues['CARGA'], module: ModuleValues.CERTIFICADOS, description: "Subio Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId: session.buildingId,
+          action: ActionsValues["CARGA"],
+          module: ModuleValues.CERTIFICADOS,
+          description: "Subio Certificado energético",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
 
       res.json({ data: session });
     } catch (error) {
-      console.error('Error al actualizar sesión de certificado energético:', error);
+      console.error(
+        "Error al actualizar sesión de certificado energético:",
+        error,
+      );
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -144,14 +194,14 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       // Obtener el token del usuario para respetar RLS
-      const token = req.headers.authorization?.split(' ')[1];
+      const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
-        res.status(401).json({ error: 'Token no encontrado' });
+        res.status(401).json({ error: "Token no encontrado" });
         return;
       }
 
@@ -160,22 +210,32 @@ export class CertificateEnergeticoController {
 
       const certificateRequest: ConfirmEnergyCertificateRequest = {
         sessionId,
-        finalData
+        finalData,
       };
 
-      const certificate = await this.getCertificateService().confirmEnergyCertificate(
-        certificateRequest,
-        userId,
-        token
-      );
+      const certificate =
+        await this.getCertificateService().confirmEnergyCertificate(
+          certificateRequest,
+          userId,
+          token,
+        );
 
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: certificate?.buildingId, action: ActionsValues['APROBAR'], module: ModuleValues.DOCUMENTOS, description: "Creo sesión de Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId: certificate?.buildingId,
+          action: ActionsValues["APROBAR"],
+          module: ModuleValues.DOCUMENTOS,
+          description: "Creo sesión de Certificado energético",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
 
       res.status(201).json({ data: certificate });
     } catch (error) {
-      console.error('Error al confirmar certificado energético:', error);
+      console.error("Error al confirmar certificado energético:", error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -188,21 +248,23 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       const buildingId = req.params.buildingId;
-      const certificatesData = await this.getCertificateService().getEnergyCertificatesByBuilding(
-        buildingId,
-        userId
-      );
+      const certificatesData =
+        await this.getCertificateService().getEnergyCertificatesByBuilding(
+          buildingId,
+          userId,
+        );
 
       res.json({ data: certificatesData });
     } catch (error) {
-      console.error('Error al obtener certificados del edificio:', error);
+      console.error("Error al obtener certificados del edificio:", error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -215,16 +277,20 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
-      const certificates = await this.getCertificateService().getAllEnergyCertificatesForUser(userId);
+      const certificates =
+        await this.getCertificateService().getAllEnergyCertificatesForUser(
+          userId,
+        );
       res.json({ data: certificates });
     } catch (error) {
-      console.error('Error al obtener certificados energéticos:', error);
+      console.error("Error al obtener certificados energéticos:", error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -237,20 +303,81 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       const sessionId = req.params.sessionId;
-      await this.getCertificateService().deleteEnergyCertificateSession(sessionId, userId);
-      const data = await this.getCertificateService().getSessionDocuments(sessionId, userId) || null
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data[0]?.buildingId, action: ActionsValues['ELIMINAR'], module: ModuleValues.DOCUMENTOS, description: "Eliminó sección Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+      await this.getCertificateService().deleteEnergyCertificateSession(
+        sessionId,
+        userId,
+      );
+      const data =
+        (await this.getCertificateService().getSessionDocuments(
+          sessionId,
+          userId,
+        )) || null;
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId: data[0]?.buildingId,
+          action: ActionsValues["ELIMINAR"],
+          module: ModuleValues.DOCUMENTOS,
+          description: "Eliminó sección Certificado energético",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
 
       res.status(204).send();
     } catch (error) {
-      console.error('Error al eliminar sesión de certificado energético:', error);
+      console.error(
+        "Error al eliminar sesión de certificado energético:",
+        error,
+      );
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
+      });
+    }
+  };
+
+  /**
+   * Actualizar certificado energético confirmado (edición inline)
+   * PUT /api/certificados-energeticos/:certificateId
+   */
+  updateCertificate = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: "Usuario no autenticado" });
+        return;
+      }
+
+      const certificateId = req.params.certificateId;
+      const data = req.body;
+
+      const certificate =
+        await this.getCertificateService().updateEnergyCertificate(
+          certificateId,
+          data,
+          userId,
+        );
+
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId: certificate?.buildingId,
+          action: ActionsValues["ACTUALIZAR O MODIFICAR DOCUMENTOS"],
+          module: ModuleValues.CERTIFICADOS,
+          description: "Editó certificado energético",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
+
+      res.json({ data: certificate });
+    } catch (error) {
+      console.error("Error al actualizar certificado energético:", error);
+      res.status(500).json({
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -263,20 +390,35 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       const certificateId = req.params.certificateId;
-      await this.getCertificateService().deleteEnergyCertificate(certificateId, userId);
-      const data = await this.getCertificateService().getEnergyCertificatesByCertificatedId(certificateId) || null
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: data?.buildingId, action: ActionsValues['ELIMINAR'], module: ModuleValues.DOCUMENTOS, description: "Eliminó sección Certificado energético" }).catch(err => console.error("Fallo trazabilidad:", err));
+      await this.getCertificateService().deleteEnergyCertificate(
+        certificateId,
+        userId,
+      );
+      const data =
+        (await this.getCertificateService().getEnergyCertificatesByCertificatedId(
+          certificateId,
+        )) || null;
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId: data?.buildingId,
+          action: ActionsValues["ELIMINAR"],
+          module: ModuleValues.DOCUMENTOS,
+          description: "Eliminó sección Certificado energético",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
 
       res.status(204).send();
     } catch (error) {
-      console.error('Error al eliminar certificado energético:', error);
+      console.error("Error al eliminar certificado energético:", error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -289,35 +431,47 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       const { sessionId, extractedData } = req.body;
 
       if (!sessionId || !extractedData) {
-        res.status(400).json({ error: 'Faltan campos requeridos: sessionId, extractedData' });
+        res.status(400).json({
+          error: "Faltan campos requeridos: sessionId, extractedData",
+        });
         return;
       }
 
       // Actualizar sesión con datos extraídos por IA
       const updateData: UpdateEnergyCertificateSessionRequest = {
         status: AIExtractionStatus.EXTRACTED,
-        extractedData
+        extractedData,
       };
 
-      const session = await this.getCertificateService().updateEnergyCertificateSession(
-        sessionId,
-        updateData,
-        userId
-      );
-      trazabilityService.registerTrazability({ authUserId: userId, buildingId: session?.buildingId, action: ActionsValues['GENERAR INFORMES'], module: ModuleValues.DOCUMENTOS, description: "Procesar certificado con datos de IA" }).catch(err => console.error("Fallo trazabilidad:", err));
+      const session =
+        await this.getCertificateService().updateEnergyCertificateSession(
+          sessionId,
+          updateData,
+          userId,
+        );
+      trazabilityService
+        .registerTrazability({
+          authUserId: userId,
+          buildingId: session?.buildingId,
+          action: ActionsValues["GENERAR INFORMES"],
+          module: ModuleValues.DOCUMENTOS,
+          description: "Procesar certificado con datos de IA",
+        })
+        .catch((err) => console.error("Fallo trazabilidad:", err));
 
       res.json({ data: session });
     } catch (error) {
-      console.error('Error al procesar datos de IA:', error);
+      console.error("Error al procesar datos de IA:", error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };
@@ -330,19 +484,23 @@ export class CertificateEnergeticoController {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: "Usuario no autenticado" });
         return;
       }
 
       const sessionId = req.params.sessionId;
 
-      const documents = await this.getCertificateService().getSessionDocuments(sessionId, userId);
+      const documents = await this.getCertificateService().getSessionDocuments(
+        sessionId,
+        userId,
+      );
 
       res.json({ data: documents });
     } catch (error) {
-      console.error('Error al obtener documentos de sesión:', error);
+      console.error("Error al obtener documentos de sesión:", error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Error interno del servidor'
+        error:
+          error instanceof Error ? error.message : "Error interno del servidor",
       });
     }
   };

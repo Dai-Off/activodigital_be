@@ -8,7 +8,7 @@ class DataRoomProcessingJobService {
     }
     async create(input) {
         const { data, error } = await this.getSupabase()
-            .from('data_room_processing_jobs')
+            .from("data_room_processing_jobs")
             .insert({
             user_id: input.user_id,
             building_id: input.building_id,
@@ -16,7 +16,7 @@ class DataRoomProcessingJobService {
             temp_storage_path: input.temp_storage_path,
             file_name: input.file_name,
             mime_type: input.mime_type,
-            status: 'queued',
+            status: "queued",
         })
             .select()
             .single();
@@ -26,12 +26,12 @@ class DataRoomProcessingJobService {
     }
     async getById(id) {
         const { data, error } = await this.getSupabase()
-            .from('data_room_processing_jobs')
-            .select('*')
-            .eq('id', id)
+            .from("data_room_processing_jobs")
+            .select("*")
+            .eq("id", id)
             .single();
         if (error) {
-            if (error.code === 'PGRST116')
+            if (error.code === "PGRST116")
                 return null;
             throw new Error(`Error al obtener job de Data Room: ${error.message}`);
         }
@@ -45,11 +45,38 @@ class DataRoomProcessingJobService {
         if (data?.error_message !== undefined)
             updates.error_message = data.error_message;
         const { error } = await this.getSupabase()
-            .from('data_room_processing_jobs')
+            .from("data_room_processing_jobs")
             .update(updates)
-            .eq('id', id);
+            .eq("id", id);
         if (error)
             throw new Error(`Error al actualizar estado del job: ${error.message}`);
+    }
+    /**
+     * Actualiza el checklist_id de un job (usado tras la auto-clasificación por IA).
+     */
+    async setChecklistId(id, checklistId) {
+        const { error } = await this.getSupabase()
+            .from("data_room_processing_jobs")
+            .update({
+            checklist_id: checklistId,
+            updated_at: new Date().toISOString(),
+        })
+            .eq("id", id);
+        if (error)
+            throw new Error(`Error al actualizar checklist_id del job: ${error.message}`);
+    }
+    /**
+     * Obtiene todos los jobs de un edificio, ordenados por fecha de creación descendente.
+     */
+    async getByBuildingId(buildingId) {
+        const { data, error } = await this.getSupabase()
+            .from("data_room_processing_jobs")
+            .select("*")
+            .eq("building_id", buildingId)
+            .order("created_at", { ascending: false });
+        if (error)
+            throw new Error(`Error al obtener jobs del edificio: ${error.message}`);
+        return (data || []).map((row) => this.mapRow(row));
     }
     mapRow(row) {
         return {
