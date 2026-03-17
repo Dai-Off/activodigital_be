@@ -6,6 +6,7 @@ export class AILicenciaDRController {
 
   extractLicenciaDRData = async (req: Request, res: Response): Promise<void> => {
     try {
+      req.setTimeout(300_000); // 5 minutos de timeout
       const userId = req.user?.id;
       if (!userId) {
         res.status(401).json({ error: "Usuario no autenticado" });
@@ -44,6 +45,7 @@ export class AILicenciaDRController {
 
   extractLicenciaDRDoc = async (req: Request, res: Response): Promise<void> => {
     try {
+      req.setTimeout(300_000); // 5 minutos de timeout
       const userId = req.user?.id;
       if (!userId) {
         res.status(401).json({ error: "Usuario no autenticado" });
@@ -76,6 +78,7 @@ export class AILicenciaDRController {
 
   generateLicenciaDraft = async (req: Request, res: Response): Promise<void> => {
     try {
+      req.setTimeout(300_000); // 5 minutos de timeout
       const userId = req.user?.id;
       if (!userId) {
         res.status(401).json({ error: "Usuario no autenticado" });
