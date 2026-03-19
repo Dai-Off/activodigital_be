@@ -428,7 +428,7 @@ ${documentText.slice(0, 40000)}
                 messages: [
                     {
                         role: "system",
-                        content: "Eres un experto legal y técnico en normativas municipales de construcción. Tu objetivo es procesar las normativas o requisitos de Licencias/Declaraciones Responsables y extraer los requisitos estructurados."
+                        content: "Eres un experto legal y técnico en normativas municipales de construcción. Tu objetivo es procesar las normativas o requisitos de Licencias/Declaraciones Responsables y extraer los requisitos estructurados.",
                     },
                     {
                         role: "user",
@@ -455,11 +455,11 @@ EJEMPLO:
 TEXTO DEL DOCUMENTO:
 ---
 ${documentText.slice(0, 40000)}
----`
-                    }
+---`,
+                    },
                 ],
                 temperature: 0,
-                response_format: { type: "json_object" }
+                response_format: { type: "json_object" },
             });
             const responseText = completion.choices[0]?.message?.content;
             if (!responseText)
@@ -478,7 +478,7 @@ ${documentText.slice(0, 40000)}
                 messages: [
                     {
                         role: "system",
-                        content: "Eres un asistente especializado en revisar documentos técnicos y extraer datos clave."
+                        content: "Eres un asistente especializado en revisar documentos técnicos y extraer datos clave.",
                     },
                     {
                         role: "user",
@@ -491,11 +491,11 @@ RESPONDE ÚNICAMENTE CON UN JSON VÁLIDO.
 TEXTO DEL DOCUMENTO:
 ---
 ${documentText.slice(0, 40000)}
----`
-                    }
+---`,
+                    },
                 ],
                 temperature: 0,
-                response_format: { type: "json_object" }
+                response_format: { type: "json_object" },
             });
             const responseText = completion.choices[0]?.message?.content;
             if (!responseText)
@@ -515,7 +515,7 @@ ${documentText.slice(0, 40000)}
                 messages: [
                     {
                         role: "system",
-                        content: "Actúa como un experto en Derecho Administrativo y Urbanismo en España. Tu objetivo es generar un borrador de \"Declaración Responsable Urbanística\" que sea visualmente profesional, fácil de leer y legalmente robusto, combinando los estándares de Soto del Real, Benavente y Madrid."
+                        content: 'Actúa como un experto en Derecho Administrativo y Urbanismo en España. Tu objetivo es generar un borrador de "Declaración Responsable Urbanística" que sea visualmente profesional, fácil de leer y legalmente robusto, combinando los estándares de Soto del Real, Benavente y Madrid.',
                     },
                     {
                         role: "user",
@@ -537,31 +537,38 @@ Genera el borrador siguiendo estrictamente este orden:
 5. **SECCIÓN IV: DATOS TÉCNICOS Y ECONÓMICOS:** Tabla con: Presupuesto (PEM), Fecha inicio/fin, y Medios auxiliares (Andamios, contenedores).
 6. **SECCIÓN V: CUERPO DE DECLARACIÓN (EL "DECLARO BAJO MI RESPONSABILIDAD"):** Puntos numerados legales sobre la veracidad, posesión de proyecto/memoria y cumplimiento de normativa.
 7. **SECCIÓN VI: DOCUMENTACIÓN ADJUNTA:** Check-list de lo que el usuario aporta. Incluye referencias a los archivos aportados (solo la documentación marcada como 'satisfied: true' en status_summary).
-8. **PIE DE PÁGINA:** Lugar, fecha (usa la fecha actual: ${new Date().toLocaleDateString('es-ES')}), espacio explícito para Firma (dibuja la línea ________) y cláusula de Protección de Datos (RGPD).
+8. **PIE DE PÁGINA:** Lugar, fecha (usa la fecha actual: ${new Date().toLocaleDateString("es-ES")}), espacio explícito para Firma (dibuja la línea ________) y cláusula de Protección de Datos (RGPD).
 
 # DATOS DE ENTRADA PARA EL BORRADOR
 Edificio: ${JSON.stringify(buildingData)}
-Datos aportados: ${JSON.stringify(extractedData)}`
-                    }
+Datos aportados: ${JSON.stringify(extractedData)}`,
+                    },
                 ],
-                temperature: 0.2
+                temperature: 0.2,
             });
             let draftText = completion.choices[0]?.message?.content || "# Borrador generado por IA";
             // Limpiar posibles bloques markdown envolventes
-            if (draftText.startsWith('```markdown')) {
-                draftText = draftText.replace(/^```markdown\n?/, '').replace(/\n?```$/, '');
+            if (draftText.startsWith("```markdown")) {
+                draftText = draftText
+                    .replace(/^```markdown\n?/, "")
+                    .replace(/\n?```$/, "");
             }
-            else if (draftText.startsWith('```')) {
-                draftText = draftText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+            else if (draftText.startsWith("```")) {
+                draftText = draftText.replace(/^```\n?/, "").replace(/\n?```$/, "");
             }
             // 2. Convertir Markdown a HTML
-            const { parse } = await Promise.resolve().then(() => __importStar(require('marked')));
+            const { parse } = await Promise.resolve().then(() => __importStar(require("marked")));
             const markdownHtml = await parse(draftText);
             // 3. Usar Puppeteer para generar el PDF desde HTML
-            const puppeteer = await Promise.resolve().then(() => __importStar(require('puppeteer')));
+            const puppeteer = await Promise.resolve().then(() => __importStar(require("puppeteer")));
             const browser = await puppeteer.launch({
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium-browser",
                 headless: true, // "new" headless mode is standard now
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                args: [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                ],
             });
             const page = await browser.newPage();
             // Inyectar HTML y CSS básico profesional
@@ -604,18 +611,18 @@ Datos aportados: ${JSON.stringify(extractedData)}`
         </body>
         </html>
       `;
-            await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+            await page.setContent(htmlContent, { waitUntil: "networkidle0" });
             const generatedPdfBuffer = await page.pdf({
-                format: 'A4',
+                format: "A4",
                 printBackground: true,
-                margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+                margin: { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" },
                 displayHeaderFooter: true,
                 headerTemplate: '<div style="font-size: 8px; width: 100%; text-align: right; padding-right: 20px; color: #aaa;">Borrador - Concesión de Licencia / Resolución DR</div>',
-                footerTemplate: '<div style="font-size: 8px; width: 100%; text-align: center; color: #aaa;">ActivoDigital - Borrador de resolución para fines informativos (Pág. <span class="pageNumber"></span>/<span class="totalPages"></span>)</div>'
+                footerTemplate: '<div style="font-size: 8px; width: 100%; text-align: center; color: #aaa;">ActivoDigital - Borrador de resolución para fines informativos (Pág. <span class="pageNumber"></span>/<span class="totalPages"></span>)</div>',
             });
             await browser.close();
             const pdfBytes = Uint8Array.from(generatedPdfBuffer);
-            const { PDFDocument } = await Promise.resolve().then(() => __importStar(require('pdf-lib')));
+            const { PDFDocument } = await Promise.resolve().then(() => __importStar(require("pdf-lib")));
             // 5. Merge additional documents if provided
             const docPaths = extractedData.doc_paths || [];
             console.log(`[AIProcessingService] Doc paths to merge:`, docPaths);
@@ -650,6 +657,144 @@ Datos aportados: ${JSON.stringify(extractedData)}`
         catch (error) {
             console.error("Error al generar borrador de licencia con IA:", error);
             throw new Error("Error en la generación de borrador PDF");
+        }
+    }
+    async extractDocumentMetadata(fileUrl, mimeType, category) {
+        try {
+            const getCategoryPrompt = (cat) => {
+                const baseInstructions = `Eres un asistente experto en gestión documental de edificios. Tu tarea es extraer metadatos relevantes de documentos y devolverlos en un JSON.
+Requerimientos comunes a mantener en el JSON:
+1. "summary": Resumen ejecutivo (1-2 frases).
+2. "document_type": Tipo específico de documento detectado.
+3. "expiration_date": Fecha de caducidad si aplica (YYYY-MM-DD).
+4. "key_fields": Un objeto con los datos extraídos específicos de la categoría.`;
+                let specificInstructions = "";
+                switch (cat) {
+                    case "financial":
+                        specificInstructions = `
+Para documentos financieros (facturas, presupuestos, recibos), EXTRAER ADEMÁS en "key_fields":
+- "amount": Importe total (numérico).
+- "issuer": Quién emite el documento.
+- "invoice_number": Número de factura.
+- "tax_base": Base imponible.
+- "vat": IVA / Impuestos.
+- "payment_date": Fecha de pago (YYYY-MM-DD).
+- "concept": Concepto principal.
+- "periodicity": Periodicidad (mensual, anual, puntual).`;
+                        break;
+                    case "contracts":
+                        specificInstructions = `
+Para contratos, EXTRAER ADEMÁS en "key_fields":
+- "provider": Proveedor o contratista.
+- "contract_amount": Importe del contrato.
+- "start_date": Fecha de inicio (YYYY-MM-DD).
+- "end_date": Fecha de fin (YYYY-MM-DD).
+- "renewal_type": Tipo de renovación (automática, manual).
+- "service_type": Tipo de servicio.
+- "scope": Alcance del contrato.`;
+                        break;
+                    case "maintenance":
+                        specificInstructions = `
+Para documentos de mantenimiento o revisión técnica, EXTRAER ADEMÁS en "key_fields":
+- "maintenance_type": Tipo de mantenimiento (preventivo, correctivo).
+- "system_affected": Sistema afectado (ascensor, clima, estructura, etc.).
+- "technician": Técnico o empresa responsable.
+- "next_revision_date": Próxima revisión (YYYY-MM-DD).
+- "findings": Hallazgos o anomalías detectadas.
+- "status": Estado de la revisión (Favorable, Desfavorable, Con defectos).`;
+                        break;
+                    case "insurance":
+                        specificInstructions = `
+Para pólizas de seguro o recibos, EXTRAER ADEMÁS en "key_fields":
+- "insurer": Aseguradora.
+- "policy_number": Número de póliza.
+- "coverage_type": Tipo de cobertura.
+- "premium": Prima o coste.
+- "coverage_amount": Capital asegurado máximo o límite de cobertura.`;
+                        break;
+                    case "certificates":
+                        specificInstructions = `
+Para certificados (energéticos, OCA, ITE, etc.), EXTRAER ADEMÁS en "key_fields":
+- "certificate_type": Tipo de certificado.
+- "rating": Calificación (ej. Letra A-G para energéticos).
+- "issuing_body": Organismo emisor.
+- "issue_date": Fecha de emisión (YYYY-MM-DD).
+- "compliance_status": Estado de cumplimiento.`;
+                        break;
+                    case "licenciadr":
+                        specificInstructions = `
+Para licencias, normativas o declaraciones responsables, EXTRAER ADEMÁS en "key_fields":
+- "license_type": Tipo de licencia u obra.
+- "issuing_municipality": Ayuntamiento u organismo emisor.
+- "status": Estado de la licencia.
+- "resolution_date": Fecha de resolución (YYYY-MM-DD).
+Adicionalmente, extraer a nivel raíz del JSON:
+- "is_municipal_regulation": true si es una normativa, false de lo contrario.
+- "requirements": (Opcional) Array de requisitos [{ "key": "string_id", "label": "Nombre corto", "description": "Detalle", "type": "document" | "data" }].`;
+                        break;
+                    default:
+                        specificInstructions = `EXTRAER ADEMÁS en "key_fields" cualquier dato clave numérico, fecha (YYYY-MM-DD), emisor o identificador importante detectado.`;
+                }
+                return `${baseInstructions}\n${specificInstructions}\n\nResponde ÚNICAMENTE con el objeto JSON estructurado.`;
+            };
+            const systemPrompt = getCategoryPrompt(category);
+            const isPdf = mimeType === "application/pdf";
+            if (isPdf) {
+                // Para PDFs: descargar y extraer texto con pdf-parse
+                const response = await fetch(fileUrl);
+                const buffer = Buffer.from(await response.arrayBuffer());
+                const pdf = (await Promise.resolve().then(() => __importStar(require("pdf-parse")))).default;
+                const pdfData = await pdf(buffer);
+                const documentText = pdfData.text;
+                const completion = await this.openai.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        {
+                            role: "user",
+                            content: `Extrae la información en formato JSON del siguiente texto de un documento de la categoría "${category}":
+              
+---
+${documentText.slice(0, 40000)}
+---`,
+                        },
+                    ],
+                    temperature: 0,
+                    response_format: { type: "json_object" },
+                });
+                const responseText = completion.choices[0]?.message?.content;
+                return responseText ? JSON.parse(responseText) : {};
+            }
+            else {
+                // Para imágenes: usar Vision API con gpt-4o
+                const completion = await this.openai.chat.completions.create({
+                    model: "gpt-4o",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        {
+                            role: "user",
+                            content: [
+                                {
+                                    type: "text",
+                                    text: `Extrae la información en formato JSON de esta imagen de un documento de la categoría "${category}".`,
+                                },
+                                {
+                                    type: "image_url",
+                                    image_url: { url: fileUrl },
+                                },
+                            ],
+                        },
+                    ],
+                    temperature: 0,
+                    response_format: { type: "json_object" },
+                });
+                const responseText = completion.choices[0]?.message?.content;
+                return responseText ? JSON.parse(responseText) : {};
+            }
+        }
+        catch (error) {
+            console.error("Error al extraer metadatos del documento:", error);
+            return {};
         }
     }
 }

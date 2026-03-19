@@ -139,16 +139,29 @@ class TechnicalAuditService {
         // Generar tareas
         const tasks = this.generateTasks(digitalBook, certificate, esgResult, building);
         // Generar mejoras energéticas (usando certificado, libro digital y ESG)
-        const energyImprovements = this.generateEnergyImprovements(certificate, digitalBook, esgResult);
+        const energyImprovements = this.generateEnergyImprovements(certificate, digitalBook, esgResult, building);
         // Calcular ahorro potencial
         const potentialSavingsKwhPerM2 = this.calculatePotentialSavings(certificate, energyImprovements);
+        // Filter priority improvements for financial summary
+        const priorityImprovements = energyImprovements.filter(imp => imp.priority === 'high' || imp.priority === 'medium');
+        // Sumar inversiones, ahorros económicos (estimados a 0.15€/kWh) y CO2
+        const sqMeters = building?.square_meters || 1000;
+        const pricePerKwh = 0.15;
+        const totalInvestment = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCost || 0), 0);
+        const totalAnnualSavings = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedSavingsKwhPerM2 * sqMeters * pricePerKwh), 0) * 0.85;
+        const totalCo2Reduction = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCo2Reduction || 0), 0) * 0.85;
+        const roiAggregated = totalAnnualSavings > 0 ? Number((totalInvestment / totalAnnualSavings).toFixed(1)) : 0;
         // Resumen
         const summary = {
             totalTasks: tasks.length,
             highPriorityTasks: tasks.filter(t => t.priority === 'high').length,
             mediumPriorityTasks: tasks.filter(t => t.priority === 'medium').length,
             lowPriorityTasks: tasks.filter(t => t.priority === 'low').length,
-            recommendedImprovements: energyImprovements.length
+            recommendedImprovements: energyImprovements.length,
+            totalInvestment: Math.round(totalInvestment),
+            totalAnnualSavings: Math.round(totalAnnualSavings),
+            totalCo2Reduction: Number(totalCo2Reduction.toFixed(1)),
+            roiAggregated
         };
         return {
             completionPercentage,
@@ -356,7 +369,7 @@ class TechnicalAuditService {
      * Genera sugerencias de mejoras energéticas
      * Usa datos del certificado energético, libro digital y ESG para generar recomendaciones precisas
      */
-    generateEnergyImprovements(certificate, digitalBook, esgResult) {
+    generateEnergyImprovements(certificate, digitalBook, esgResult, building) {
         const improvements = [];
         let improvementId = 1;
         if (!certificate) {
@@ -366,90 +379,103 @@ class TechnicalAuditService {
         const currentConsumption = certificate.primary_energy_kwh_per_m2_year || 0;
         const emissions = certificate.emissions_kg_co2_per_m2_year || 0;
         const camposAmbientales = digitalBook?.campos_ambientales || {};
+        const sqMeters = building?.square_meters || 1000; // Valor por defecto si no hay área
         // Usar datos del ESG si está disponible para mejorar las recomendaciones
         const esgScore = esgResult?.status === 'complete' ? esgResult.data?.total : null;
         const esgEnvironmental = esgResult?.status === 'complete' ? esgResult.data?.environmental?.normalized : null;
-        // Mejoras según clase energética
+        // Factores aproximados de coste (euros) y reducción CO2 para España
+        const factorCo2 = 0.2; // ~0.2 kg CO2 per kWh eléctrico en media
         if (['D', 'E', 'F', 'G'].includes(rating)) {
-            // Mejora de aislamiento (alta prioridad para clases bajas)
+            const savingsKwh = rating === 'G' ? 80 : rating === 'F' ? 60 : rating === 'E' ? 40 : 25;
             improvements.push({
                 id: `improvement-${improvementId++}`,
                 type: 'insulation',
                 title: 'Mejora del aislamiento térmico',
-                description: 'Instalar o mejorar el aislamiento en fachadas, cubierta y suelos puede reducir significativamente el consumo energético.',
-                estimatedSavingsKwhPerM2: rating === 'G' ? 80 : rating === 'F' ? 60 : rating === 'E' ? 40 : 25,
-                priority: 'high'
+                description: 'Instalar o mejorar el aislamiento en fachadas (SATE), cubierta y suelos.',
+                estimatedSavingsKwhPerM2: savingsKwh,
+                priority: 'high',
+                estimatedCost: Math.round(sqMeters * 120), // ~120€/m2 envolvente
+                estimatedRoi: 9, // ~9 años
+                estimatedCo2Reduction: Number((savingsKwh * factorCo2).toFixed(1))
             });
-            // Mejora de ventanas
             improvements.push({
                 id: `improvement-${improvementId++}`,
                 type: 'windows',
                 title: 'Sustitución de ventanas',
-                description: 'Instalar ventanas de doble o triple acristalamiento con marcos eficientes reduce pérdidas térmicas.',
+                description: 'Instalar ventanas de doble acristalamiento con marcos eficientes (RPT).',
                 estimatedSavingsKwhPerM2: 15,
-                priority: 'high'
+                priority: 'high',
+                estimatedCost: Math.round(sqMeters * 45), // Estimación basada en m2 edificio vs envolvente hueca
+                estimatedRoi: 10,
+                estimatedCo2Reduction: Number((15 * factorCo2).toFixed(1))
             });
         }
-        // Si el consumo es alto (>150 kWh/m²·año)
         if (currentConsumption > 150) {
             improvements.push({
                 id: `improvement-${improvementId++}`,
                 type: 'heating',
                 title: 'Optimización del sistema de calefacción',
-                description: 'Sustituir calderas antiguas por sistemas de alta eficiencia o bombas de calor puede reducir el consumo de calefacción.',
+                description: 'Sustituir calderas antiguas por aerotermia de alta eficiencia.',
                 estimatedSavingsKwhPerM2: 30,
-                priority: 'high'
+                priority: 'high',
+                estimatedCost: Math.round(sqMeters * 60), // Equipo térmico por m2
+                estimatedRoi: 7,
+                estimatedCo2Reduction: Number((30 * 0.25).toFixed(1)) // Mayor factor para salto fósil a eléctrico
             });
         }
-        // Mejora de iluminación (siempre recomendable)
         improvements.push({
             id: `improvement-${improvementId++}`,
             type: 'lighting',
             title: 'Sustitución a iluminación LED',
-            description: 'Reemplazar iluminación tradicional por LED de bajo consumo reduce el consumo eléctrico.',
+            description: 'Reemplazar iluminación tradicional por LED con sensores de presencia.',
             estimatedSavingsKwhPerM2: 8,
-            priority: 'medium'
+            priority: 'medium',
+            estimatedCost: Math.round(sqMeters * 15),
+            estimatedRoi: 3,
+            estimatedCo2Reduction: Number((8 * factorCo2).toFixed(1))
         });
-        // Energías renovables (si no hay o es bajo el porcentaje)
-        // Usa datos del libro digital (campos_ambientales) y del ESG para priorizar
         const renewableShare = camposAmbientales.renewableSharePercent || 0;
         if (renewableShare < 30) {
-            // Si el ESG ambiental es bajo, priorizar más las energías renovables
             const shouldPrioritizeRenewable = esgEnvironmental !== null && esgEnvironmental < 30;
             improvements.push({
                 id: `improvement-${improvementId++}`,
                 type: 'renewable',
                 title: 'Instalación de energías renovables',
-                description: 'Instalar paneles solares u otros sistemas de energía renovable puede reducir significativamente el consumo energético y las emisiones.',
+                description: 'Instalar paneles solares fotovoltaicos en cubierta para autoconsumo.',
                 estimatedSavingsKwhPerM2: 20,
-                priority: renewableShare === 0 || shouldPrioritizeRenewable ? 'high' : 'medium'
+                priority: renewableShare === 0 || shouldPrioritizeRenewable ? 'high' : 'medium',
+                estimatedCost: Math.round(sqMeters * 40), // Instalación FV ratio por m2 de edificio aprox
+                estimatedRoi: 5,
+                estimatedCo2Reduction: Number((20 * factorCo2).toFixed(1))
             });
         }
-        // Si el ESG ambiental es bajo, agregar recomendaciones adicionales basadas en ESG
         if (esgEnvironmental !== null && esgEnvironmental < 35) {
             improvements.push({
                 id: `improvement-${improvementId++}`,
                 type: 'insulation',
-                title: 'Mejora urgente de eficiencia energética',
-                description: `El score ESG ambiental es bajo (${esgEnvironmental.toFixed(1)}/50). Se recomienda priorizar mejoras de eficiencia energética para mejorar la sostenibilidad del edificio.`,
+                title: 'Mejoras integrales ESG',
+                description: `El score ESG ambiental es bajo (${esgEnvironmental.toFixed(1)}/50). Intervenir en sistemas pasivos y activos.`,
                 estimatedSavingsKwhPerM2: 25,
-                priority: 'high'
+                priority: 'high',
+                estimatedCost: Math.round(sqMeters * 80),
+                estimatedRoi: 8,
+                estimatedCo2Reduction: Number((25 * factorCo2).toFixed(1))
             });
         }
-        // Mejora HVAC si el consumo es moderado-alto
         if (currentConsumption > 100) {
             improvements.push({
                 id: `improvement-${improvementId++}`,
                 type: 'hvac',
-                title: 'Optimización de sistemas HVAC',
-                description: 'Mejorar sistemas de climatización y ventilación con equipos más eficientes y mejor control.',
+                title: 'Sistemas de Control HVAC y VMC',
+                description: 'Domótica, control inteligente de clima y ventilación con recuperación.',
                 estimatedSavingsKwhPerM2: 18,
-                priority: 'medium'
+                priority: 'medium',
+                estimatedCost: Math.round(sqMeters * 35),
+                estimatedRoi: 6,
+                estimatedCo2Reduction: Number((18 * factorCo2).toFixed(1))
             });
         }
-        // Si está en clase B o mejor, solo mejoras menores
         if (['A', 'B'].includes(rating)) {
-            // Mantener solo mejoras de bajo impacto
             return improvements.filter(imp => imp.type === 'lighting' || imp.type === 'renewable');
         }
         return improvements;
