@@ -50,6 +50,14 @@ export interface RegulatoryCertificate {
   uploaded_at?: string;
 }
 
+export interface RegulatoryNormative {
+  id: string;
+  title: string;
+  description: string;
+  status: 'compliant' | 'partial' | 'non_compliant';
+  law_reference: string;
+}
+
 export interface RegulatoryAuditResult {
   buildingId: string;
   current_state: RegulatoryCurrentState;
@@ -62,6 +70,7 @@ export interface RegulatoryAuditResult {
   };
   mevs: RegulatoryMev[];
   certificates: RegulatoryCertificate[];
+  normatives: RegulatoryNormative[];
   summary: RegulatoryAuditSummary;
   calculatedAt: string;
 }

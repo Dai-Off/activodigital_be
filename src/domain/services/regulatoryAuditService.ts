@@ -52,11 +52,13 @@ export class RegulatoryAuditService {
     };
 
     // 5. Definir el Estado Objetivo (Target EPBD 2030)
-    // Para simplificar, asumimos un objetivo clase D con valores conservadores
+    // Para 2030, buscamos una reducción del 16% o equiparar a metas estrictas (aprox Clase B)
+    const baseConsumption = currentState.consumption_kwh_m2_year || 100;
+    const baseEmissions = currentState.emissions_kg_co2_m2_year || 25;
     const targetState: RegulatoryTargetState = {
-      target_class: 'D',
-      target_consumption: 65,
-      target_emissions: 12
+      target_class: 'B', // Objetivo EPBD 2030 referencial
+      target_consumption: Math.round(baseConsumption * 0.84), // -16% reducción directiva
+      target_emissions: Math.round(baseEmissions * 0.84) // -16% reducción directiva
     };
 
     // Calcular la brecha (Gap Analysis)
@@ -162,8 +164,50 @@ export class RegulatoryAuditService {
       }
     ];
 
-    // Normativas cumplidas: Calculamos según la presencia de los 4 documentos base + progreso MEVs
-    const normativesCompliant = certificatesFound + (mevsImplementedLength >= 4 ? 4 : Math.min(mevsImplementedLength, 3));
+    // 8. Definir Normativas Dinámicas (Framework Legal de 8 puntos)
+    const normativeStatusEPBD: 'compliant' | 'partial' | 'non_compliant' = 
+      ['A', 'B', 'C', 'D'].includes(currentState.energy_class) ? 'compliant' :
+      ['E', 'F'].includes(currentState.energy_class) ? 'partial' : 'non_compliant';
+
+    const normativeStatusCEE: 'compliant' | 'non_compliant' = hasCEE ? 'compliant' : 'non_compliant';
+
+    const mevComplianceRatio = mevsImplementedLength / mevs.length;
+    const normativeStatusLey: 'compliant' | 'partial' | 'non_compliant' = 
+      mevComplianceRatio >= 0.5 ? 'compliant' :
+      mevComplianceRatio >= 0.2 ? 'partial' : 'non_compliant';
+
+    const normativeStatusCTE: 'compliant' | 'partial' | 'non_compliant' = 
+      ['A', 'B'].includes(currentState.energy_class) ? 'compliant' :
+      ['C', 'D'].includes(currentState.energy_class) ? 'partial' : 'non_compliant';
+
+    const normativeStatusRITE: 'compliant' | 'partial' | 'non_compliant' = 
+      (mevs.find(m => m.id === 'mev-03')?.status === 'implementada') ? 'compliant' :
+      (mevs.find(m => m.id === 'mev-03')?.status === 'parcial') ? 'partial' : 'non_compliant';
+
+    const normativeStatusIEE: 'compliant' | 'partial' | 'non_compliant' = 
+      (hasITE && hasCEE) ? 'compliant' :
+      (hasITE || hasCEE) ? 'partial' : 'non_compliant';
+
+    const normativeStatusEV: 'compliant' | 'non_compliant' = 
+      (mevs.find(m => m.id === 'mev-08')?.status === 'implementada') ? 'compliant' : 'non_compliant';
+
+    const normativeStatusSRI: 'compliant' | 'partial' | 'non_compliant' = 
+      (mevs.find(m => m.id === 'mev-06')?.status === 'implementada') ? 'compliant' :
+      (mevs.find(m => m.id === 'mev-06')?.status === 'parcial') ? 'partial' : 'non_compliant';
+
+    const normatives: any[] = [
+      { id: 'norm-01', title: 'Directiva (UE) 2024/1275 - EPBD IV', description: 'Eficiencia energética - Objetivo 2030: Clase D mínima', status: normativeStatusEPBD, law_reference: 'DOUE' },
+      { id: 'norm-02', title: 'Real Decreto 390/2021 (Certificación)', description: 'Procedimiento básico certificación energética', status: normativeStatusCEE, law_reference: 'BOE' },
+      { id: 'norm-03', title: 'Ley 7/2021 de Cambio Climático', description: 'Metas descarbonización y reducción emisiones', status: normativeStatusLey, law_reference: 'BOE' },
+      { id: 'norm-04', title: 'CTE DB-HE (Código Técnico)', description: 'Requisitos de eficiencia térmica de envolvente', status: normativeStatusCTE, law_reference: 'Ministerio de Vivienda' },
+      { id: 'norm-05', title: 'RITE (Instalaciones Térmicas)', description: 'Eficiencia de equipos calefacción y refrigeración', status: normativeStatusRITE, law_reference: 'Min. Industria' },
+      { id: 'norm-06', title: 'Informe Evaluación Edificio (IEE)', description: 'Inspección técnica + Certificación energética', status: normativeStatusIEE, law_reference: 'Normativa Autonómica' },
+      { id: 'norm-07', title: 'ITC-BT-52 (Reglamento Baja Tensión)', description: 'Mandato electromovilidad y puntos de carga EV', status: normativeStatusEV, law_reference: 'REBT' },
+      { id: 'norm-08', title: 'Regulación SRI y Smart Readiness', description: 'Digitalización y preparación para servicios inteligentes', status: normativeStatusSRI, law_reference: 'Directiva 2018/844' }
+    ];
+
+    // Normativas cumplidas: Calculamos según el estado 'compliant' de cada normativa
+    const normativesCompliant = normatives.filter(n => n.status === 'compliant').length;
 
     return {
       buildingId,
@@ -177,6 +221,7 @@ export class RegulatoryAuditService {
       },
       mevs,
       certificates,
+      normatives,
       summary: {
         normatives_compliant: normativesCompliant,
         normatives_total: 8,
@@ -200,12 +245,12 @@ export class RegulatoryAuditService {
     const defaultMevs: RegulatoryMev[] = [
       { id: 'mev-01', code: 'MEV-01', title: 'Aislamiento Térmico de Envolvente', description: 'Fachadas, cubiertas y medianeras', status: 'no_implementada', current_state: 'Aislamiento insuficiente', potential_savings: '15-25', potential_co2_reduction: '3-5' },
       { id: 'mev-02', code: 'MEV-02', title: 'Sustitución de Carpinterías Exteriores', description: 'Ventanas y puertas con rotura de puente térmico', status: 'no_implementada', current_state: 'Carpintería antigua', potential_savings: '10-18', potential_co2_reduction: '2-4' },
-      { id: 'mev-03', code: 'MEV-03', title: 'Sistemas de Climatización Eficientes', description: 'Calderas de condensación, bombas de calor, sistemas VRV', status: 'no_implementada', current_state: 'Caldera estándar', potential_savings: '12-20', potential_co2_reduction: '2-3' },
+      { id: 'mev-03', code: 'MEV-03', title: 'Descarbonización Térmica (Fossil Phase-out)', description: 'Sustitución de calderas fósiles por aerotermia / bombas de calor', status: 'no_implementada', current_state: 'Calefacción fósil', potential_savings: '15-25', potential_co2_reduction: '5-10' },
       { id: 'mev-04', code: 'MEV-04', title: 'Iluminación LED de Alta Eficiencia', description: 'Zonas comunes y exteriores', status: 'no_implementada', current_state: 'Iluminación convencional', potential_savings: '3-5', potential_co2_reduction: '0.5-1' },
-      { id: 'mev-05', code: 'MEV-05', title: 'Integración de Energías Renovables', description: 'Fotovoltaica, solar térmica, aerotermia', status: 'no_implementada', current_state: 'Sin renovables', potential_savings: '20-35', potential_co2_reduction: '8-12' },
-      { id: 'mev-06', code: 'MEV-06', title: 'Sistemas de Control y Gestión Energética', description: 'Domótica, sensores, termostatos inteligentes', status: 'no_implementada', current_state: 'Sin control', potential_savings: '5-10', potential_co2_reduction: '1-2' },
+      { id: 'mev-05', code: 'MEV-05', title: 'Mandato Fotovoltaico (Solar EPBD 2030)', description: 'Instalación de paneles solares fotovoltaicos', status: 'no_implementada', current_state: 'Sin fotovoltaica', potential_savings: '25-40', potential_co2_reduction: '8-15' },
+      { id: 'mev-06', code: 'MEV-06', title: 'Preparación Inteligente (SRI)', description: 'Evaluación y mejora de sistemas de control, domótica y sensores', status: 'no_implementada', current_state: 'Sin preparación inteligente', potential_savings: '5-10', potential_co2_reduction: '1-2' },
       { id: 'mev-07', code: 'MEV-07', title: 'Ventilación Mecánica con Recuperación de Calor', description: 'Sistemas de ventilación controlada (VMC)', status: 'no_implementada', current_state: 'Ventilación natural', potential_savings: '8-15', potential_co2_reduction: '1.5-3' },
-      { id: 'mev-08', code: 'MEV-08', title: 'Protección Solar y Control de Radiación', description: 'Persianas, toldos, lamas, vidrios selectivos', status: 'no_implementada', current_state: 'Protección básica', potential_savings: '3-8', potential_co2_reduction: '0.5-1.5' }
+      { id: 'mev-08', code: 'MEV-08', title: 'Infraestructura de Electromovilidad', description: 'Puntos de carga EV y aparcamiento de bicicletas', status: 'no_implementada', current_state: 'Sin infraestructura', potential_savings: 'N/A', potential_co2_reduction: 'Variable' }
     ];
 
     // Recorremos TODOS los documentos para agregar evidencias
@@ -237,11 +282,14 @@ export class RegulatoryAuditService {
         }
       }
 
-      // MEV-03: Climatización / Calefacción
+      // MEV-03: Descarbonización (Fossil Phase-out)
       if (defaultMevs[2].status !== 'implementada') {
-        if (manualChecks.calefaccion || manualChecks.heating || checklist.calefaccion || keyFields.hvac || keyFields.heating || fileName.includes('caldera') || fileName.includes('clima') || fileName.includes('calefaccion') || fileName.includes('bomba') || summary.includes('caldera') || summary.includes('calefaccion') || summary.includes('climatizac')) {
+        if (manualChecks.calefaccion || manualChecks.heating || checklist.calefaccion || keyFields.hvac || keyFields.heating || fileName.includes('aerotermia') || fileName.includes('bomba de calor') || summary.includes('aerotermia') || summary.includes('sin gas') || summary.includes('descarboniza')) {
           defaultMevs[2].status = 'implementada';
-          defaultMevs[2].current_state = (manualChecks.calefaccion || manualChecks.heating) ? 'Validación manual: Climatización verificada' : 'Alta eficiencia / Aerotermia';
+          defaultMevs[2].current_state = (manualChecks.calefaccion || manualChecks.heating) ? 'Validación manual: Descarbonizado' : 'Sistema 100% eléctrico renovable';
+        } else if (fileName.includes('caldera gas') || summary.includes('caldera de gas') || summary.includes('gasoil')) {
+          defaultMevs[2].status = 'no_implementada';
+          defaultMevs[2].current_state = 'Riesgo EPBD: Caldera fósil detectada';
         }
       }
 
@@ -253,19 +301,19 @@ export class RegulatoryAuditService {
         }
       }
 
-      // MEV-05: Renovables (Fotovoltaica)
+      // MEV-05: Mandato Fotovoltaico
       if (defaultMevs[4].status !== 'implementada') {
         if (manualChecks.fotovoltaica || manualChecks.solar || checklist.fotovoltaica || keyFields.solar || keyFields.renewable || fileName.includes('solar') || fileName.includes('foto') || fileName.includes('renovabl') || summary.includes('solar') || summary.includes('fotovoltaic')) {
           defaultMevs[4].status = 'implementada';
-          defaultMevs[4].current_state = (manualChecks.fotovoltaica || manualChecks.solar) ? 'Validación manual: Renovables verificadas' : 'Paneles fotovoltaicos / térmicos';
+          defaultMevs[4].current_state = (manualChecks.fotovoltaica || manualChecks.solar) ? 'Validación manual: Solar verificado' : 'Cumple Mandato Solar EPBD';
         }
       }
       
-      // Control / Gestión (MEV-06)
+      // Control / Gestión / SRI (MEV-06)
       if (defaultMevs[5].status !== 'implementada') {
-        if (manualChecks.control || checklist.control || fileName.includes('domotica') || fileName.includes('sensor') || fileName.includes('control') || summary.includes('domotica') || summary.includes('inteligente')) {
+        if (manualChecks.control || checklist.control || fileName.includes('domotica') || fileName.includes('sri') || fileName.includes('smart') || summary.includes('domotica') || summary.includes('inteligente') || summary.includes('sri')) {
           defaultMevs[5].status = 'implementada';
-          defaultMevs[5].current_state = 'Sistemas de control inteligente';
+          defaultMevs[5].current_state = 'Certificado SRI / Control Smart detectado';
         }
       }
 
@@ -277,11 +325,11 @@ export class RegulatoryAuditService {
         }
       }
 
-      // Protección Solar (MEV-08)
+      // Infraestructura de Electromovilidad (MEV-08)
       if (defaultMevs[7].status !== 'implementada') {
-        if (manualChecks.proteccion || manualChecks.protection || checklist.proteccion || fileName.includes('persiana') || fileName.includes('toldo') || fileName.includes('lama') || fileName.includes('proteccion') || summary.includes('persiana') || summary.includes('toldo') || summary.includes('lama') || summary.includes('control solar') || summary.includes('vidrio selectivo')) {
+        if (manualChecks.ev || checklist.ev || fileName.includes('cargador') || fileName.includes('ev') || fileName.includes('vehiculo electrico') || fileName.includes('bicicleta') || summary.includes('cargador ev') || summary.includes('puntos de recarga') || summary.includes('movilidad')) {
           defaultMevs[7].status = 'implementada';
-          defaultMevs[7].current_state = 'Control de radiación solar / Lamas / Toldos';
+          defaultMevs[7].current_state = 'Puntos de carga EV / Bicis verificados';
         }
       }
     }
