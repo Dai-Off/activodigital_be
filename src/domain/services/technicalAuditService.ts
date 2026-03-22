@@ -6,6 +6,19 @@ import { SectionType } from '../../types/libroDigital';
 export class TechnicalAuditService {
   private esgService = new EsgService();
 
+  /**
+   * Constantes de auditoría técnica - centralizar para fácil actualización.
+   * Fuentes: IDAE 2024, REE mix eléctrico, MITECO tarifas.
+   */
+  private static readonly AUDIT_CONSTANTS = {
+    /** kg CO₂ por kWh eléctrico peninsular (REE media 2024) */
+    CO2_FACTOR_KG_PER_KWH: 0.12,
+    /** Precio medio electricidad €/kWh (PVPC 2024 Q4) */
+    PRICE_PER_KWH: 0.17,
+    /** Superficie por defecto si no hay dato real (m²) */
+    DEFAULT_SQ_METERS: 1000,
+  };
+
   private getSupabase() {
     return getSupabaseClient();
   }
@@ -51,7 +64,7 @@ export class TechnicalAuditService {
       missingData.push('Score ESG (no se pudo calcular)');
     } else if (esgResult.status !== 'complete') {
       if (esgResult.status === 'incomplete' && esgResult.missingData) {
-        missingData.push(`ESG incompleto: ${esgResult.missingData.join(', ')}`);
+        esgResult.missingData.forEach((item: string) => missingData.push(`Datos ESG: ${item}`));
       } else {
         missingData.push('Score ESG completo');
       }
@@ -169,9 +182,9 @@ export class TechnicalAuditService {
     // Filter priority improvements for financial summary
     const priorityImprovements = energyImprovements.filter(imp => imp.priority === 'high' || imp.priority === 'medium');
     
-    // Sumar inversiones, ahorros económicos (estimados a 0.15€/kWh) y CO2
-    const sqMeters = building?.square_meters || 1000;
-    const pricePerKwh = 0.15;
+    // Sumar inversiones, ahorros económicos y CO2
+    const sqMeters = building?.square_meters || TechnicalAuditService.AUDIT_CONSTANTS.DEFAULT_SQ_METERS;
+    const pricePerKwh = TechnicalAuditService.AUDIT_CONSTANTS.PRICE_PER_KWH;
     
     const totalInvestment = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCost || 0), 0);
     const totalAnnualSavings = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedSavingsKwhPerM2 * sqMeters * pricePerKwh), 0) * 0.85;
@@ -450,14 +463,14 @@ export class TechnicalAuditService {
     const currentConsumption = certificate.primary_energy_kwh_per_m2_year || 0;
     const emissions = certificate.emissions_kg_co2_per_m2_year || 0;
     const camposAmbientales = digitalBook?.campos_ambientales || {};
-    const sqMeters = building?.square_meters || 1000; // Valor por defecto si no hay área
+    const sqMeters = building?.square_meters || TechnicalAuditService.AUDIT_CONSTANTS.DEFAULT_SQ_METERS;
     
     // Usar datos del ESG si está disponible para mejorar las recomendaciones
     const esgScore = esgResult?.status === 'complete' ? esgResult.data?.total : null;
     const esgEnvironmental = esgResult?.status === 'complete' ? esgResult.data?.environmental?.normalized : null;
 
     // Factores aproximados de coste (euros) y reducción CO2 para España
-    const factorCo2 = 0.2; // ~0.2 kg CO2 per kWh eléctrico en media
+    const factorCo2 = TechnicalAuditService.AUDIT_CONSTANTS.CO2_FACTOR_KG_PER_KWH;
 
     if (['D', 'E', 'F', 'G'].includes(rating)) {
       const savingsKwh = rating === 'G' ? 80 : rating === 'F' ? 60 : rating === 'E' ? 40 : 25;
@@ -531,7 +544,7 @@ export class TechnicalAuditService {
     if (esgEnvironmental !== null && esgEnvironmental < 35) {
       improvements.push({
         id: `improvement-${improvementId++}`,
-        type: 'insulation',
+        type: 'esg',
         title: 'Mejoras integrales ESG',
         description: `El score ESG ambiental es bajo (${esgEnvironmental.toFixed(1)}/50). Intervenir en sistemas pasivos y activos.`,
         estimatedSavingsKwhPerM2: 25,

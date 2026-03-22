@@ -209,6 +209,32 @@ export class RegulatoryAuditService {
     // Normativas cumplidas: Calculamos según el estado 'compliant' de cada normativa
     const normativesCompliant = normatives.filter(n => n.status === 'compliant').length;
 
+    // Calcular total de ahorros potenciales desde MEVs NO implementadas
+    const pendingMevs = mevs.filter(m => m.status !== 'implementada');
+    const totalSavingsMin = pendingMevs.reduce((sum: number, m: RegulatoryMev) => {
+      const range = (m.potential_savings || '0').split('-');
+      return sum + Number(range[0] || 0);
+    }, 0);
+    const totalSavingsMax = pendingMevs.reduce((sum: number, m: RegulatoryMev) => {
+      const range = (m.potential_savings || '0').split('-');
+      return sum + Number(range[range.length - 1] || 0);
+    }, 0);
+    const totalCo2Min = pendingMevs.reduce((sum: number, m: RegulatoryMev) => {
+      const range = (m.potential_co2_reduction || '0').split('-');
+      return sum + Number(range[0] || 0);
+    }, 0);
+    const totalCo2Max = pendingMevs.reduce((sum: number, m: RegulatoryMev) => {
+      const range = (m.potential_co2_reduction || '0').split('-');
+      return sum + Number(range[range.length - 1] || 0);
+    }, 0);
+
+    const totalPotentialSavings = totalSavingsMin > 0
+      ? `${totalSavingsMin}-${totalSavingsMax} kWh/m²·año`
+      : 'N/A';
+    const totalPotentialCo2Reduction = totalCo2Min > 0
+      ? `${totalCo2Min}-${totalCo2Max} kg CO₂eq/m²·año`
+      : 'N/A';
+
     return {
       buildingId,
       current_state: currentState,
@@ -233,8 +259,8 @@ export class RegulatoryAuditService {
         certificates_total: 4,
         pending_audits_count: 4 - certificatesFound,
         pending_audits_text: certificatesFound === 4 ? 'Al día' : `Pendientes: ${4 - certificatesFound}`,
-        total_potential_savings: '46-76 kWh/m²·año',
-        total_potential_co2_reduction: '13-22 kg CO₂eq/m²·año'
+        total_potential_savings: totalPotentialSavings,
+        total_potential_co2_reduction: totalPotentialCo2Reduction
       },
       calculatedAt: new Date().toISOString()
     };
@@ -271,6 +297,11 @@ export class RegulatoryAuditService {
           defaultMevs[0].current_state = manualChecks.sate ? 'Validación manual: SATE verificado' : 'SATE / Aislamiento verificado';
         } else if (checklist.sate === false) {
           defaultMevs[0].status = 'no_implementada';
+        } else if (summary.includes('fachada') || summary.includes('envolvente') || fileName.includes('fachada')) {
+          if (defaultMevs[0].status === 'no_implementada') {
+            defaultMevs[0].status = 'parcial';
+            defaultMevs[0].current_state = 'Indicios de actuación en envolvente';
+          }
         }
       }
 
@@ -279,6 +310,11 @@ export class RegulatoryAuditService {
         if (manualChecks.ventanas || manualChecks.windows || checklist.ventanas || checklist.windows || keyFields.windows || fileName.includes('ventana') || fileName.includes('carpinteria') || summary.includes('ventana')) {
           defaultMevs[1].status = 'implementada';
           defaultMevs[1].current_state = (manualChecks.ventanas || manualChecks.windows) ? 'Validación manual: Ventanas eficientes' : 'Ventanas RPT / Bajo emisivo';
+        } else if (summary.includes('acristalamiento') || summary.includes('cerramiento') || fileName.includes('cerramiento')) {
+          if (defaultMevs[1].status === 'no_implementada') {
+            defaultMevs[1].status = 'parcial';
+            defaultMevs[1].current_state = 'Indicios de mejora en cerramientos';
+          }
         }
       }
 
@@ -290,6 +326,11 @@ export class RegulatoryAuditService {
         } else if (fileName.includes('caldera gas') || summary.includes('caldera de gas') || summary.includes('gasoil')) {
           defaultMevs[2].status = 'no_implementada';
           defaultMevs[2].current_state = 'Riesgo EPBD: Caldera fósil detectada';
+        } else if (summary.includes('calefaccion') || summary.includes('climatización') || fileName.includes('climatiza')) {
+          if (defaultMevs[2].status === 'no_implementada') {
+            defaultMevs[2].status = 'parcial';
+            defaultMevs[2].current_state = 'Sistema de climatización parcialmente documentado';
+          }
         }
       }
 
@@ -298,6 +339,11 @@ export class RegulatoryAuditService {
         if (manualChecks.led || checklist.led || keyFields.lighting || fileName.includes('led') || fileName.includes('iluminacion') || summary.includes('led')) {
           defaultMevs[3].status = 'implementada';
           defaultMevs[3].current_state = manualChecks.led ? 'Validación manual: LED verificado' : '100% LED verificado';
+        } else if (summary.includes('iluminacion') || summary.includes('luminaria')) {
+          if (defaultMevs[3].status === 'no_implementada') {
+            defaultMevs[3].status = 'parcial';
+            defaultMevs[3].current_state = 'Iluminación parcialmente documentada';
+          }
         }
       }
 
@@ -306,6 +352,11 @@ export class RegulatoryAuditService {
         if (manualChecks.fotovoltaica || manualChecks.solar || checklist.fotovoltaica || keyFields.solar || keyFields.renewable || fileName.includes('solar') || fileName.includes('foto') || fileName.includes('renovabl') || summary.includes('solar') || summary.includes('fotovoltaic')) {
           defaultMevs[4].status = 'implementada';
           defaultMevs[4].current_state = (manualChecks.fotovoltaica || manualChecks.solar) ? 'Validación manual: Solar verificado' : 'Cumple Mandato Solar EPBD';
+        } else if (summary.includes('cubierta') || summary.includes('autoconsumo') || fileName.includes('autoconsumo')) {
+          if (defaultMevs[4].status === 'no_implementada') {
+            defaultMevs[4].status = 'parcial';
+            defaultMevs[4].current_state = 'Indicios de preparación para renovables';
+          }
         }
       }
       
@@ -314,6 +365,11 @@ export class RegulatoryAuditService {
         if (manualChecks.control || checklist.control || fileName.includes('domotica') || fileName.includes('sri') || fileName.includes('smart') || summary.includes('domotica') || summary.includes('inteligente') || summary.includes('sri')) {
           defaultMevs[5].status = 'implementada';
           defaultMevs[5].current_state = 'Certificado SRI / Control Smart detectado';
+        } else if (summary.includes('sensor') || summary.includes('control') || summary.includes('gestion')) {
+          if (defaultMevs[5].status === 'no_implementada') {
+            defaultMevs[5].status = 'parcial';
+            defaultMevs[5].current_state = 'Sistemas de control parciales detectados';
+          }
         }
       }
 
@@ -330,6 +386,11 @@ export class RegulatoryAuditService {
         if (manualChecks.ev || checklist.ev || fileName.includes('cargador') || fileName.includes('ev') || fileName.includes('vehiculo electrico') || fileName.includes('bicicleta') || summary.includes('cargador ev') || summary.includes('puntos de recarga') || summary.includes('movilidad')) {
           defaultMevs[7].status = 'implementada';
           defaultMevs[7].current_state = 'Puntos de carga EV / Bicis verificados';
+        } else if (summary.includes('garaje') || summary.includes('aparcamiento') || fileName.includes('parking')) {
+          if (defaultMevs[7].status === 'no_implementada') {
+            defaultMevs[7].status = 'parcial';
+            defaultMevs[7].current_state = 'Infraestructura de parking existente';
+          }
         }
       }
     }

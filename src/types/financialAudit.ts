@@ -5,6 +5,12 @@ export interface CurrentFinancialState {
   roiPct: number | null; // ROI actual (%)
   noi: number | null; // Net Operating Income anual (EUR)
   capRatePct: number | null; // Cap Rate (%)
+  
+  // Métricas secundarias para la UI
+  squareMeters: number | null;
+  pricePerSqm: number | null;
+  rentPerSqmPerMonth: number | null;
+  occupancyPct: number | null;
 }
 
 export interface ImprovementCost {
@@ -33,10 +39,27 @@ export interface PostImprovementScenario {
   newCapRatePct: number | null; // Nuevo Cap Rate tras mejoras (%)
 }
 
+export interface InvestmentScenario {
+  id: number;
+  name: string;
+  description: string;
+  investment: number;
+  futureValue: number;
+  annualSavings: number;
+  epbdClass: string;
+  roiPct: number | null;
+  paybackYears: number | null;
+  isOptimal: boolean;
+  pros: string[];
+  cons: string[];
+}
+
 export interface FinancialAuditResult {
   buildingId: string;
+  address?: string;
   currentState: CurrentFinancialState;
   postImprovementScenario: PostImprovementScenario;
+  scenarios: InvestmentScenario[];
   
   // Metadata
   dataCompleteness: {

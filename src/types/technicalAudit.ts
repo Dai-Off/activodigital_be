@@ -13,7 +13,7 @@ export interface TechnicalTask {
 
 export interface EnergyImprovement {
   id: string;
-  type: 'insulation' | 'heating' | 'lighting' | 'windows' | 'renewable' | 'hvac';
+  type: 'insulation' | 'heating' | 'lighting' | 'windows' | 'renewable' | 'hvac' | 'esg';
   title: string;
   description: string;
   estimatedSavingsKwhPerM2: number; // kWh/m²·año ahorrados
