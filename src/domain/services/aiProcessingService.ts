@@ -576,7 +576,7 @@ Datos aportados: ${JSON.stringify(extractedData)}`,
       }
 
       // 2. Convertir Markdown a HTML
-      const { parse } = await import("marked");
+      const { parse } = await (eval("import('marked')") as Promise<any>);
       const markdownHtml = await parse(draftText);
 
       // 3. Usar Puppeteer para generar el PDF desde HTML
