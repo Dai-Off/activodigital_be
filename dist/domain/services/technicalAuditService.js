@@ -48,17 +48,13 @@ class TechnicalAuditService {
         }
         else if (esgResult.status !== 'complete') {
             if (esgResult.status === 'incomplete' && esgResult.missingData) {
-                missingData.push(`ESG incompleto: ${esgResult.missingData.join(', ')}`);
+                esgResult.missingData.forEach((item) => missingData.push(`Datos ESG: ${item}`));
             }
             else {
                 missingData.push('Score ESG completo');
             }
         }
-        // Si faltan datos críticos, lanzar error
-        if (missingData.length > 0) {
-            throw new Error(`No se puede realizar la auditoría técnica. Faltan los siguientes datos críticos: ${missingData.join(', ')}. ` +
-                `Por favor, complete el libro digital, el certificado energético y asegúrese de que el ESG esté calculado correctamente.`);
-        }
+        return missingData;
     }
     /**
      * Obtiene la auditoría técnica de un edificio
@@ -128,11 +124,13 @@ class TechnicalAuditService {
             throw new Error(`Error al calcular el score ESG: ${error instanceof Error ? error.message : 'Error desconocido'}`);
         }
         // VALIDAR QUE TODOS LOS DATOS CRÍTICOS ESTÉN PRESENTES
-        this.validateRequiredData(digitalBook, certificate, esgResult);
-        console.log(`[TechnicalAudit] Todos los datos críticos validados para edificio ${buildingId}:`, {
+        const missingData = this.validateRequiredData(digitalBook, certificate, esgResult);
+        const isComplete = missingData.length === 0;
+        console.log(`[TechnicalAudit] Validación para edificio ${buildingId}:`, {
+            isComplete,
+            missingCount: missingData.length,
             hasDigitalBook: !!digitalBook,
-            hasCertificate: !!certificate,
-            hasCompleteESG: esgResult?.status === 'complete'
+            hasCertificate: !!certificate
         });
         // Calcular porcentaje de completitud
         const completionPercentage = this.calculateCompletionPercentage(digitalBook, certificate, esgResult);
@@ -144,9 +142,9 @@ class TechnicalAuditService {
         const potentialSavingsKwhPerM2 = this.calculatePotentialSavings(certificate, energyImprovements);
         // Filter priority improvements for financial summary
         const priorityImprovements = energyImprovements.filter(imp => imp.priority === 'high' || imp.priority === 'medium');
-        // Sumar inversiones, ahorros económicos (estimados a 0.15€/kWh) y CO2
-        const sqMeters = building?.square_meters || 1000;
-        const pricePerKwh = 0.15;
+        // Sumar inversiones, ahorros económicos y CO2
+        const sqMeters = building?.square_meters || TechnicalAuditService.AUDIT_CONSTANTS.DEFAULT_SQ_METERS;
+        const pricePerKwh = TechnicalAuditService.AUDIT_CONSTANTS.PRICE_PER_KWH;
         const totalInvestment = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCost || 0), 0);
         const totalAnnualSavings = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedSavingsKwhPerM2 * sqMeters * pricePerKwh), 0) * 0.85;
         const totalCo2Reduction = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCo2Reduction || 0), 0) * 0.85;
@@ -164,6 +162,8 @@ class TechnicalAuditService {
             roiAggregated
         };
         return {
+            isComplete,
+            missingData: missingData.length > 0 ? missingData : undefined,
             completionPercentage,
             tasks,
             energyImprovements,
@@ -379,12 +379,12 @@ class TechnicalAuditService {
         const currentConsumption = certificate.primary_energy_kwh_per_m2_year || 0;
         const emissions = certificate.emissions_kg_co2_per_m2_year || 0;
         const camposAmbientales = digitalBook?.campos_ambientales || {};
-        const sqMeters = building?.square_meters || 1000; // Valor por defecto si no hay área
+        const sqMeters = building?.square_meters || TechnicalAuditService.AUDIT_CONSTANTS.DEFAULT_SQ_METERS;
         // Usar datos del ESG si está disponible para mejorar las recomendaciones
         const esgScore = esgResult?.status === 'complete' ? esgResult.data?.total : null;
         const esgEnvironmental = esgResult?.status === 'complete' ? esgResult.data?.environmental?.normalized : null;
         // Factores aproximados de coste (euros) y reducción CO2 para España
-        const factorCo2 = 0.2; // ~0.2 kg CO2 per kWh eléctrico en media
+        const factorCo2 = TechnicalAuditService.AUDIT_CONSTANTS.CO2_FACTOR_KG_PER_KWH;
         if (['D', 'E', 'F', 'G'].includes(rating)) {
             const savingsKwh = rating === 'G' ? 80 : rating === 'F' ? 60 : rating === 'E' ? 40 : 25;
             improvements.push({
@@ -452,7 +452,7 @@ class TechnicalAuditService {
         if (esgEnvironmental !== null && esgEnvironmental < 35) {
             improvements.push({
                 id: `improvement-${improvementId++}`,
-                type: 'insulation',
+                type: 'esg',
                 title: 'Mejoras integrales ESG',
                 description: `El score ESG ambiental es bajo (${esgEnvironmental.toFixed(1)}/50). Intervenir en sistemas pasivos y activos.`,
                 estimatedSavingsKwhPerM2: 25,
@@ -497,4 +497,16 @@ class TechnicalAuditService {
     }
 }
 exports.TechnicalAuditService = TechnicalAuditService;
+/**
+ * Constantes de auditoría técnica - centralizar para fácil actualización.
+ * Fuentes: IDAE 2024, REE mix eléctrico, MITECO tarifas.
+ */
+TechnicalAuditService.AUDIT_CONSTANTS = {
+    /** kg CO₂ por kWh eléctrico peninsular (REE media 2024) */
+    CO2_FACTOR_KG_PER_KWH: 0.12,
+    /** Precio medio electricidad €/kWh (PVPC 2024 Q4) */
+    PRICE_PER_KWH: 0.17,
+    /** Superficie por defecto si no hay dato real (m²) */
+    DEFAULT_SQ_METERS: 1000,
+};
 //# sourceMappingURL=technicalAuditService.js.map

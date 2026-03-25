@@ -80,6 +80,11 @@ export interface Building {
   porcentBook?: number;
   deleted?: boolean;
   customData?: Record<string, any>;
+
+  // Energy fields (calculated/merged)
+  energyRating?: string;
+  energyConsumption?: string;
+  carbonEmissions?: string;
 }
 
 export interface BuildingUnit {
