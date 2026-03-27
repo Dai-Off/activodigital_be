@@ -32,19 +32,19 @@ class BuildingDocumentService {
         if (error) {
             throw new Error(`Error al crear documento de edificio: ${error.message}`);
         }
-        const allowedVisionTypes = [
+        const aiSupportedTypes = [
             "image/png",
             "image/jpeg",
             "image/jpg",
             "image/gif",
             "image/webp",
+            "application/pdf",
         ];
         if (document &&
             document.category &&
-            document.category !== "financial" &&
-            allowedVisionTypes.includes(document.mime_type)) {
-            this.updateExpirationDateWithAI(document).catch((err) => {
-                console.error("Error actualizando expiration_date con IA:", err);
+            aiSupportedTypes.includes(document.mime_type)) {
+            this.processDocumentWithAI(document).catch((err) => {
+                console.error("Error procesando documento con IA:", err);
             });
         }
         return this.mapToBuildingDocument(document);
@@ -60,7 +60,7 @@ class BuildingDocumentService {
         query = query.order("uploaded_at", { ascending: false });
         console.log(`[DEBUG] getBuildingDocumentsByBuilding: buildingId=${buildingId}, category=${category}`);
         const { data, error } = await query;
-        console.log(`[DEBUG] Supabase result: count=${data?.length || 0}, error=${error?.message || 'none'}`);
+        console.log(`[DEBUG] Supabase result: count=${data?.length || 0}, error=${error?.message || "none"}`);
         if (error) {
             throw new Error(`Error al obtener documentos de edificio: ${error.message}`);
         }
@@ -129,7 +129,7 @@ class BuildingDocumentService {
             metadata: dbDoc.metadata || {},
         };
     }
-    async updateExpirationDateWithAI(dbDoc) {
+    async processDocumentWithAI(dbDoc) {
         const supabase = this.getSupabase();
         const bucket = dbDoc.storage_bucket || "building-documents";
         const path = dbDoc.storage_path;
@@ -140,21 +140,28 @@ class BuildingDocumentService {
             .from(bucket)
             .createSignedUrl(path, 60 * 60); // 1 hora
         if (signedError || !signed?.signedUrl) {
-            console.error("No se pudo generar URL firmada para extracción de expiration_date:", signedError);
+            console.error("No se pudo generar URL firmada para extracción con IA:", signedError);
             return;
         }
-        // 2) Pedir a la IA que detecte fecha de vencimiento
+        // 2) Extraer metadatos con IA
         const aiService = this.getAIService();
-        const expiration = await aiService.extractDocumentExpirationFromUrl(signed.signedUrl);
-        if (!expiration)
+        const metadata = await aiService.extractDocumentMetadata(signed.signedUrl, dbDoc.mime_type, dbDoc.category);
+        if (!metadata || Object.keys(metadata).length === 0)
             return;
-        // 3) Actualizar fila en Supabase
+        // 3) Preparar datos de actualización
+        const updateData = { metadata };
+        // Si la IA detectó fecha de vencimiento, actualizar también expiration_date
+        const aiExpiration = metadata.key_fields?.expiration_date;
+        if (aiExpiration && /^\d{4}-\d{2}-\d{2}$/.test(aiExpiration)) {
+            updateData.expiration_date = aiExpiration;
+        }
+        // 4) Actualizar fila en Supabase
         const { error: updateError } = await supabase
             .from("building_documents")
-            .update({ expiration_date: expiration })
+            .update(updateData)
             .eq("id", dbDoc.id);
         if (updateError) {
-            console.error("Error actualizando expiration_date en building_documents:", updateError);
+            console.error("Error actualizando metadatos en building_documents:", updateError);
         }
     }
 }

@@ -3,6 +3,9 @@ import { FinancialSnapshotService } from './financialSnapshotService';
 import { BuildingService } from './edificioService';
 import { FinancialSnapshot } from '../../types/financialSnapshot';
 import { Building } from '../../types/edificio';
+import { RentService } from './rentService';
+import { ServiceInvoiceService } from './serviceInvoiceService';
+import { BuildingUnitService } from './buildingUnitService';
 import {
   BuildingMetricsResponse,
   BuildingRoiResponse,
@@ -29,6 +32,9 @@ import {
 export class FinancialMetricsService {
   private financialSnapshotService = new FinancialSnapshotService();
   private buildingService = new BuildingService();
+  private rentService = new RentService();
+  private serviceInvoiceService = new ServiceInvoiceService();
+  private buildingUnitService = new BuildingUnitService();
 
   /**
    * Obtiene el snapshot financiero más reciente para un edificio
@@ -50,7 +56,62 @@ export class FinancialMetricsService {
   }
 
   /**
-   * Calcula NOI (Net Operating Income)
+   * Calcula de forma dinámica el NOI, Ingresos Brutos y OPEX Total basándose en 
+   * facturas reales de renta, facturas de servicios y unidades del edificio.
+   * Utiliza el snapshot como base mínima para asegurar cobertura de datos.
+   */
+  private async calculateDynamicNOIParams(buildingId: string, userAuthId: string, snapshot: FinancialSnapshot | null): Promise<{ noiAnnual: number, grossRevenueAnnual: number, totalOpexAnnual: number }> {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    // Mínimos del snapshot como fallback
+    const snapshotRevenue = snapshot ? snapshot.ingresos_brutos_anuales_eur + (snapshot.otros_ingresos_anuales_eur || 0) : 0;
+    const snapshotOpex = snapshot ? snapshot.opex_total_anual_eur : 0;
+
+    let grossRevenueAnnual = snapshotRevenue;
+    let totalOpexAnnual = snapshotOpex;
+
+    try {
+      // 1. Ingresos Dinámicos
+      const rents = await this.rentService.getRentInvoicesByBuilding(buildingId, userAuthId);
+      const recentRents = rents.filter(r => new Date(r.invoiceMonth) >= oneYearAgo);
+      
+      if (recentRents.length > 0) {
+        const monthsOfRent = new Set(recentRents.map(r => r.invoiceMonth.substring(0, 7))).size;
+        const realRevenues = recentRents.reduce((sum, r) => sum + r.totalAmount, 0);
+        const annualizedRevenues = monthsOfRent > 0 ? (realRevenues / monthsOfRent) * 12 : 0;
+        grossRevenueAnnual = Math.max(grossRevenueAnnual, annualizedRevenues);
+      } else {
+        // Fallback: verificar unidades para estimar GPR
+        const units = await this.buildingUnitService.listUnits(buildingId);
+        const unitsRentSum = units.reduce((sum, u) => sum + (u.rent || 0), 0);
+        if (unitsRentSum > 0) {
+          grossRevenueAnnual = Math.max(grossRevenueAnnual, unitsRentSum * 12);
+        }
+      }
+
+      // 2. Gastos Dinámicos
+      const services = await this.serviceInvoiceService.getServiceInvoicesByBuilding(buildingId, userAuthId);
+      const recentServices = services.filter(s => new Date(s.invoice_date) >= oneYearAgo);
+      
+      if (recentServices.length > 0) {
+        const monthsOfOpex = new Set(recentServices.map(s => s.invoice_date.substring(0, 7))).size;
+        const realOpex = recentServices.reduce((sum, s) => sum + s.amount_eur, 0);
+        const annualizedOpex = monthsOfOpex > 0 ? (realOpex / monthsOfOpex) * 12 : 0;
+        totalOpexAnnual = Math.max(totalOpexAnnual, annualizedOpex);
+      }
+
+    } catch (error) {
+      console.warn("Error al calcular ingresos y gastos reales, usando fallback de snapshot.", error);
+    }
+
+    const noiAnnual = grossRevenueAnnual - totalOpexAnnual;
+
+    return { noiAnnual, grossRevenueAnnual, totalOpexAnnual };
+  }
+
+  /**
+   * Calcula NOI (Net Operating Income) (MÉTODO LEGACY / FALLBACK)
    * NOI = Ingresos brutos - OPEX total
    */
   private calculateNOI(snapshot: FinancialSnapshot): number {
@@ -82,12 +143,11 @@ export class FinancialMetricsService {
    * Calcula OPEX Ratio
    * OPEX Ratio = (OPEX total / Ingresos brutos) * 100
    */
-  private calculateOpexRatio(snapshot: FinancialSnapshot): number | null {
-    const grossRevenue = snapshot.ingresos_brutos_anuales_eur + (snapshot.otros_ingresos_anuales_eur || 0);
+  private calculateOpexRatio(totalOpex: number, grossRevenue: number): number | null {
     if (!grossRevenue || grossRevenue === 0) {
       return null;
     }
-    return (snapshot.opex_total_anual_eur / grossRevenue) * 100;
+    return (totalOpex / grossRevenue) * 100;
   }
 
   /**
@@ -210,18 +270,18 @@ export class FinancialMetricsService {
     }
 
     // Calcular métricas
-    const noiAnnual = this.calculateNOI(snapshot);
+    const { noiAnnual, grossRevenueAnnual, totalOpexAnnual } = await this.calculateDynamicNOIParams(buildingId, userAuthId, snapshot);
     const noi = this.convertToPeriod(noiAnnual, period);
     const marketValue = building.price || 0;
     const estimatedValue = building.potentialValue || 0;
 
     const capRatePct = this.calculateCapRate(noiAnnual, marketValue);
     const roiOperativoPct = this.calculateROI(noiAnnual, marketValue);
-    const opexRatioPct = this.calculateOpexRatio(snapshot);
+    const opexRatioPct = this.calculateOpexRatio(totalOpexAnnual, grossRevenueAnnual);
     const valueGapPct = this.calculateValueGap(marketValue, estimatedValue);
 
     // DSCR ya está en el snapshot
-    const dscr = snapshot.dscr ?? null;
+    const dscr = snapshot?.dscr ?? null;
 
     // Occupancy no está en el snapshot, devolver null por ahora
     const occupancyPct = null;
@@ -310,13 +370,10 @@ export class FinancialMetricsService {
       };
     }
 
-    const noiAnnual = this.calculateNOI(snapshot);
+    const { noiAnnual, grossRevenueAnnual, totalOpexAnnual } = await this.calculateDynamicNOIParams(buildingId, userAuthId, snapshot);
     const noi = this.convertToPeriod(noiAnnual, period);
-    const grossRevenue = this.convertToPeriod(
-      snapshot.ingresos_brutos_anuales_eur + (snapshot.otros_ingresos_anuales_eur || 0),
-      period
-    );
-    const totalOpex = this.convertToPeriod(snapshot.opex_total_anual_eur, period);
+    const grossRevenue = this.convertToPeriod(grossRevenueAnnual, period);
+    const totalOpex = this.convertToPeriod(totalOpexAnnual, period);
 
     return {
       buildingId,
@@ -356,15 +413,15 @@ export class FinancialMetricsService {
       };
     }
 
-    const noiAnnual = this.calculateNOI(snapshot);
+    const { noiAnnual } = await this.calculateDynamicNOIParams(buildingId, userAuthId, snapshot);
     const noi = this.convertToPeriod(noiAnnual, period);
-    const annualDebtService = snapshot.servicio_deuda_anual_eur
+    const annualDebtService = snapshot?.servicio_deuda_anual_eur
       ? this.convertToPeriod(snapshot.servicio_deuda_anual_eur, period)
       : null;
 
     return {
       buildingId,
-      dscr: snapshot.dscr ?? null,
+      dscr: snapshot?.dscr ?? null,
       noi,
       annualDebtService,
       period,
@@ -400,12 +457,10 @@ export class FinancialMetricsService {
       };
     }
 
-    const opexRatioPct = this.calculateOpexRatio(snapshot);
-    const grossRevenue = this.convertToPeriod(
-      snapshot.ingresos_brutos_anuales_eur + (snapshot.otros_ingresos_anuales_eur || 0),
-      period
-    );
-    const totalOpex = this.convertToPeriod(snapshot.opex_total_anual_eur, period);
+    const { grossRevenueAnnual, totalOpexAnnual } = await this.calculateDynamicNOIParams(buildingId, userAuthId, snapshot);
+    const opexRatioPct = this.calculateOpexRatio(totalOpexAnnual, grossRevenueAnnual);
+    const grossRevenue = this.convertToPeriod(grossRevenueAnnual, period);
+    const totalOpex = this.convertToPeriod(totalOpexAnnual, period);
 
     return {
       buildingId,
@@ -529,8 +584,8 @@ export class FinancialMetricsService {
     const discountRate = request.discountRate || 0.08;
     const scenarioId = request.scenarioId || `scenario_${Date.now()}`;
 
-    // Calcular NOI anual base
-    const noiAnnual = this.calculateNOI(snapshot);
+    // Calcular NOI anual dinámico
+    const { noiAnnual } = await this.calculateDynamicNOIParams(buildingId, userAuthId, snapshot);
 
     // Generar cashflows (asumiendo NOI constante, pero se puede extender)
     const cashflows: number[] = [];
