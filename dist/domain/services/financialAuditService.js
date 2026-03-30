@@ -6,12 +6,14 @@ const financialMetricsService_1 = require("./financialMetricsService");
 const financialSnapshotService_1 = require("./financialSnapshotService");
 const technicalAuditService_1 = require("./technicalAuditService");
 const edificioService_1 = require("./edificioService");
+const buildingUnitService_1 = require("./buildingUnitService");
 class FinancialAuditService {
     constructor() {
         this.financialMetricsService = new financialMetricsService_1.FinancialMetricsService();
         this.financialSnapshotService = new financialSnapshotService_1.FinancialSnapshotService();
         this.technicalAuditService = new technicalAuditService_1.TechnicalAuditService();
         this.buildingService = new edificioService_1.BuildingService();
+        this.buildingUnitService = new buildingUnitService_1.BuildingUnitService();
     }
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
@@ -35,18 +37,27 @@ class FinancialAuditService {
         const technicalAudit = await this.technicalAuditService.getTechnicalAudit(buildingId, userAuthId);
         // Obtener métricas financieras actuales
         const metrics = await this.financialMetricsService.getBuildingMetrics(buildingId, userAuthId);
+        // Obtener NOI detallado (incluye ingresos brutos)
+        const noiDetails = await this.financialMetricsService.getBuildingNOI(buildingId, userAuthId);
+        // Obtener unidades para la ocupación
+        const units = await this.buildingUnitService.listUnits(buildingId);
+        const occupancyPct = this.buildingUnitService.calculateOccupancy(units);
         // Calcular estado financiero actual
-        const currentState = this.calculateCurrentState(building, metrics);
+        const currentState = this.calculateCurrentState(building, metrics, noiDetails, occupancyPct);
         // Calcular escenario post-mejoras
         const postImprovementScenario = this.calculatePostImprovementScenario(building, latestSnapshot, technicalAudit, currentState);
         // Evaluar completitud de datos
         const dataCompleteness = this.evaluateDataCompleteness(building, latestSnapshot, technicalAudit);
         // Generar recomendaciones
         const recommendations = this.generateRecommendations(currentState, postImprovementScenario, dataCompleteness);
+        // Generar escenarios de inversión dinámicos
+        const scenarios = this.generateScenarios(currentState, technicalAudit, building);
         return {
             buildingId,
+            address: building.address || building.name || building.cadastralReference,
             currentState,
             postImprovementScenario,
+            scenarios,
             dataCompleteness,
             recommendations,
             calculatedAt: new Date().toISOString()
@@ -55,16 +66,24 @@ class FinancialAuditService {
     /**
      * Calcula el estado financiero actual
      */
-    calculateCurrentState(building, metrics) {
+    calculateCurrentState(building, metrics, noiDetails, occupancyPct) {
         const marketValue = building.price || 0;
         const roiPct = metrics.roiOperativoPct;
         const noi = metrics.noi;
         const capRatePct = metrics.capRatePct;
+        const squareMeters = building.squareMeters || null;
+        const pricePerSqm = squareMeters && squareMeters > 0 ? marketValue / squareMeters : null;
+        const grossRevenueAnnual = noiDetails.grossRevenue || 0;
+        const rentPerSqmPerMonth = squareMeters && squareMeters > 0 ? (grossRevenueAnnual / 12) / squareMeters : null;
         return {
             marketValue,
             roiPct,
             noi,
-            capRatePct
+            capRatePct,
+            squareMeters,
+            pricePerSqm,
+            rentPerSqmPerMonth,
+            occupancyPct
         };
     }
     /**
@@ -106,19 +125,22 @@ class FinancialAuditService {
         });
         const totalInvestment = baseRehabCost + totalEnergyCost;
         // 3. Calcular revalorización
-        // Usar uplift del snapshot, o estimar según mejoras energéticas
+        // Usar uplift del snapshot, o estimar de forma dinámica si hay mejoras energéticas
         let revaluationPct = snapshot?.uplift_precio_pct_estimado || 0;
-        // Si no hay uplift en snapshot, estimarlo según mejoras
-        if (revaluationPct === 0 && energyImprovements.length > 0) {
-            // Estimación conservadora: 0.5% por cada mejora de alta prioridad, 0.3% por media
-            const highPriorityCount = energyImprovements.filter((i) => i.priority === 'high').length;
-            const mediumPriorityCount = energyImprovements.filter((i) => i.priority === 'medium').length;
-            revaluationPct = (highPriorityCount * 0.5) + (mediumPriorityCount * 0.3);
-            // Cap al 8% para ser conservadores
-            revaluationPct = Math.min(revaluationPct, 8);
+        let valueIncrease = 0;
+        if (revaluationPct > 0 && currentState.marketValue > 0) {
+            valueIncrease = currentState.marketValue * (revaluationPct / 100);
         }
-        const futureValue = currentState.marketValue * (1 + revaluationPct / 100);
-        const valueIncrease = futureValue - currentState.marketValue;
+        else if (energyImprovements.length > 0) {
+            // Si no hay uplift en snapshot, estimarlo según la inversión.
+            // Se asume que una inversión integral revaloriza el inmueble al menos el coste de la inversión + 15%
+            valueIncrease = totalInvestment * 1.15;
+            // Calcular el % de revalorización correspondiente
+            if (currentState.marketValue > 0) {
+                revaluationPct = (valueIncrease / currentState.marketValue) * 100;
+            }
+        }
+        const futureValue = currentState.marketValue + valueIncrease;
         // 4. Calcular ahorros energéticos anuales
         // Usar el ahorro del snapshot o estimarlo desde las mejoras
         let annualEnergySavings = 0;
@@ -246,6 +268,140 @@ class FinancialAuditService {
             }
         }
         return recommendations;
+    }
+    /**
+     * Genera 5 escenarios de inversión dinámicos basados en las mejoras reales
+     */
+    generateScenarios(currentState, technicalAudit, building) {
+        const improvements = technicalAudit.energyImprovements || [];
+        const marketValue = currentState.marketValue || 0;
+        const buildingM2 = building.squareMeters || 0;
+        const pricePerKwh = 0.15;
+        // Agrupar mejoras por tipo para crear subconjuntos
+        const basicTypes = ['lighting', 'renewable'];
+        const intermediateTypes = ['lighting', 'renewable', 'hvac'];
+        const basicImprovements = improvements.filter((imp) => basicTypes.includes(imp.type));
+        const intermediateImprovements = improvements.filter((imp) => intermediateTypes.includes(imp.type));
+        const allImprovements = improvements;
+        const calcScenario = (subset, premiumMultiplier = 1) => {
+            const investment = subset.reduce((sum, imp) => {
+                const costPerM2ByType = {
+                    'insulation': 80, 'windows': 250, 'heating': 100,
+                    'lighting': 20, 'renewable': 150, 'hvac': 120, 'esg': 80
+                };
+                const costPerM2 = costPerM2ByType[imp.type] || 100;
+                return sum + (costPerM2 * buildingM2);
+            }, 0) * premiumMultiplier;
+            const savingsKwh = subset.reduce((sum, imp) => sum + (imp.estimatedSavingsKwhPerM2 || 0), 0) * 0.85;
+            const annualSavings = savingsKwh * buildingM2 * pricePerKwh;
+            // Revalorización estimada (inversión * 1.15)
+            const valueIncrease = investment * 1.15 * premiumMultiplier;
+            const futureValue = marketValue + valueIncrease;
+            // ROI y Payback
+            const netProfit = valueIncrease - investment;
+            const roiPct = investment > 0 ? (netProfit / investment) * 100 : null;
+            const annualReturn = annualSavings + (valueIncrease / 10);
+            const paybackYears = annualReturn > 0 ? Number((investment / annualReturn).toFixed(1)) : null;
+            return { investment, futureValue, annualSavings: Math.round(annualSavings), roiPct, paybackYears };
+        };
+        // Determinar clase EPBD mejorada según mejoras
+        const currentClass = this.inferEpbdClass(building);
+        const getImprovedClass = (subsetSize, total) => {
+            const ratio = total > 0 ? subsetSize / total : 0;
+            if (ratio >= 1.0)
+                return 'A';
+            if (ratio >= 0.7)
+                return 'B';
+            if (ratio >= 0.4)
+                return 'C';
+            if (ratio >= 0.2)
+                return 'D';
+            return currentClass;
+        };
+        // Escenario 1: Sin Mejoras
+        const s1 = {
+            id: 1,
+            name: 'Sin Mejoras',
+            description: 'Mantener estado actual',
+            investment: 0,
+            futureValue: marketValue,
+            annualSavings: 0,
+            epbdClass: currentClass,
+            roiPct: 0,
+            paybackYears: null,
+            isOptimal: false,
+            pros: [],
+            cons: ['No cumple EPBD 2030', 'Depreciación del activo']
+        };
+        // Escenario 2: Básicas (LED + Solar)
+        const r2 = calcScenario(basicImprovements);
+        const s2 = {
+            id: 2,
+            name: 'Mejoras Básicas',
+            description: 'LED + Solar básica',
+            ...r2,
+            epbdClass: getImprovedClass(basicImprovements.length, allImprovements.length),
+            isOptimal: false,
+            pros: ['Bajo riesgo'],
+            cons: ['No cumple EPBD 2030']
+        };
+        // Escenario 3: Intermedias (LED + Solar + HVAC)
+        const r3 = calcScenario(intermediateImprovements);
+        const s3 = {
+            id: 3,
+            name: 'Mejoras Intermedias',
+            description: 'LED + Solar + HVAC',
+            ...r3,
+            epbdClass: getImprovedClass(intermediateImprovements.length, allImprovements.length),
+            isOptimal: false,
+            pros: ['Equilibrio inversión/retorno'],
+            cons: []
+        };
+        // Check if intermediate meets EPBD
+        const s3Class = getImprovedClass(intermediateImprovements.length, allImprovements.length);
+        if (['A', 'B', 'C', 'D'].includes(s3Class)) {
+            s3.pros.push('Cumple EPBD 2030');
+        }
+        else {
+            s3.cons.push('No cumple EPBD 2030');
+        }
+        // Escenario 4: Completas (Todas las mejoras) - ÓPTIMO
+        const r4 = calcScenario(allImprovements);
+        const s4 = {
+            id: 4,
+            name: 'Mejoras Completas',
+            description: `Plan completo ${allImprovements.length} medidas`,
+            ...r4,
+            epbdClass: getImprovedClass(allImprovements.length, allImprovements.length),
+            isOptimal: true,
+            pros: ['Máximo valor de activo'],
+            cons: []
+        };
+        if (r4.roiPct !== null) {
+            s4.pros.push(`ROI óptimo ${r4.roiPct.toFixed(1)}%`);
+        }
+        // Escenario 5: Premium (Todas + certificación BREEAM +15%)
+        const r5 = calcScenario(allImprovements, 1.25);
+        const s5 = {
+            id: 5,
+            name: 'Mejoras Premium',
+            description: 'Completas + BREEAM',
+            ...r5,
+            epbdClass: 'A+',
+            isOptimal: false,
+            pros: ['Certificación BREEAM'],
+            cons: ['Payback más largo']
+        };
+        return [s1, s2, s3, s4, s5];
+    }
+    /**
+     * Infiere la clase EPBD actual del edificio
+     */
+    inferEpbdClass(building) {
+        const customData = building.customData || building.custom_data || {};
+        if (customData.calificacion)
+            return customData.calificacion;
+        return 'G'; // Default worst case si no hay dato
     }
 }
 exports.FinancialAuditService = FinancialAuditService;
