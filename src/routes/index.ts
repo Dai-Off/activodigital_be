@@ -28,6 +28,7 @@ import unitDocumentsRouter from "./unitDocuments";
 import documentExpirationAlertsRouter from "./documentExpirationAlerts";
 import dataRoomRouter from "./dataRoom";
 import regulatoryAuditRouter from "./regulatoryAudit";
+import reportsRouter from "./reports";
 
 const router = Router();
 
@@ -64,5 +65,6 @@ router.use("/unit-documents", unitDocumentsRouter);
 router.use("/document-expiration-alerts", documentExpirationAlertsRouter);
 router.use("/data-room", dataRoomRouter);
 router.use("/regulatory-audit", regulatoryAuditRouter);
+router.use("/reports", reportsRouter);
 
 export default router;
