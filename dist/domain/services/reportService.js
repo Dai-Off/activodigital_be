@@ -32,14 +32,10 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportService = void 0;
 const supabase_1 = require("../../lib/supabase");
 const ExcelJS = __importStar(require("exceljs"));
-const puppeteer_1 = __importDefault(require("puppeteer"));
 const userService_1 = require("./userService");
 const edificioService_1 = require("./edificioService");
 class ReportService {
@@ -67,8 +63,8 @@ class ReportService {
                     { id: "b_address", label: "Dirección", type: "text" },
                     { id: "b_year", label: "Año de Construcción", type: "number" },
                     { id: "b_floors", label: "Número de Plantas", type: "number" },
-                    { id: "b_surface", label: "Superficie Total", type: "text" }
-                ]
+                    { id: "b_surface", label: "Superficie Total", type: "text" },
+                ],
             },
             // ... Add more standard categories mapping to building table and relations
             {
@@ -78,8 +74,8 @@ class ReportService {
                 fields: [
                     { id: "f_price", label: "Valor del Activo", type: "currency" },
                     { id: "f_rehab", label: "Coste de Rehabilitación", type: "currency" },
-                    { id: "f_potential", label: "Valor Potencial", type: "currency" }
-                ]
+                    { id: "f_potential", label: "Valor Potencial", type: "currency" },
+                ],
             },
             {
                 id: "energy",
@@ -88,16 +84,14 @@ class ReportService {
                 fields: [
                     { id: "en_cert", label: "Certificación Energética", type: "text" },
                     { id: "en_cons", label: "Consumo Energético", type: "text" },
-                    { id: "en_carb", label: "Huella de Carbono", type: "text" }
-                ]
+                    { id: "en_carb", label: "Huella de Carbono", type: "text" },
+                ],
             },
             {
                 id: "occupancy",
                 title: "Ocupación y Unidades",
                 icon: "Building2",
-                fields: [
-                    { id: "u_total", label: "Total de Unidades", type: "number" }
-                ]
+                fields: [{ id: "u_total", label: "Total de Unidades", type: "number" }],
             },
             {
                 id: "compliance",
@@ -105,17 +99,17 @@ class ReportService {
                 icon: "FileText",
                 fields: [
                     { id: "c_cadastral", label: "Referencia Catastral", type: "text" },
-                    { id: "c_status", label: "Estado de Libro", type: "text" }
-                ]
+                    { id: "c_status", label: "Estado de Libro", type: "text" },
+                ],
             },
             {
                 id: "maintenance",
                 title: "Mantenimiento",
                 icon: "Building2",
                 fields: [
-                    { id: "m_floors", label: "Número de Plantas", type: "number" }
-                ]
-            }
+                    { id: "m_floors", label: "Número de Plantas", type: "number" },
+                ],
+            },
         ];
     }
     /**
@@ -123,24 +117,47 @@ class ReportService {
      */
     getFieldValue(building, fieldId) {
         switch (fieldId) {
-            case 'b_id': return building.id;
-            case 'b_name': return building.name || 'Sin Nombre';
-            case 'b_address': return building.address || 'N/A';
-            case 'b_year': return building.constructionYear?.toString() || 'N/A';
-            case 'b_floors':
-            case 'm_floors': return building.numFloors?.toString() || 'N/A';
-            case 'b_type': return building.typology || 'N/A';
-            case 'b_surface': return building.squareMeters ? `${building.squareMeters} m²` : 'N/A';
-            case 'en_cert': return building.energyRating || 'N/A';
-            case 'en_cons': return building.energyConsumption ? `${building.energyConsumption} kWh/m²a` : 'N/A';
-            case 'en_carb': return building.carbonEmissions ? `${building.carbonEmissions} kgCO2/m²a` : 'N/A';
-            case 'u_total': return building.numUnits?.toString() || 'N/A';
-            case 'f_price': return building.price ? `${building.price} €` : 'N/A';
-            case 'f_rehab': return building.rehabilitationCost ? `${building.rehabilitationCost} €` : 'N/A';
-            case 'f_potential': return building.potentialValue ? `${building.potentialValue} €` : 'N/A';
-            case 'c_cadastral': return building.cadastralReference || 'N/A';
-            case 'c_status': return building.status || 'N/A';
-            default: return 'N/A';
+            case "b_id":
+                return building.id;
+            case "b_name":
+                return building.name || "Sin Nombre";
+            case "b_address":
+                return building.address || "N/A";
+            case "b_year":
+                return building.constructionYear?.toString() || "N/A";
+            case "b_floors":
+            case "m_floors":
+                return building.numFloors?.toString() || "N/A";
+            case "b_type":
+                return building.typology || "N/A";
+            case "b_surface":
+                return building.squareMeters ? `${building.squareMeters} m²` : "N/A";
+            case "en_cert":
+                return building.energyRating || "N/A";
+            case "en_cons":
+                return building.energyConsumption
+                    ? `${building.energyConsumption} kWh/m²a`
+                    : "N/A";
+            case "en_carb":
+                return building.carbonEmissions
+                    ? `${building.carbonEmissions} kgCO2/m²a`
+                    : "N/A";
+            case "u_total":
+                return building.numUnits?.toString() || "N/A";
+            case "f_price":
+                return building.price ? `${building.price} €` : "N/A";
+            case "f_rehab":
+                return building.rehabilitationCost
+                    ? `${building.rehabilitationCost} €`
+                    : "N/A";
+            case "f_potential":
+                return building.potentialValue ? `${building.potentialValue} €` : "N/A";
+            case "c_cadastral":
+                return building.cadastralReference || "N/A";
+            case "c_status":
+                return building.status || "N/A";
+            default:
+                return "N/A";
         }
     }
     /**
@@ -153,16 +170,16 @@ class ReportService {
         // 1. Create a "pending" entry in the database
         const supabase = this.getSupabase();
         const { data: reportRecord, error: insertError } = await supabase
-            .from('reports')
+            .from("reports")
             .insert({
             title: options.title,
-            category: options.category || 'general',
+            category: options.category || "general",
             format: options.format,
             building_ids: options.buildingIds,
             selected_fields: options.selectedFields,
             config: options.config || {},
             created_by: user.id,
-            status: 'generating'
+            status: "generating",
         })
             .select()
             .single();
@@ -179,7 +196,8 @@ class ReportService {
             let fileExtension = "";
             if (options.format === "excel") {
                 fileBuffer = await this.generateExcel(options, rawData);
-                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                contentType =
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 fileExtension = "xlsx";
             }
             else {
@@ -189,32 +207,28 @@ class ReportService {
             }
             // 4. Upload to Supabase Storage in the 'reports' bucket
             // Sanitizamos el título para evitar problemas en la URL/File system
-            const safeTitle = options.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const safeTitle = options.title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
             const fileName = `${user.id}/${safeTitle}_${reportRecord.id}.${fileExtension}`;
-            const { data: uploadData, error: uploadError } = await supabase
-                .storage
-                .from('reports')
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from("reports")
                 .upload(fileName, fileBuffer, {
                 contentType,
-                upsert: true
+                upsert: true,
             });
             if (uploadError)
                 throw new Error(`Error subiendo a Storage: ${uploadError.message}`);
             // 5. Get Public URL or signed URL based on bucket settings.
             // Assuming public bucket for simplicity but in pro we would use signed urls on download
-            const { data: { publicUrl } } = supabase
-                .storage
-                .from('reports')
-                .getPublicUrl(fileName);
+            const { data: { publicUrl }, } = supabase.storage.from("reports").getPublicUrl(fileName);
             // 6. Update the report record to completed
             const { data: updatedReport } = await supabase
-                .from('reports')
+                .from("reports")
                 .update({
-                status: 'completed',
+                status: "completed",
                 file_url: publicUrl,
-                file_size: fileBuffer.length
+                file_size: fileBuffer.length,
             })
-                .eq('id', reportRecord.id)
+                .eq("id", reportRecord.id)
                 .select()
                 .single();
             return updatedReport;
@@ -223,12 +237,12 @@ class ReportService {
             console.error("Generación de reporte fallida:", error);
             // Update the record as failed
             await supabase
-                .from('reports')
+                .from("reports")
                 .update({
-                status: 'failed',
-                error_message: error.message || 'Error desconocido'
+                status: "failed",
+                error_message: error.message || "Error desconocido",
             })
-                .eq('id', reportRecord.id);
+                .eq("id", reportRecord.id);
             throw error;
         }
     }
@@ -240,13 +254,13 @@ class ReportService {
         if (!user)
             throw new Error("Usuario no encontrado");
         let query = this.getSupabase()
-            .from('reports')
-            .select('*')
+            .from("reports")
+            .select("*")
             // Note: adjust access controls as needed. For now assuming user sees their buildings' reports or their own
-            .eq('created_by', user.id)
-            .order('created_at', { ascending: false });
-        if (category && category !== 'all') {
-            query = query.eq('category', category);
+            .eq("created_by", user.id)
+            .order("created_at", { ascending: false });
+        if (category && category !== "all") {
+            query = query.eq("category", category);
         }
         const { data, error } = await query;
         if (error)
@@ -265,10 +279,10 @@ class ReportService {
                 if (b) {
                     // Fetch latest energy certificate
                     const { data: cert } = await this.getSupabase()
-                        .from('energy_certificates')
-                        .select('rating, primary_energy_kwh_per_m2_year, emissions_kg_co2_per_m2_year')
-                        .eq('building_id', id)
-                        .order('created_at', { ascending: false })
+                        .from("energy_certificates")
+                        .select("rating, primary_energy_kwh_per_m2_year, emissions_kg_co2_per_m2_year")
+                        .eq("building_id", id)
+                        .order("created_at", { ascending: false })
                         .limit(1)
                         .maybeSingle();
                     if (cert) {
@@ -294,37 +308,38 @@ class ReportService {
         workbook.created = new Date();
         const sheet = workbook.addWorksheet(options.title.substring(0, 31) || "Reporte");
         // Dynamic headers based on selected fields
-        // NOTE: A robust implementation maps `selectedFields` IDs strictly to DB row keys. 
+        // NOTE: A robust implementation maps `selectedFields` IDs strictly to DB row keys.
         // Here we define a basic structure.
         const allFields = await this.getReportableFields();
         const columns = [
-            { header: "Edificio", key: "b_name", width: 30 }
+            { header: "Edificio", key: "b_name", width: 30 },
         ];
-        allFields.forEach(cat => {
-            cat.fields.forEach(field => {
-                if (options.selectedFields.includes(field.id) && field.id !== 'b_name') {
+        allFields.forEach((cat) => {
+            cat.fields.forEach((field) => {
+                if (options.selectedFields.includes(field.id) &&
+                    field.id !== "b_name") {
                     columns.push({ header: field.label, key: field.id, width: 25 });
                 }
             });
         });
         sheet.columns = columns;
-        const primaryColorHex = options.config?.primaryColor?.replace('#', '') || '1e3a8a';
+        const primaryColorHex = options.config?.primaryColor?.replace("#", "") || "1e3a8a";
         const headerColor = `FF${primaryColorHex.toUpperCase()}`;
         // Apply header styling
-        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
         sheet.getRow(1).fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: headerColor }
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: headerColor },
         };
         // Add rows
-        buildings.forEach(b => {
+        buildings.forEach((b) => {
             const rowData = {
-                b_name: b.name || 'Sin Nombre',
+                b_name: b.name || "Sin Nombre",
             };
             // Automate mapping for all selected fields
-            options.selectedFields.forEach(fid => {
-                if (fid !== 'b_name') {
+            options.selectedFields.forEach((fid) => {
+                if (fid !== "b_name") {
                     rowData[fid] = this.getFieldValue(b, fid);
                 }
             });
@@ -335,82 +350,115 @@ class ReportService {
     }
     /**
      * PDF Generation
-     * Uses Puppeteer to render a dynamic HTML string and capture a PDF
+     * Uses @react-pdf/renderer to generate a professional PDF without a headless browser
      */
     async generatePDF(options, buildings) {
-        const primaryColor = options.config?.primaryColor || '#1e3a8a';
-        const secondaryColor = options.config?.secondaryColor || '#3b82f6';
+        const { createElement: h } = require("react");
+        const { Document, Page, View, Text, Image, StyleSheet, renderToBuffer, } = require("@react-pdf/renderer");
+        const primaryColor = options.config?.primaryColor || "#1e3a8a";
+        const secondaryColor = options.config?.secondaryColor || "#3b82f6";
         const logoBase64 = options.config?.logoBase64;
         const allFields = await this.getReportableFields();
         const fieldMap = new Map();
-        allFields.forEach(cat => cat.fields.forEach(f => fieldMap.set(f.id, f.label)));
-        let logoHtml = '';
-        if (logoBase64) {
-            logoHtml = `<div style="text-align: right; margin-bottom: -60px;"><img src="${logoBase64}" alt="Logo" style="max-height: 50px; object-fit: contain; max-width: 150px;" /></div>`;
-        }
-        const rowsHtml = buildings.map(b => {
-            const fieldList = options.selectedFields.map(fid => {
-                const label = fieldMap.get(fid) || fid;
-                const val = this.getFieldValue(b, fid);
-                return `<li><strong>${label}:</strong> <span>${val}</span></li>`;
-            }).join('');
-            return `
-        <div class="building-card">
-          <h3>${b.name || 'Sin Nombre'}</h3>
-          <ul>${fieldList}</ul>
-        </div>
-      `;
-        }).join('');
-        const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #333; }
-          .header { border-bottom: 2px solid ${primaryColor}; padding-bottom: 20px; margin-bottom: 30px; }
-          .header h1 { color: ${primaryColor}; margin: 0; padding-right: 160px; font-size: 28px; }
-          .subtitle { color: #666; font-size: 14px; margin-top: 5px; }
-          .building-card { border: 1px solid #e5e7eb; border-top: 4px solid ${secondaryColor}; border-radius: 8px; padding: 20px; margin-bottom: 20px; page-break-inside: auto; background: #fff; }
-          .building-card h3 { margin-top: 0; color: ${primaryColor}; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; font-size: 18px; }
-          .building-card ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-          .building-card li { font-size: 13px; padding: 10px 12px; background: #f9fafb; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #f3f4f6; position: relative; }
-          .building-card li::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; background: ${secondaryColor}; border-radius: 0 4px 4px 0; }
-          .building-card li strong { color: #4b5563; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 4px; }
-          .building-card li span { color: #111827; font-weight: 500; margin-left: 4px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          ${logoHtml}
-          <h1>${options.title}</h1>
-          <p class="subtitle">Generado el ${new Date().toLocaleDateString('es-ES')}</p>
-          <p class="subtitle">Formato: PDF • Edificios Analizados: ${buildings.length}</p>
-        </div>
-        
-        <h2 style="color: ${primaryColor}; border-left: 5px solid ${secondaryColor}; padding-left: 12px; font-size: 20px; margin-bottom: 24px;">Resumen de Edificios</h2>
-        ${rowsHtml}
-        
-      </body>
-      </html>
-    `;
-        const browser = await puppeteer_1.default.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        allFields.forEach((cat) => cat.fields.forEach((f) => fieldMap.set(f.id, f.label)));
+        const styles = StyleSheet.create({
+            page: {
+                padding: 40,
+                fontFamily: "Helvetica",
+                color: "#333",
+            },
+            header: {
+                borderBottomWidth: 2,
+                borderBottomColor: primaryColor,
+                paddingBottom: 20,
+                marginBottom: 30,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+            },
+            headerInfo: {
+                flex: 1,
+            },
+            logo: {
+                maxHeight: 50,
+                maxWidth: 150,
+                objectFit: "contain",
+            },
+            title: {
+                color: primaryColor,
+                fontSize: 24,
+                fontWeight: "bold",
+                marginBottom: 5,
+            },
+            subtitle: {
+                color: "#666",
+                fontSize: 12,
+                marginBottom: 2,
+            },
+            sectionTitle: {
+                color: primaryColor,
+                borderLeftWidth: 5,
+                borderLeftColor: secondaryColor,
+                paddingLeft: 12,
+                fontSize: 18,
+                fontWeight: "bold",
+                marginBottom: 20,
+            },
+            buildingCard: {
+                borderWidth: 1,
+                borderColor: "#e5e7eb",
+                borderTopWidth: 4,
+                borderTopColor: secondaryColor,
+                borderRadius: 8,
+                padding: 15,
+                marginBottom: 20,
+                backgroundColor: "#fff",
+            },
+            buildingName: {
+                fontSize: 16,
+                fontWeight: "bold",
+                color: primaryColor,
+                borderBottomWidth: 1,
+                borderBottomColor: "#f3f4f6",
+                paddingBottom: 8,
+                marginBottom: 12,
+            },
+            fieldsGrid: {
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: 10,
+            },
+            fieldItem: {
+                width: "48%", // Approx 2 columns
+                padding: "8 10",
+                backgroundColor: "#f9fafb",
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: "#f3f4f6",
+                borderLeftWidth: 3,
+                borderLeftColor: secondaryColor,
+                flexDirection: "column",
+            },
+            fieldLabel: {
+                color: "#4b5563",
+                fontSize: 9,
+                fontWeight: "bold",
+                textTransform: "uppercase",
+            },
+            fieldValue: {
+                color: "#111827",
+                fontSize: 11,
+                fontWeight: "medium",
+                marginTop: 2,
+            },
         });
-        try {
-            const page = await browser.newPage();
-            await page.setContent(html, { waitUntil: 'networkidle0' });
-            const pdfBuffer = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
-            });
-            return Buffer.from(pdfBuffer);
-        }
-        finally {
-            await browser.close();
-        }
+        const doc = h(Document, null, h(Page, { size: "A4", style: styles.page }, h(View, { style: styles.header }, h(View, { style: styles.headerInfo }, h(Text, { style: styles.title }, options.title), h(Text, { style: styles.subtitle }, `Generado el ${new Date().toLocaleDateString("es-ES")}`), h(Text, { style: styles.subtitle }, `Formato: PDF • Edificios Analizados: ${buildings.length}`)), logoBase64 ? h(Image, { src: logoBase64, style: styles.logo }) : null), h(Text, { style: styles.sectionTitle }, "Resumen de Edificios"), buildings.map((b, index) => h(View, { key: index, style: styles.buildingCard, wrap: false }, h(Text, { style: styles.buildingName }, b.name || "Sin Nombre"), h(View, { style: styles.fieldsGrid }, options.selectedFields.map((fid) => {
+            const label = fieldMap.get(fid) || fid;
+            const val = this.getFieldValue(b, fid);
+            return h(View, { key: fid, style: styles.fieldItem }, h(Text, { style: styles.fieldLabel }, label), h(Text, { style: styles.fieldValue }, val));
+        }))))));
+        const buffer = await renderToBuffer(doc);
+        return Buffer.from(buffer);
     }
 }
 exports.ReportService = ReportService;
