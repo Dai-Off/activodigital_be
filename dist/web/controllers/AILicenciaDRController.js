@@ -40,6 +40,7 @@ class AILicenciaDRController {
         this.aiProcessingService = new aiProcessingService_1.AIProcessingService();
         this.extractLicenciaDRData = async (req, res) => {
             try {
+                req.setTimeout(300000); // 5 minutos de timeout
                 const userId = req.user?.id;
                 if (!userId) {
                     res.status(401).json({ error: "Usuario no autenticado" });
@@ -73,6 +74,7 @@ class AILicenciaDRController {
         };
         this.extractLicenciaDRDoc = async (req, res) => {
             try {
+                req.setTimeout(300000); // 5 minutos de timeout
                 const userId = req.user?.id;
                 if (!userId) {
                     res.status(401).json({ error: "Usuario no autenticado" });
@@ -100,6 +102,7 @@ class AILicenciaDRController {
         };
         this.generateLicenciaDraft = async (req, res) => {
             try {
+                req.setTimeout(300000); // 5 minutos de timeout
                 const userId = req.user?.id;
                 if (!userId) {
                     res.status(401).json({ error: "Usuario no autenticado" });

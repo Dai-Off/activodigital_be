@@ -38,10 +38,9 @@ class CatastroApiService {
             method: "GET",
             headers,
         });
-        // Si recibimos 403 y no hemos intentado el formato alternativo, intentar de nuevo
-        if (response.status === 403 && !useAlternativeAuth) {
-            console.warn(`[CatastroApiService] Error 403 con X-API-Key, intentando con Authorization Bearer...`);
-            return this.makeRequest(url, true);
+        // Si recibimos 403, es probable que sea un problema de suscripción o acceso denegado
+        if (response.status === 403) {
+            console.warn(`[CatastroApiService] Error 403: Acceso denegado o suscripción inválida.`);
         }
         if (!response.ok) {
             // Intentar obtener más información del error

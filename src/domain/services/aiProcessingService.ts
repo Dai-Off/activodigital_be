@@ -523,6 +523,17 @@ ${documentText.slice(0, 40000)}
     buildingData: any,
     extractedData: any,
   ): Promise<Buffer> {
+    const { createElement: h } = require('react');
+    const { 
+      Document, 
+      Page, 
+      View, 
+      Text, 
+      StyleSheet, 
+      renderToBuffer 
+    } = require('@react-pdf/renderer');
+    const { markdownToReactPdf } = require('../../utils/markdownToReactPdf');
+
     try {
       // 1. Generar texto con OpenAI en formato Markdown
       const completion = await this.openai.chat.completions.create({
@@ -575,79 +586,41 @@ Datos aportados: ${JSON.stringify(extractedData)}`,
         draftText = draftText.replace(/^```\n?/, "").replace(/\n?```$/, "");
       }
 
-      // 2. Convertir Markdown a HTML
-      const { parse } = await (eval("import('marked')") as Promise<any>);
-      const markdownHtml = await parse(draftText);
-
-      // 3. Usar Puppeteer para generar el PDF desde HTML
-      const puppeteer = await import("puppeteer");
-      const browser = await puppeteer.launch({
-        executablePath:
-          process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium-browser",
-        headless: true, // "new" headless mode is standard now
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-        ],
-      });
-      const page = await browser.newPage();
-
-      // Inyectar HTML y CSS básico profesional
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body {
-              font-family: 'Helvetica', 'Arial', sans-serif;
-              color: #333;
-              line-height: 1.5;
-              padding: 40px;
-              font-size: 14px;
-            }
-            h1 { text-align: center; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 30px; font-size: 24px; text-transform: uppercase; }
-            h2 { color: #222; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-size: 18px; }
-            h3 { color: #444; margin-top: 20px; font-size: 16px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; font-size: 13px; }
-            th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }
-            th { background-color: #f7f9fa; color: #333; font-weight: bold; width: 35%; }
-            tr:nth-child(even) { background-color: #fcfcfc; }
-            ul, ol { padding-left: 20px; }
-            li { margin-bottom: 8px; text-align: justify; }
-            p { margin-bottom: 12px; text-align: justify; }
-            hr { border: 0; border-top: 1px solid #eee; margin: 30px 0; }
-            strong { color: #111; }
-            .checkbox { font-family: monospace; font-size: 16px; margin-right: 5px; color: #555; }
-            
-            /* Footer styles */
-            .footer-legal { margin-top: 50px; font-size: 11px; color: #777; text-align: justify; }
-            .signature-area { margin-top: 60px; text-align: center; }
-          </style>
-        </head>
-        <body>
-          ${(markdownHtml as string)
-            .replace(/\[ \]/g, '<span class="checkbox">☐</span>')
-            .replace(/\[x\]/gi, '<span class="checkbox">☑</span>')}
-        </body>
-        </html>
-      `;
-
-      await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-
-      const generatedPdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" },
-        displayHeaderFooter: true,
-        headerTemplate:
-          '<div style="font-size: 8px; width: 100%; text-align: right; padding-right: 20px; color: #aaa;">Borrador - Concesión de Licencia / Resolución DR</div>',
-        footerTemplate:
-          '<div style="font-size: 8px; width: 100%; text-align: center; color: #aaa;">ActivoDigital - Borrador de resolución para fines informativos (Pág. <span class="pageNumber"></span>/<span class="totalPages"></span>)</div>',
+      // 2. Definir estilos para el borrador
+      const styles = StyleSheet.create({
+        page: {
+          padding: 40,
+          fontFamily: 'Helvetica',
+          fontSize: 12,
+          color: '#333',
+        },
+        header: {
+          fontSize: 8,
+          color: '#aaa',
+          textAlign: 'right',
+          marginBottom: 10,
+        },
+        footer: {
+          fontSize: 8,
+          color: '#aaa',
+          textAlign: 'center',
+          marginTop: 20,
+        }
       });
 
-      await browser.close();
+      // 3. Crear el documento react-pdf
+      const pdfComponents = markdownToReactPdf(draftText);
+      
+      const doc = h(Document, null,
+        h(Page, { size: 'A4', style: styles.page },
+          h(Text, { style: styles.header }, 'Borrador - Concesión de Licencia / Resolución DR'),
+          ...pdfComponents,
+          h(Text, { style: styles.footer }, `ActivoDigital - Borrador de resolución para fines informativos - Generado el ${new Date().toLocaleDateString("es-ES")}`)
+        )
+      );
+
+      // 4. Generar el buffer
+      const generatedPdfBuffer = await renderToBuffer(doc);
       const pdfBytes = Uint8Array.from(generatedPdfBuffer);
       const { PDFDocument } = await import("pdf-lib");
 
@@ -794,8 +767,8 @@ Adicionalmente, extraer a nivel raíz del JSON:
         // Para PDFs: descargar y extraer texto con pdf-parse
         const response = await fetch(fileUrl);
         const buffer = Buffer.from(await response.arrayBuffer());
-        const pdf = (await import("pdf-parse")).default;
-        const pdfData = await pdf(buffer);
+        const pdf = await import("pdf-parse");
+        const pdfData = await (pdf as any).default(buffer);
         const documentText = pdfData.text;
 
         const completion = await this.openai.chat.completions.create({
