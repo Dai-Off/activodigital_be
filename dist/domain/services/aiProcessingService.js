@@ -509,7 +509,9 @@ ${documentText.slice(0, 40000)}
     }
     async generateLicenciaDraft(buildingData, extractedData) {
         const { createElement: h } = require('react');
-        const { Document, Page, View, Text, StyleSheet, renderToBuffer } = require('@react-pdf/renderer');
+        // Módulo ESM en entorno CommonJS requiere import dinámico
+        const reactPdf = await eval('import("@react-pdf/renderer")');
+        const { Document, Page, View, Text, StyleSheet, renderToBuffer } = reactPdf;
         const { markdownToReactPdf } = require('../../utils/markdownToReactPdf');
         try {
             // 1. Generar texto con OpenAI en formato Markdown
@@ -581,7 +583,7 @@ Datos aportados: ${JSON.stringify(extractedData)}`,
                 }
             });
             // 3. Crear el documento react-pdf
-            const pdfComponents = markdownToReactPdf(draftText);
+            const pdfComponents = markdownToReactPdf(draftText, reactPdf);
             const doc = h(Document, null, h(Page, { size: 'A4', style: styles.page }, h(Text, { style: styles.header }, 'Borrador - Concesión de Licencia / Resolución DR'), ...pdfComponents, h(Text, { style: styles.footer }, `ActivoDigital - Borrador de resolución para fines informativos - Generado el ${new Date().toLocaleDateString("es-ES")}`)));
             // 4. Generar el buffer
             const generatedPdfBuffer = await renderToBuffer(doc);

@@ -524,6 +524,8 @@ ${documentText.slice(0, 40000)}
     extractedData: any,
   ): Promise<Buffer> {
     const { createElement: h } = require('react');
+    // Módulo ESM en entorno CommonJS requiere import dinámico
+    const reactPdf = await (eval('import("@react-pdf/renderer")') as Promise<any>);
     const { 
       Document, 
       Page, 
@@ -531,7 +533,7 @@ ${documentText.slice(0, 40000)}
       Text, 
       StyleSheet, 
       renderToBuffer 
-    } = require('@react-pdf/renderer');
+    } = reactPdf;
     const { markdownToReactPdf } = require('../../utils/markdownToReactPdf');
 
     try {
@@ -609,7 +611,7 @@ Datos aportados: ${JSON.stringify(extractedData)}`,
       });
 
       // 3. Crear el documento react-pdf
-      const pdfComponents = markdownToReactPdf(draftText);
+      const pdfComponents = markdownToReactPdf(draftText, reactPdf);
       
       const doc = h(Document, null,
         h(Page, { size: 'A4', style: styles.page },
