@@ -5,6 +5,7 @@ import { FinancialSnapshotService } from './financialSnapshotService';
 import { TechnicalAuditService } from './technicalAuditService';
 import { BuildingService } from './edificioService';
 import { BuildingUnitService } from './buildingUnitService';
+import { AUDIT_CONSTANTS } from '../constants/auditConstants';
 
 export class FinancialAuditService {
   private financialMetricsService = new FinancialMetricsService();
@@ -35,7 +36,17 @@ export class FinancialAuditService {
     const latestSnapshot = snapshots && snapshots.length > 0 ? snapshots[0] : null;
 
     // Obtener auditoría técnica (para mejoras energéticas)
-    const technicalAudit = await this.technicalAuditService.getTechnicalAudit(buildingId, userAuthId);
+    let technicalAudit = null;
+    let isTechnicalAuditUnavailable = false;
+    
+    try {
+      technicalAudit = await this.technicalAuditService.getTechnicalAudit(buildingId, userAuthId);
+    } catch (techError) {
+      console.warn(`[FinancialAudit] Auditoría técnica no disponible para edificio ${buildingId}:`, techError instanceof Error ? techError.message : 'Error desconocido');
+      isTechnicalAuditUnavailable = true;
+      // Creamos un objeto mínimo para que el resto del flujo no reviente
+      technicalAudit = { energyImprovements: [], potentialSavingsKwhPerM2: 0 };
+    }
 
     // Obtener métricas financieras actuales
     const metrics = await this.financialMetricsService.getBuildingMetrics(buildingId, userAuthId);
@@ -85,7 +96,10 @@ export class FinancialAuditService {
       currentState,
       postImprovementScenario,
       scenarios,
-      dataCompleteness,
+      dataCompleteness: {
+        ...dataCompleteness,
+        isTechnicalAuditUnavailable
+      },
       recommendations,
       calculatedAt: new Date().toISOString()
     };
@@ -145,12 +159,12 @@ export class FinancialAuditService {
     
     // Costes estimados por tipo de mejora (valores de referencia en EUR/m²)
     const costPerM2ByType: { [key: string]: number } = {
-      'insulation': 80,      // Aislamiento: ~80 EUR/m²
-      'windows': 250,        // Ventanas: ~250 EUR/m² (incluye instalación)
-      'heating': 100,        // Calefacción: ~100 EUR/m²
-      'lighting': 20,        // Iluminación LED: ~20 EUR/m²
-      'renewable': 150,      // Paneles solares: ~150 EUR/m²
-      'hvac': 120            // HVAC: ~120 EUR/m²
+      'insulation': AUDIT_CONSTANTS.COSTS_PER_M2.INSULATION,
+      'windows': AUDIT_CONSTANTS.COSTS_PER_M2.WINDOWS,
+      'heating': AUDIT_CONSTANTS.COSTS_PER_M2.HVAC, // Mapeado a HVAC para consistencia
+      'lighting': AUDIT_CONSTANTS.COSTS_PER_M2.LIGHTING,
+      'renewable': AUDIT_CONSTANTS.COSTS_PER_M2.RENEWABLES,
+      'hvac': AUDIT_CONSTANTS.COSTS_PER_M2.HVAC
     };
 
     const buildingM2 = building.squareMeters || 0;
@@ -178,8 +192,8 @@ export class FinancialAuditService {
       valueIncrease = currentState.marketValue * (revaluationPct / 100);
     } else if (energyImprovements.length > 0) {
       // Si no hay uplift en snapshot, estimarlo según la inversión.
-      // Se asume que una inversión integral revaloriza el inmueble al menos el coste de la inversión + 15%
-      valueIncrease = totalInvestment * 1.15;
+      // Se asume que una inversión integral revaloriza el inmueble al menos el coste de la inversión + factor
+      valueIncrease = totalInvestment * AUDIT_CONSTANTS.BENCHMARKS.ESTIMATED_REVALUATION_FACTOR;
       
       // Calcular el % de revalorización correspondiente
       if (currentState.marketValue > 0) {
@@ -196,8 +210,8 @@ export class FinancialAuditService {
     if (snapshot?.ahorro_energia_pct_estimado && snapshot?.opex_energia_anual_eur) {
       annualEnergySavings = (snapshot.ahorro_energia_pct_estimado / 100) * snapshot.opex_energia_anual_eur;
     } else if (technicalAudit.potentialSavingsKwhPerM2 > 0 && buildingM2 > 0) {
-      // Estimar ahorro económico: ~0.15 EUR/kWh (precio medio electricidad)
-      const pricePerKwh = 0.15;
+      // Estimar ahorro económico: usando precio centralizado
+      const pricePerKwh = AUDIT_CONSTANTS.ENERGY.PRICE_PER_KWH;
       annualEnergySavings = technicalAudit.potentialSavingsKwhPerM2 * buildingM2 * pricePerKwh;
     }
 
@@ -351,7 +365,7 @@ export class FinancialAuditService {
     const improvements = technicalAudit.energyImprovements || [];
     const marketValue = currentState.marketValue || 0;
     const buildingM2 = building.squareMeters || 0;
-    const pricePerKwh = 0.15;
+    const pricePerKwh = AUDIT_CONSTANTS.ENERGY.PRICE_PER_KWH;
 
     // Agrupar mejoras por tipo para crear subconjuntos
     const basicTypes = ['lighting', 'renewable'];
@@ -364,19 +378,24 @@ export class FinancialAuditService {
     const calcScenario = (subset: any[], premiumMultiplier: number = 1) => {
       const investment = subset.reduce((sum: number, imp: any) => {
         const costPerM2ByType: { [key: string]: number } = {
-          'insulation': 80, 'windows': 250, 'heating': 100,
-          'lighting': 20, 'renewable': 150, 'hvac': 120, 'esg': 80
+          'insulation': AUDIT_CONSTANTS.COSTS_PER_M2.INSULATION, 
+          'windows': AUDIT_CONSTANTS.COSTS_PER_M2.WINDOWS, 
+          'heating': AUDIT_CONSTANTS.COSTS_PER_M2.HVAC,
+          'lighting': AUDIT_CONSTANTS.COSTS_PER_M2.LIGHTING, 
+          'renewable': AUDIT_CONSTANTS.COSTS_PER_M2.RENEWABLES, 
+          'hvac': AUDIT_CONSTANTS.COSTS_PER_M2.HVAC, 
+          'esg': AUDIT_CONSTANTS.COSTS_PER_M2.INSULATION // Fallback esg
         };
         const costPerM2 = costPerM2ByType[imp.type] || 100;
         return sum + (costPerM2 * buildingM2);
       }, 0) * premiumMultiplier;
 
       const savingsKwh = subset.reduce((sum: number, imp: any) =>
-        sum + (imp.estimatedSavingsKwhPerM2 || 0), 0) * 0.85;
+        sum + (imp.estimatedSavingsKwhPerM2 || 0), 0) * AUDIT_CONSTANTS.BUILDING.OVERLAP_FACTOR;
       const annualSavings = savingsKwh * buildingM2 * pricePerKwh;
 
-      // Revalorización estimada (inversión * 1.15)
-      const valueIncrease = investment * 1.15 * premiumMultiplier;
+      // Revalorización estimada
+      const valueIncrease = investment * AUDIT_CONSTANTS.BENCHMARKS.ESTIMATED_REVALUATION_FACTOR;
       const futureValue = marketValue + valueIncrease;
 
       // ROI y Payback

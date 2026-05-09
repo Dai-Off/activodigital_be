@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RegulatoryAuditService = void 0;
 const supabase_1 = require("../../lib/supabase");
+const auditConstants_1 = require("../constants/auditConstants");
 class RegulatoryAuditService {
     getSupabase() {
         return (0, supabase_1.getSupabaseClient)();
@@ -44,9 +45,9 @@ class RegulatoryAuditService {
         const baseConsumption = currentState.consumption_kwh_m2_year || 100;
         const baseEmissions = currentState.emissions_kg_co2_m2_year || 25;
         const targetState = {
-            target_class: 'B', // Objetivo EPBD 2030 referencial
-            target_consumption: Math.round(baseConsumption * 0.84), // -16% reducción directiva
-            target_emissions: Math.round(baseEmissions * 0.84) // -16% reducción directiva
+            target_class: auditConstants_1.AUDIT_CONSTANTS.BENCHMARKS.EPBD_TARGET_CLASS,
+            target_consumption: Math.round(baseConsumption * auditConstants_1.AUDIT_CONSTANTS.BENCHMARKS.EPBD_REDUCTION_FACTOR),
+            target_emissions: Math.round(baseEmissions * auditConstants_1.AUDIT_CONSTANTS.BENCHMARKS.EPBD_REDUCTION_FACTOR)
         };
         // Calcular la brecha (Gap Analysis)
         let consumptionGap = 0;
@@ -58,13 +59,13 @@ class RegulatoryAuditService {
             consumptionGap = currentState.consumption_kwh_m2_year > targetState.target_consumption
                 ? currentState.consumption_kwh_m2_year - targetState.target_consumption
                 : 0;
-            // Porcentaje de avance hacia el objetivo desde un peor escenario (ej. 250 kWh)
-            const maxConsumption = 250;
+            // Porcentaje de avance hacia el objetivo desde un peor escenario
+            const maxConsumption = auditConstants_1.AUDIT_CONSTANTS.BENCHMARKS.MAX_CONSUMPTION_BENCHMARK;
             consumptionProgress = Math.max(0, Math.min(100, 100 - ((currentState.consumption_kwh_m2_year - targetState.target_consumption) / (maxConsumption - targetState.target_consumption) * 100)));
             emissionsGap = currentState.emissions_kg_co2_m2_year > targetState.target_emissions
                 ? currentState.emissions_kg_co2_m2_year - targetState.target_emissions
                 : 0;
-            const maxEmissions = 50;
+            const maxEmissions = auditConstants_1.AUDIT_CONSTANTS.BENCHMARKS.MAX_EMISSIONS_BENCHMARK;
             emissionsProgress = Math.max(0, Math.min(100, 100 - ((currentState.emissions_kg_co2_m2_year - targetState.target_emissions) / (maxEmissions - targetState.target_emissions) * 100)));
         }
         else {
