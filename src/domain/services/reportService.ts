@@ -375,8 +375,9 @@ export class ReportService {
     buildings: any[],
   ): Promise<Buffer> {
     const { createElement: h } = require("react");
-    // Usamos import dinámico para cargar el módulo ESM en un entorno CommonJS
-    const reactPdf = await (eval('import("@react-pdf/renderer")') as Promise<any>);
+    // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
+    const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+    const reactPdf = await (dynamicImport("@react-pdf/renderer") as Promise<any>);
     const {
       Document,
       Page,

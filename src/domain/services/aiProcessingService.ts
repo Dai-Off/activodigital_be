@@ -524,8 +524,9 @@ ${documentText.slice(0, 40000)}
     extractedData: any,
   ): Promise<Buffer> {
     const { createElement: h } = require('react');
-    // Módulo ESM en entorno CommonJS requiere import dinámico
-    const reactPdf = await (eval('import("@react-pdf/renderer")') as Promise<any>);
+    // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
+    const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+    const reactPdf = await (dynamicImport("@react-pdf/renderer") as Promise<any>);
     const { 
       Document, 
       Page, 

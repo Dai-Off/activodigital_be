@@ -354,8 +354,9 @@ class ReportService {
      */
     async generatePDF(options, buildings) {
         const { createElement: h } = require("react");
-        // Usamos import dinámico para cargar el módulo ESM en un entorno CommonJS
-        const reactPdf = await eval('import("@react-pdf/renderer")');
+        // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
+        const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+        const reactPdf = await dynamicImport("@react-pdf/renderer");
         const { Document, Page, View, Text, Image, StyleSheet, renderToBuffer, } = reactPdf;
         const primaryColor = options.config?.primaryColor || "#1e3a8a";
         const secondaryColor = options.config?.secondaryColor || "#3b82f6";
