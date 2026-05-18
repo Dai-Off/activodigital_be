@@ -16,7 +16,10 @@ const getRegulatoryAuditController = async (req, res) => {
         }
         const service = new regulatoryAuditService_1.RegulatoryAuditService();
         const result = await service.getRegulatoryAudit(buildingId, userId);
-        res.status(200).json(result);
+        res.status(200).json({
+            data: result,
+            message: 'Auditoría regulatoria obtenida exitosamente'
+        });
     }
     catch (error) {
         console.error('Error al obtener la auditoría regulatoria:', error);

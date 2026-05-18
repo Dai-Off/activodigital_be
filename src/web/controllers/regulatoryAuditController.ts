@@ -19,7 +19,10 @@ export const getRegulatoryAuditController = async (req: Request, res: Response):
     const service = new RegulatoryAuditService();
     const result = await service.getRegulatoryAudit(buildingId, userId);
 
-    res.status(200).json(result);
+    res.status(200).json({ 
+      data: result, 
+      message: 'Auditoría regulatoria obtenida exitosamente' 
+    });
   } catch (error: any) {
     console.error('Error al obtener la auditoría regulatoria:', error);
     if (error.message === 'Edificio no encontrado') {

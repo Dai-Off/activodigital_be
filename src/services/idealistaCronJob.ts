@@ -49,7 +49,8 @@ export class IdealistaCronJob {
             // 1. Obtener todos los edificios para extraer municipios
             const { data: buildings, error } = await supabase
                 .from('buildings')
-                .select('id, municipality');
+                .select('id, municipality')
+                .eq('deleted', false);
 
             if (error) {
                 throw new Error(`Error al obtener edificios: ${error.message}`);

@@ -84,6 +84,7 @@ class FinancialSnapshotService {
         const { data: buildings, error: bError } = await this.getSupabase()
             .from("buildings")
             .select("*, energy_certificates(primary_energy_kwh_per_m2_year, rating)")
+            .eq("deleted", false)
             .order("name", { ascending: true });
         if (bError) {
             throw new Error(`Error al obtener edificios: ${bError.message}`);

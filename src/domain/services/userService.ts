@@ -417,6 +417,7 @@ export class UserService {
       .select('id')
       .eq('id', buildingId)
       .eq('owner_id', user.id)
+      .eq('deleted', false)
       .single();
 
     return !error && !!data;

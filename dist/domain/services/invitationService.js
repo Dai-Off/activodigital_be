@@ -278,6 +278,7 @@ class InvitationService {
             .from('buildings')
             .select('id, name, address')
             .eq('id', buildingId)
+            .eq('deleted', false)
             .single();
         if (error) {
             if (error.code === 'PGRST116') {

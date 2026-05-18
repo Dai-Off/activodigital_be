@@ -2,22 +2,11 @@ import { getSupabaseClient } from '../../lib/supabase';
 import { TechnicalAuditResult, TechnicalTask, EnergyImprovement } from '../../types/technicalAudit';
 import { EsgService } from './esgService';
 import { SectionType } from '../../types/libroDigital';
+import { AUDIT_CONSTANTS } from '../constants/auditConstants';
 
 export class TechnicalAuditService {
   private esgService = new EsgService();
 
-  /**
-   * Constantes de auditoría técnica - centralizar para fácil actualización.
-   * Fuentes: IDAE 2024, REE mix eléctrico, MITECO tarifas.
-   */
-  private static readonly AUDIT_CONSTANTS = {
-    /** kg CO₂ por kWh eléctrico peninsular (REE media 2024) */
-    CO2_FACTOR_KG_PER_KWH: 0.12,
-    /** Precio medio electricidad €/kWh (PVPC 2024 Q4) */
-    PRICE_PER_KWH: 0.17,
-    /** Superficie por defecto si no hay dato real (m²) */
-    DEFAULT_SQ_METERS: 1000,
-  };
 
   private getSupabase() {
     return getSupabaseClient();
@@ -88,6 +77,7 @@ export class TechnicalAuditService {
       .from('buildings')
       .select('id, square_meters, construction_year')
       .eq('id', buildingId)
+      .eq('deleted', false)
       .single();
 
     if (buildingError || !building) {
@@ -183,12 +173,12 @@ export class TechnicalAuditService {
     const priorityImprovements = energyImprovements.filter(imp => imp.priority === 'high' || imp.priority === 'medium');
     
     // Sumar inversiones, ahorros económicos y CO2
-    const sqMeters = building?.square_meters || TechnicalAuditService.AUDIT_CONSTANTS.DEFAULT_SQ_METERS;
-    const pricePerKwh = TechnicalAuditService.AUDIT_CONSTANTS.PRICE_PER_KWH;
+    const sqMeters = building?.square_meters || AUDIT_CONSTANTS.BUILDING.DEFAULT_SQ_METERS;
+    const pricePerKwh = AUDIT_CONSTANTS.ENERGY.PRICE_PER_KWH;
     
     const totalInvestment = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCost || 0), 0);
-    const totalAnnualSavings = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedSavingsKwhPerM2 * sqMeters * pricePerKwh), 0) * 0.85;
-    const totalCo2Reduction = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCo2Reduction || 0), 0) * 0.85;
+    const totalAnnualSavings = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedSavingsKwhPerM2 * sqMeters * pricePerKwh), 0) * AUDIT_CONSTANTS.BUILDING.OVERLAP_FACTOR;
+    const totalCo2Reduction = priorityImprovements.reduce((sum, imp) => sum + (imp.estimatedCo2Reduction || 0), 0) * AUDIT_CONSTANTS.BUILDING.OVERLAP_FACTOR;
     
     const roiAggregated = totalAnnualSavings > 0 ? Number((totalInvestment / totalAnnualSavings).toFixed(1)) : 0;
 
@@ -463,14 +453,14 @@ export class TechnicalAuditService {
     const currentConsumption = certificate.primary_energy_kwh_per_m2_year || 0;
     const emissions = certificate.emissions_kg_co2_per_m2_year || 0;
     const camposAmbientales = digitalBook?.campos_ambientales || {};
-    const sqMeters = building?.square_meters || TechnicalAuditService.AUDIT_CONSTANTS.DEFAULT_SQ_METERS;
+    const sqMeters = building?.square_meters || AUDIT_CONSTANTS.BUILDING.DEFAULT_SQ_METERS;
     
     // Usar datos del ESG si está disponible para mejorar las recomendaciones
     const esgScore = esgResult?.status === 'complete' ? esgResult.data?.total : null;
     const esgEnvironmental = esgResult?.status === 'complete' ? esgResult.data?.environmental?.normalized : null;
 
     // Factores aproximados de coste (euros) y reducción CO2 para España
-    const factorCo2 = TechnicalAuditService.AUDIT_CONSTANTS.CO2_FACTOR_KG_PER_KWH;
+    const factorCo2 = AUDIT_CONSTANTS.ENERGY.CO2_FACTOR_KG_PER_KWH;
 
     if (['D', 'E', 'F', 'G'].includes(rating)) {
       const savingsKwh = rating === 'G' ? 80 : rating === 'F' ? 60 : rating === 'E' ? 40 : 25;
@@ -481,7 +471,7 @@ export class TechnicalAuditService {
         description: 'Instalar o mejorar el aislamiento en fachadas (SATE), cubierta y suelos.',
         estimatedSavingsKwhPerM2: savingsKwh,
         priority: 'high',
-        estimatedCost: Math.round(sqMeters * 120), // ~120€/m2 envolvente
+        estimatedCost: Math.round(sqMeters * AUDIT_CONSTANTS.COSTS_PER_M2.INSULATION), // ~120€/m2 envolvente
         estimatedRoi: 9, // ~9 años
         estimatedCo2Reduction: Number((savingsKwh * factorCo2).toFixed(1))
       });
@@ -493,7 +483,7 @@ export class TechnicalAuditService {
         description: 'Instalar ventanas de doble acristalamiento con marcos eficientes (RPT).',
         estimatedSavingsKwhPerM2: 15,
         priority: 'high',
-        estimatedCost: Math.round(sqMeters * 45), // Estimación basada en m2 edificio vs envolvente hueca
+        estimatedCost: Math.round(sqMeters * AUDIT_CONSTANTS.COSTS_PER_M2.WINDOWS), // Estimación basada en m2 edificio vs envolvente hueca
         estimatedRoi: 10,
         estimatedCo2Reduction: Number((15 * factorCo2).toFixed(1))
       });
@@ -507,9 +497,9 @@ export class TechnicalAuditService {
         description: 'Sustituir calderas antiguas por aerotermia de alta eficiencia.',
         estimatedSavingsKwhPerM2: 30,
         priority: 'high',
-        estimatedCost: Math.round(sqMeters * 60), // Equipo térmico por m2
+        estimatedCost: Math.round(sqMeters * AUDIT_CONSTANTS.COSTS_PER_M2.HVAC), // Equipo térmico por m2
         estimatedRoi: 7,
-        estimatedCo2Reduction: Number((30 * 0.25).toFixed(1)) // Mayor factor para salto fósil a eléctrico
+        estimatedCo2Reduction: Number((30 * AUDIT_CONSTANTS.ENERGY.HEATING_CO2_FACTOR).toFixed(1)) // Mayor factor para salto fósil a eléctrico
       });
     }
 
@@ -520,7 +510,7 @@ export class TechnicalAuditService {
       description: 'Reemplazar iluminación tradicional por LED con sensores de presencia.',
       estimatedSavingsKwhPerM2: 8,
       priority: 'medium',
-      estimatedCost: Math.round(sqMeters * 15), 
+      estimatedCost: Math.round(sqMeters * AUDIT_CONSTANTS.COSTS_PER_M2.LIGHTING), 
       estimatedRoi: 3,
       estimatedCo2Reduction: Number((8 * factorCo2).toFixed(1))
     });
@@ -535,7 +525,7 @@ export class TechnicalAuditService {
         description: 'Instalar paneles solares fotovoltaicos en cubierta para autoconsumo.',
         estimatedSavingsKwhPerM2: 20,
         priority: renewableShare === 0 || shouldPrioritizeRenewable ? 'high' : 'medium',
-        estimatedCost: Math.round(sqMeters * 40), // Instalación FV ratio por m2 de edificio aprox
+        estimatedCost: Math.round(sqMeters * AUDIT_CONSTANTS.COSTS_PER_M2.RENEWABLES), // Instalación FV ratio por m2 de edificio aprox
         estimatedRoi: 5,
         estimatedCo2Reduction: Number((20 * factorCo2).toFixed(1))
       });
@@ -600,7 +590,7 @@ export class TechnicalAuditService {
     );
 
     // Aplicar factor de solapamiento
-    return Math.round(totalSavings * 0.85);
+    return Math.round(totalSavings * AUDIT_CONSTANTS.BUILDING.OVERLAP_FACTOR);
   }
 }
 

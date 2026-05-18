@@ -509,62 +509,186 @@ ${documentText.slice(0, 40000)}
     }
     async generateLicenciaDraft(buildingData, extractedData) {
         const { createElement: h } = require('react');
-        const { Document, Page, View, Text, StyleSheet, renderToBuffer } = require('@react-pdf/renderer');
+        // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
+        const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+        const reactPdf = await dynamicImport("@react-pdf/renderer");
+        const { Document, Page, View, Text, StyleSheet, renderToBuffer } = reactPdf;
         const { markdownToReactPdf } = require('../../utils/markdownToReactPdf');
         try {
-            // 1. Generar texto con OpenAI en formato Markdown
-            const completion = await this.openai.chat.completions.create({
-                model: "gpt-4o",
-                messages: [
-                    {
-                        role: "system",
-                        content: 'Actúa como un experto en Derecho Administrativo y Urbanismo en España. Tu objetivo es generar un borrador de "Declaración Responsable Urbanística" que sea visualmente profesional, fácil de leer y legalmente robusto, combinando los estándares de Soto del Real, Benavente y Madrid.',
-                    },
-                    {
-                        role: "user",
-                        content: `# DIRECTRICES DE FORMATO (OBLIGATORIO)
-1. Usa **Tablas de Markdown** para todos los bloques de datos (Interesado, Emplazamiento, Presupuesto).
-2. Utiliza **Títulos (H1, H2, H3)** y líneas horizontales (---) para separar secciones.
-3. Emplea **Casillas de verificación** [ ] (o [x] si aplican) para opciones y tipos de obra.
-4. Aplica **Negrita** en términos clave legales y plazos.
-5. El tono debe ser formal, técnico y administrativo.
-6. Devuelve ÚNICAMENTE el código Markdown, sin estar envuelto en bloques de código markdown, solo el texto Markdown final.
-
-# ESTRUCTURA DEL DOCUMENTO
-Genera el borrador siguiendo estrictamente este orden:
-
-1. **ENCABEZADO:** Título principal y espacio para el Ayuntamiento/Organismo.
-2. **SECCIÓN I: DATOS PERSONALES:** Tablas separadas para: El Declarante/Interesado, El Representante (si aplica), y El Contratista/Constructor.
-3. **SECCIÓN II: UBICACIÓN Y OBJETO:** Tabla con Dirección, Referencia Catastral y características del inmueble (m², uso actual).
-4. **SECCIÓN III: CLASIFICACIÓN DE LA ACTUACIÓN:** Listado con casillas de verificación para seleccionar el tipo de obra (Ej: Obras menores, energía fotovoltaica, primera ocupación, etc., marcando con una X las pertinentes a la actuación).
-5. **SECCIÓN IV: DATOS TÉCNICOS Y ECONÓMICOS:** Tabla con: Presupuesto (PEM), Fecha inicio/fin, y Medios auxiliares (Andamios, contenedores).
-6. **SECCIÓN V: CUERPO DE DECLARACIÓN (EL "DECLARO BAJO MI RESPONSABILIDAD"):** Puntos numerados legales sobre la veracidad, posesión de proyecto/memoria y cumplimiento de normativa.
-7. **SECCIÓN VI: DOCUMENTACIÓN ADJUNTA:** Check-list de lo que el usuario aporta. Incluye referencias a los archivos aportados (solo la documentación marcada como 'satisfied: true' en status_summary).
-8. **PIE DE PÁGINA:** Lugar, fecha (usa la fecha actual: ${new Date().toLocaleDateString("es-ES")}), espacio explícito para Firma (dibuja la línea ________) y cláusula de Protección de Datos (RGPD).
-
-# DATOS DE ENTRADA PARA EL BORRADOR
-Edificio: ${JSON.stringify(buildingData)}
-Datos aportados: ${JSON.stringify(extractedData)}`,
-                    },
-                ],
-                temperature: 0.2,
-            });
-            let draftText = completion.choices[0]?.message?.content || "# Borrador generado por IA";
-            // Limpiar posibles bloques markdown envolventes
-            if (draftText.startsWith("```markdown")) {
-                draftText = draftText
-                    .replace(/^```markdown\n?/, "")
-                    .replace(/\n?```$/, "");
+            // 1. Extraer de forma inteligente y segura los campos con fallbacks robustos
+            const findValue = (keys, defaultValue = '') => {
+                // Safe check helper to avoid checking prototype properties like 'constructor'
+                const hasKey = (obj, key) => {
+                    return obj && Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] !== 'function';
+                };
+                // Buscar en manual_inputs
+                if (extractedData.manual_inputs) {
+                    for (const k of keys) {
+                        if (hasKey(extractedData.manual_inputs, k) && extractedData.manual_inputs[k] !== undefined && extractedData.manual_inputs[k] !== null && extractedData.manual_inputs[k] !== '') {
+                            return extractedData.manual_inputs[k];
+                        }
+                    }
+                }
+                // Buscar en extracted_parameters
+                if (extractedData.extracted_parameters) {
+                    for (const k of keys) {
+                        if (hasKey(extractedData.extracted_parameters, k) && extractedData.extracted_parameters[k] !== undefined && extractedData.extracted_parameters[k] !== null && extractedData.extracted_parameters[k] !== '') {
+                            return extractedData.extracted_parameters[k];
+                        }
+                    }
+                }
+                // Buscar en las claves del objeto raíz
+                for (const k of keys) {
+                    if (hasKey(extractedData, k) && extractedData[k] !== undefined && extractedData[k] !== null && extractedData[k] !== '') {
+                        return extractedData[k];
+                    }
+                }
+                // Búsqueda profunda insensible a mayúsculas/minúsculas
+                const lowerKeys = keys.map(k => k.toLowerCase());
+                const searchObj = (obj) => {
+                    if (!obj || typeof obj !== 'object')
+                        return null;
+                    for (const [k, val] of Object.entries(obj)) {
+                        if (typeof val === 'function')
+                            continue;
+                        if (lowerKeys.includes(k.toLowerCase()) && val !== undefined && val !== null && val !== '') {
+                            return val;
+                        }
+                        if (typeof val === 'object') {
+                            const res = searchObj(val);
+                            if (res)
+                                return res;
+                        }
+                    }
+                    return null;
+                };
+                const deepVal = searchObj(extractedData);
+                if (deepVal)
+                    return deepVal;
+                return defaultValue;
+            };
+            const municipality = buildingData.addressData?.municipality || 'Soto del Real';
+            const province = buildingData.addressData?.province || 'Madrid';
+            // Declarante / Interesado
+            const declaranteNombre = findValue(['propietario', 'declarante', 'solicitante', 'nombre', 'interested_party', 'applicant', 'tecnico'], buildingData.propietarioEmail || '');
+            const declaranteNif = findValue(['nif_propietario', 'nif_solicitante', 'nif', 'cif', 'dni', 'nie', 'nif_declarante', 'nif_interesado'], '');
+            const declaranteDireccion = buildingData.address || '';
+            // Representante
+            const representanteNombre = findValue(['representante', 'nombre_representante', 'representative'], '');
+            const representanteNif = findValue(['nif_representante', 'dni_representante'], '');
+            // Constructor
+            const constructorNombre = findValue(['constructor', 'contratista', 'empresa', 'contractor', 'builder'], '');
+            const constructorCif = findValue(['cif_constructor', 'cif_contratista', 'cif_empresa'], '');
+            // Detalles Obra
+            const pemVal = buildingData.rehabilitationCost;
+            const presupuesto = pemVal ? `${pemVal.toLocaleString('es-ES')} €` : '';
+            const fechaInicio = findValue(['fecha_inicio', 'fecha_comienzo', 'start_date'], '');
+            const fechaFin = findValue(['fecha_fin', 'fecha_terminacion', 'end_date'], '');
+            // Generar checkboxes para tipos de obra usando unicode directamente para prevenir strips de markdown
+            const workType = extractedData.work_type || "Declaración Responsable (DR)";
+            const workTypeCheckboxes = `☑ **${workType}** (Actuación principal solicitada)
+☐ Obras de edificación de nueva planta de escasa entidad constructiva
+☐ Obras de ampliación, modificación, reforma o rehabilitación que no alteren estructura ni volumen`;
+            // Generar checkboxes de requisitos presentados y formatear los detalles del JSON de forma legible
+            const statusSummary = extractedData.status_summary || [];
+            let documentCheckboxes = '';
+            if (statusSummary.length > 0) {
+                documentCheckboxes = statusSummary.map((item) => {
+                    const isOk = item.satisfied;
+                    const box = isOk ? '☑' : '☐';
+                    let valText = '';
+                    if (item.value) {
+                        try {
+                            const valStr = String(item.value).trim();
+                            if (valStr.startsWith('{') || valStr.startsWith('[')) {
+                                const parsed = JSON.parse(valStr);
+                                if (parsed.summary_data) {
+                                    valText = ` (*Detalle: ${parsed.summary_data}*)`;
+                                }
+                                else if (parsed.extracted_parameters) {
+                                    const params = Object.entries(parsed.extracted_parameters)
+                                        .map(([k, v]) => `${k}: ${v}`)
+                                        .join(', ');
+                                    valText = params ? ` (*Detalle: ${params}*)` : '';
+                                }
+                            }
+                            else {
+                                valText = ` (*Detalle: ${valStr}*)`;
+                            }
+                        }
+                        catch (e) {
+                            valText = ` (*Detalle: ${item.value}*)`;
+                        }
+                    }
+                    return `${box} **${item.label}**${valText}`;
+                }).join('\n');
             }
-            else if (draftText.startsWith("```")) {
-                draftText = draftText.replace(/^```\n?/, "").replace(/\n?```$/, "");
+            else {
+                documentCheckboxes = `☑ **Documentación Técnica / Proyecto**
+☑ **Certificado de Eficiencia Energética**
+☐ **Memoria de Calidades y Presupuesto**`;
             }
-            // 2. Definir estilos para el borrador
+            const fechaActual = new Date().toLocaleDateString('es-ES');
+            // 2. Construir el borrador en Markdown estructurado de forma 100% predecible y profesional
+            const draftText = `# DECLARACIÓN RESPONSABLE URBANÍSTICA
+---
+**ÓRGANO DESTINATARIO:** Ayuntamiento de ${municipality} (${province})
+
+## I. DATOS DE LOS SUJETOS INTERVENIENTES
+| Sujeto | Nombre / Razón Social | NIF / CIF / DNI | Dirección / Contacto |
+| :--- | :--- | :--- | :--- |
+| **Declarante / Interesado** | ${declaranteNombre} | ${declaranteNif} | ${declaranteDireccion} |
+| **Representante (si aplica)** | ${representanteNombre} | ${representanteNif} | Mismo domicilio a efectos de notificaciones |
+| **Constructor / Contratista** | ${constructorNombre} | ${constructorCif} | A efectos de ejecución de las obras |
+
+## II. UBICACIÓN Y OBJETO DE LA ACTUACIÓN
+| Parámetro del Activo | Detalle Técnico |
+| :--- | :--- |
+| **Emplazamiento / Dirección** | ${buildingData.address || ''} |
+| **Referencia Catastral** | ${buildingData.cadastralReference || ''} |
+| **Superficie Construida** | ${buildingData.squareMeters || ''} m² |
+| **Tipología del Inmueble** | ${buildingData.typology || 'Residencial'} |
+
+## III. CLASIFICACIÓN DE LA ACTUACIÓN
+Por la presente declaración responsable, se clasifica la actuación urbanística en:
+${workTypeCheckboxes}
+
+## IV. DATOS TÉCNICOS Y ECONÓMICOS
+| Detalle de Obra | Valor Estimado / Programado |
+| :--- | :--- |
+| **Presupuesto (PEM)** | ${presupuesto} |
+| **Plazo de Inicio Estimado** | ${fechaInicio} |
+| **Plazo de Finalización** | ${fechaFin} |
+
+## V. DECLARACIÓN JURADA (BAJO MI RESPONSABILIDAD)
+El abajo firmante **DECLARA BAJO SU EXCLUSIVA RESPONSABILIDAD**:
+1. Que todos los datos incorporados en esta declaración y en la documentación técnica aportada son **veraces, exactos e íntegros**.
+2. Que la actuación proyectada cumple rigurosamente con las determinaciones del **Plan General de Ordenación Urbana (PGOU)** del municipio y la legislación sectorial aplicable.
+3. Que dispone de la documentación técnica y administrativa exigible, y se compromete a mantenerla a disposición del Ayuntamiento durante el desarrollo de la actuación.
+4. Que se compromete al inicio de las obras en el plazo establecido y a cumplir con las normas de seguridad, salud y gestión de residuos de construcción.
+
+## VI. DOCUMENTACIÓN ADJUNTA PRESENTADA
+A continuación se indica el estado de aportación de los requisitos de la ordenanza municipal:
+${documentCheckboxes}
+
+---
+En **${municipality}**, a **${fechaActual}**
+
+**Firma del Declarante / Representante:**
+
+\
+\
+_______________________________________________
+**Fdo:** ${declaranteNombre}
+
+---
+*En cumplimiento del Reglamento General de Protección de Datos (RGPD), se le informa que sus datos personales serán tratados por el Ayuntamiento con el único fin de tramitar y verificar su declaración responsable urbanística.*`;
+            // 3. Definir estilos para el borrador
             const styles = StyleSheet.create({
                 page: {
                     padding: 40,
                     fontFamily: 'Helvetica',
-                    fontSize: 12,
+                    fontSize: 10,
                     color: '#333',
                 },
                 header: {
@@ -580,14 +704,14 @@ Datos aportados: ${JSON.stringify(extractedData)}`,
                     marginTop: 20,
                 }
             });
-            // 3. Crear el documento react-pdf
-            const pdfComponents = markdownToReactPdf(draftText);
-            const doc = h(Document, null, h(Page, { size: 'A4', style: styles.page }, h(Text, { style: styles.header }, 'Borrador - Concesión de Licencia / Resolución DR'), ...pdfComponents, h(Text, { style: styles.footer }, `ActivoDigital - Borrador de resolución para fines informativos - Generado el ${new Date().toLocaleDateString("es-ES")}`)));
-            // 4. Generar el buffer
+            // 4. Crear el documento react-pdf
+            const pdfComponents = markdownToReactPdf(draftText, reactPdf);
+            const doc = h(Document, null, h(Page, { size: 'A4', style: styles.page }, h(Text, { style: styles.header }, 'Borrador Oficial - Declaración Responsable Urbanística (DR)'), ...pdfComponents, h(Text, { style: styles.footer }, `ActivoDigital - Documento autogenerado en base a datos catastrales e inputs municipales - ${fechaActual}`)));
+            // 5. Generar el buffer
             const generatedPdfBuffer = await renderToBuffer(doc);
             const pdfBytes = Uint8Array.from(generatedPdfBuffer);
             const { PDFDocument } = await Promise.resolve().then(() => __importStar(require("pdf-lib")));
-            // 5. Merge additional documents if provided
+            // 6. Merge additional documents if provided
             const docPaths = extractedData.doc_paths || [];
             console.log(`[AIProcessingService] Doc paths to merge:`, docPaths);
             if (docPaths.length > 0) {
