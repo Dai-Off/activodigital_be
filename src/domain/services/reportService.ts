@@ -375,6 +375,9 @@ export class ReportService {
     buildings: any[],
   ): Promise<Buffer> {
     const { createElement: h } = require("react");
+    // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
+    const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+    const reactPdf = await (dynamicImport("@react-pdf/renderer") as Promise<any>);
     const {
       Document,
       Page,
@@ -383,7 +386,7 @@ export class ReportService {
       Image,
       StyleSheet,
       renderToBuffer,
-    } = require("@react-pdf/renderer");
+    } = reactPdf;
 
     const primaryColor = options.config?.primaryColor || "#1e3a8a";
     const secondaryColor = options.config?.secondaryColor || "#3b82f6";

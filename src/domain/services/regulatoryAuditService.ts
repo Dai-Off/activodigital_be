@@ -6,6 +6,7 @@ import {
   RegulatoryCurrentState, 
   RegulatoryTargetState 
 } from '../../types/regulatoryAudit';
+import { AUDIT_CONSTANTS } from '../constants/auditConstants';
 
 export class RegulatoryAuditService {
   private getSupabase() {
@@ -20,6 +21,7 @@ export class RegulatoryAuditService {
       .from('buildings')
       .select('id, custom_data')
       .eq('id', buildingId)
+      .eq('deleted', false)
       .single();
 
     if (buildingError || !building) {
@@ -56,9 +58,9 @@ export class RegulatoryAuditService {
     const baseConsumption = currentState.consumption_kwh_m2_year || 100;
     const baseEmissions = currentState.emissions_kg_co2_m2_year || 25;
     const targetState: RegulatoryTargetState = {
-      target_class: 'B', // Objetivo EPBD 2030 referencial
-      target_consumption: Math.round(baseConsumption * 0.84), // -16% reducción directiva
-      target_emissions: Math.round(baseEmissions * 0.84) // -16% reducción directiva
+      target_class: AUDIT_CONSTANTS.BENCHMARKS.EPBD_TARGET_CLASS, 
+      target_consumption: Math.round(baseConsumption * AUDIT_CONSTANTS.BENCHMARKS.EPBD_REDUCTION_FACTOR),
+      target_emissions: Math.round(baseEmissions * AUDIT_CONSTANTS.BENCHMARKS.EPBD_REDUCTION_FACTOR)
     };
 
     // Calcular la brecha (Gap Analysis)
@@ -74,15 +76,15 @@ export class RegulatoryAuditService {
         ? currentState.consumption_kwh_m2_year - targetState.target_consumption 
         : 0;
         
-      // Porcentaje de avance hacia el objetivo desde un peor escenario (ej. 250 kWh)
-      const maxConsumption = 250;
+      // Porcentaje de avance hacia el objetivo desde un peor escenario
+      const maxConsumption = AUDIT_CONSTANTS.BENCHMARKS.MAX_CONSUMPTION_BENCHMARK;
       consumptionProgress = Math.max(0, Math.min(100, 100 - ((currentState.consumption_kwh_m2_year - targetState.target_consumption) / (maxConsumption - targetState.target_consumption) * 100)));
 
       emissionsGap = currentState.emissions_kg_co2_m2_year > targetState.target_emissions
         ? currentState.emissions_kg_co2_m2_year - targetState.target_emissions
         : 0;
       
-      const maxEmissions = 50;
+      const maxEmissions = AUDIT_CONSTANTS.BENCHMARKS.MAX_EMISSIONS_BENCHMARK;
       emissionsProgress = Math.max(0, Math.min(100, 100 - ((currentState.emissions_kg_co2_m2_year - targetState.target_emissions) / (maxEmissions - targetState.target_emissions) * 100)));
     } else {
       // Si no hay certificado ni datos manuales, no hay progreso

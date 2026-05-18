@@ -71,7 +71,8 @@ class DashboardService {
         // Si es global, quitamos el .eq()
         const { data: buildings, error: buildingsError } = await supabase
             .from('buildings')
-            .select('*');
+            .select('*')
+            .eq('deleted', false);
         if (buildingsError) {
             console.error('Error fetching buildings for CFO:', buildingsError);
             throw new Error('Error al obtener edificios para CFO');
@@ -108,7 +109,8 @@ class DashboardService {
         const { data: buildings, error: buildingsError } = await supabase
             .from('buildings')
             .select('*')
-            .eq('cfo_id', userId);
+            .eq('cfo_id', userId)
+            .eq('deleted', false);
         if (buildingsError) {
             console.error('Error fetching buildings for CFO:', buildingsError);
             throw new Error('Error al obtener edificios para CFO');
@@ -147,7 +149,8 @@ class DashboardService {
         const { data: buildings, error: buildingsError } = await supabase
             .from('buildings')
             .select('*')
-            .in('id', assignedBuildingIds);
+            .in('id', assignedBuildingIds)
+            .eq('deleted', false);
         if (buildingsError) {
             console.error('Error fetching buildings:', buildingsError);
             throw new Error('Error al obtener edificios');
@@ -188,7 +191,8 @@ class DashboardService {
         const { data: buildings, error: buildingsError } = await supabase
             .from('buildings')
             .select('*')
-            .eq('owner_id', userId);
+            .eq('owner_id', userId)
+            .eq('deleted', false);
         if (buildingsError) {
             console.error('Error fetching buildings:', buildingsError);
             throw new Error('Error al obtener edificios');
@@ -234,7 +238,8 @@ class DashboardService {
         const { data: buildings, error: buildingsError } = await supabase
             .from('buildings')
             .select('*')
-            .in('id', assignedBuildingIds);
+            .in('id', assignedBuildingIds)
+            .eq('deleted', false);
         if (buildingsError) {
             console.error('Error fetching buildings:', buildingsError);
             throw new Error('Error al obtener edificios');
@@ -270,7 +275,8 @@ class DashboardService {
         const { data: buildings, error: buildingsError } = await supabase
             .from('buildings')
             .select('*')
-            .in('id', buildingIds.length > 0 ? buildingIds : ['00000000-0000-0000-0000-000000000000']);
+            .in('id', buildingIds.length > 0 ? buildingIds : ['00000000-0000-0000-0000-000000000000'])
+            .eq('deleted', false);
         if (buildingsError) {
             console.error('Error fetching buildings:', buildingsError);
             throw new Error('Error al obtener edificios');
