@@ -21,6 +21,7 @@ export class RegulatoryAuditService {
       .from('buildings')
       .select('id, custom_data')
       .eq('id', buildingId)
+      .eq('deleted', false)
       .single();
 
     if (buildingError || !building) {

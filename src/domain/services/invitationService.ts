@@ -327,6 +327,7 @@ export class InvitationService {
       .from('buildings')
       .select('id, name, address')
       .eq('id', buildingId)
+      .eq('deleted', false)
       .single();
 
     if (error) {

@@ -77,6 +77,7 @@ export class TechnicalAuditService {
       .from('buildings')
       .select('id, square_meters, construction_year')
       .eq('id', buildingId)
+      .eq('deleted', false)
       .single();
 
     if (buildingError || !building) {

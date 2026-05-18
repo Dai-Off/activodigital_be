@@ -141,6 +141,7 @@ export class N8nDataRoomService {
       .from("buildings")
       .select("name")
       .eq("id", buildingId)
+      .eq("deleted", false)
       .single();
 
     if (error || !data?.name) {

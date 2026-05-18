@@ -83,6 +83,7 @@ class N8nDataRoomService {
             .from("buildings")
             .select("name")
             .eq("id", buildingId)
+            .eq("deleted", false)
             .single();
         if (error || !data?.name) {
             console.warn(`[N8nDataRoom] No se encontró nombre para building ${buildingId}, usando fallback`);
