@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from "uuid";
 import * as ExcelJS from "exceljs";
 import { UserService } from "./userService";
 import { BuildingService } from "./edificioService";
+import { createElement as h } from "react";
+
 
 export interface ReportConfig {
   title: string;
@@ -374,7 +376,6 @@ export class ReportService {
     options: ReportConfig,
     buildings: any[],
   ): Promise<Buffer> {
-    const { createElement: h } = require("react");
     // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
     const dynamicImport = new Function('modulePath', 'return import(modulePath)');
     const reactPdf = await (dynamicImport("@react-pdf/renderer") as Promise<any>);
