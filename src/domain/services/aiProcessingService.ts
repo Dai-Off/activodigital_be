@@ -1,9 +1,11 @@
 import OpenAI from "openai";
+import { createElement as h } from "react";
 import {
   getSupabaseClient,
   getSupabaseServiceRoleClient,
 } from "../../lib/supabase";
 import { BookSection, SectionType } from "../../types/libroDigital";
+import { markdownToReactPdf } from "../../utils/markdownToReactPdf";
 
 export class AIProcessingService {
   private openai: OpenAI;
@@ -523,19 +525,17 @@ ${documentText.slice(0, 40000)}
     buildingData: any,
     extractedData: any,
   ): Promise<Buffer> {
-    const { createElement: h } = require('react');
-    // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
+    // @react-pdf/renderer es ESM-only (v4+); usamos import() dinámico para cargarlo desde CJS
     const dynamicImport = new Function('modulePath', 'return import(modulePath)');
     const reactPdf = await (dynamicImport("@react-pdf/renderer") as Promise<any>);
-    const { 
-      Document, 
-      Page, 
-      View, 
-      Text, 
-      StyleSheet, 
-      renderToBuffer 
+    const {
+      Document,
+      Page,
+      View,
+      Text,
+      StyleSheet,
+      renderToBuffer
     } = reactPdf;
-    const { markdownToReactPdf } = require('../../utils/markdownToReactPdf');
 
     try {
       // 1. Extraer de forma inteligente y segura los campos con fallbacks robustos

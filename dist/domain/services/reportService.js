@@ -38,6 +38,7 @@ const supabase_1 = require("../../lib/supabase");
 const ExcelJS = __importStar(require("exceljs"));
 const userService_1 = require("./userService");
 const edificioService_1 = require("./edificioService");
+const react_1 = require("react");
 class ReportService {
     constructor() {
         this.userService = new userService_1.UserService();
@@ -353,7 +354,6 @@ class ReportService {
      * Uses @react-pdf/renderer to generate a professional PDF without a headless browser
      */
     async generatePDF(options, buildings) {
-        const { createElement: h } = require("react");
         // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
         const dynamicImport = new Function('modulePath', 'return import(modulePath)');
         const reactPdf = await dynamicImport("@react-pdf/renderer");
@@ -455,10 +455,10 @@ class ReportService {
                 marginTop: 2,
             },
         });
-        const doc = h(Document, null, h(Page, { size: "A4", style: styles.page }, h(View, { style: styles.header }, h(View, { style: styles.headerInfo }, h(Text, { style: styles.title }, options.title), h(Text, { style: styles.subtitle }, `Generado el ${new Date().toLocaleDateString("es-ES")}`), h(Text, { style: styles.subtitle }, `Formato: PDF • Edificios Analizados: ${buildings.length}`)), logoBase64 ? h(Image, { src: logoBase64, style: styles.logo }) : null), h(Text, { style: styles.sectionTitle }, "Resumen de Edificios"), buildings.map((b, index) => h(View, { key: index, style: styles.buildingCard, wrap: false }, h(Text, { style: styles.buildingName }, b.name || "Sin Nombre"), h(View, { style: styles.fieldsGrid }, options.selectedFields.map((fid) => {
+        const doc = (0, react_1.createElement)(Document, null, (0, react_1.createElement)(Page, { size: "A4", style: styles.page }, (0, react_1.createElement)(View, { style: styles.header }, (0, react_1.createElement)(View, { style: styles.headerInfo }, (0, react_1.createElement)(Text, { style: styles.title }, options.title), (0, react_1.createElement)(Text, { style: styles.subtitle }, `Generado el ${new Date().toLocaleDateString("es-ES")}`), (0, react_1.createElement)(Text, { style: styles.subtitle }, `Formato: PDF • Edificios Analizados: ${buildings.length}`)), logoBase64 ? (0, react_1.createElement)(Image, { src: logoBase64, style: styles.logo }) : null), (0, react_1.createElement)(Text, { style: styles.sectionTitle }, "Resumen de Edificios"), buildings.map((b, index) => (0, react_1.createElement)(View, { key: index, style: styles.buildingCard, wrap: false }, (0, react_1.createElement)(Text, { style: styles.buildingName }, b.name || "Sin Nombre"), (0, react_1.createElement)(View, { style: styles.fieldsGrid }, options.selectedFields.map((fid) => {
             const label = fieldMap.get(fid) || fid;
             const val = this.getFieldValue(b, fid);
-            return h(View, { key: fid, style: styles.fieldItem }, h(Text, { style: styles.fieldLabel }, label), h(Text, { style: styles.fieldValue }, val));
+            return (0, react_1.createElement)(View, { key: fid, style: styles.fieldItem }, (0, react_1.createElement)(Text, { style: styles.fieldLabel }, label), (0, react_1.createElement)(Text, { style: styles.fieldValue }, val));
         }))))));
         const buffer = await renderToBuffer(doc);
         return Buffer.from(buffer);

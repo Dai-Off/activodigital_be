@@ -38,8 +38,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AIProcessingService = void 0;
 const openai_1 = __importDefault(require("openai"));
+const react_1 = require("react");
 const supabase_1 = require("../../lib/supabase");
 const libroDigital_1 = require("../../types/libroDigital");
+const markdownToReactPdf_1 = require("../../utils/markdownToReactPdf");
 class AIProcessingService {
     constructor() {
         const apiKey = process.env.OPENAI_API_KEY;
@@ -508,12 +510,10 @@ ${documentText.slice(0, 40000)}
         }
     }
     async generateLicenciaDraft(buildingData, extractedData) {
-        const { createElement: h } = require('react');
-        // Usamos import dinámico nativo por Function para evadir la interceptación de CommonJS en producción
+        // @react-pdf/renderer es ESM-only (v4+); usamos import() dinámico para cargarlo desde CJS
         const dynamicImport = new Function('modulePath', 'return import(modulePath)');
         const reactPdf = await dynamicImport("@react-pdf/renderer");
         const { Document, Page, View, Text, StyleSheet, renderToBuffer } = reactPdf;
-        const { markdownToReactPdf } = require('../../utils/markdownToReactPdf');
         try {
             // 1. Extraer de forma inteligente y segura los campos con fallbacks robustos
             const findValue = (keys, defaultValue = '') => {
@@ -705,8 +705,8 @@ _______________________________________________
                 }
             });
             // 4. Crear el documento react-pdf
-            const pdfComponents = markdownToReactPdf(draftText, reactPdf);
-            const doc = h(Document, null, h(Page, { size: 'A4', style: styles.page }, h(Text, { style: styles.header }, 'Borrador Oficial - Declaración Responsable Urbanística (DR)'), ...pdfComponents, h(Text, { style: styles.footer }, `ActivoDigital - Documento autogenerado en base a datos catastrales e inputs municipales - ${fechaActual}`)));
+            const pdfComponents = (0, markdownToReactPdf_1.markdownToReactPdf)(draftText, reactPdf);
+            const doc = (0, react_1.createElement)(Document, null, (0, react_1.createElement)(Page, { size: 'A4', style: styles.page }, (0, react_1.createElement)(Text, { style: styles.header }, 'Borrador Oficial - Declaración Responsable Urbanística (DR)'), ...pdfComponents, (0, react_1.createElement)(Text, { style: styles.footer }, `ActivoDigital - Documento autogenerado en base a datos catastrales e inputs municipales - ${fechaActual}`)));
             // 5. Generar el buffer
             const generatedPdfBuffer = await renderToBuffer(doc);
             const pdfBytes = Uint8Array.from(generatedPdfBuffer);
